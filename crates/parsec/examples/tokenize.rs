@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Times the tokenizer alone over a file: `cargo run --release --example tokenize FILE`.
 
 use parsec::tokenizer::{Doctype, Sink, Tag, TextMode, Tokenizer, preprocess};

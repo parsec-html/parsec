@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Tree construction, as section 13.2.6 of the HTML Standard describes it,
 //! with scripting off or on and no sanitizer.
 

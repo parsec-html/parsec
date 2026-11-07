@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! The HTML fragment serialization algorithm, section 13.3 of the HTML
 //! Standard: `innerHTML` and `outerHTML`.
 

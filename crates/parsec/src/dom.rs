@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! The parsed document: every node in one `Vec`, linked by index, and every
 //! string in one buffer, so building it allocates a handful of times rather
 //! than once per node, and dropping it frees a handful of blocks.

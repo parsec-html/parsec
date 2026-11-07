@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! An HTML parser that follows the WHATWG HTML Standard, written for
 //! Netweir and for speed.
 

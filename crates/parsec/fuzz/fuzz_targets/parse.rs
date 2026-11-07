@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Any input parses without panicking, as a document and as a fragment,
 //! into a tree whose links agree with each other.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Times a whole parse over a file: `cargo run --release --example parse FILE`.
 
 use std::time::Instant;

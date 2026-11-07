@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! CSS selectors, as Selectors Level 4 defines them and browsers match
 //! them in a static page: parsed once, matched right to left.
 //!

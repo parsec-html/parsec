@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Tag names the tree builder treats specially, as small integers, so its
 //! scope checks compare numbers instead of strings.
 

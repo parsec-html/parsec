@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Times a battery of selectors over every .html file in a directory:
 //! `cargo run --release --example select DIR`.
 

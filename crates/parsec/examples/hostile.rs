@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Times inputs built to be slow: `cargo run --release --example hostile`.
 
 use std::time::Instant;

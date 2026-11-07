@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! html5lib-tests' tokenizer suite. Parse errors aren't checked: the
 //! tokenizer recovers from them as the spec says but doesn't report them.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! The tokenizer, as section 13.2.5 of the HTML Standard describes it.
 //!
 //! It reads the whole input at once rather than as a stream, so it looks

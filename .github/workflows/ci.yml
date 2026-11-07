@@ -84,6 +84,8 @@ jobs:
           path: netweir
           persist-credentials: false
       - run: scripts/sync-from-netweir.sh --check netweir
+      - name: Every Rust file states its licence and copyright
+        run: scripts/check-headers.sh
 
   test:
     strategy:

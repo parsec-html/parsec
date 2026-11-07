@@ -25,8 +25,25 @@ to="$here/crates/parsec"
 # files) and the manifests are Parsec's own.
 synced="src examples scripts fuzz/fuzz_targets tests/css.rs tests/tokenizer.rs tests/tree.rs"
 
+# Every Rust file carries Parsec's licence and copyright in place of any
+# header Netweir's copy has (Netweir is AGPL), so the drift check compares
+# like with like. scripts/check-headers.sh checks the result.
+header='// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway'
+
 rename() {
-  sed -e 's/netweir_html/parsec/g' -e 's/netweir-html/parsec-html/g' "$1"
+  case "$1" in
+    *.rs)
+      printf '%s\n\n' "$header"
+      # Leading SPDX and copyright lines, and the blank line after them, go.
+      awk 'BEGIN { top = 1 }
+           top && /^\/\/ (SPDX-License-Identifier|Copyright)/ { dropped = 1; next }
+           top && dropped && /^$/ { top = 0; next }
+           { top = 0; print }' "$1" |
+        sed -e 's/netweir_html/parsec/g' -e 's/netweir-html/parsec-html/g'
+      ;;
+    *) sed -e 's/netweir_html/parsec/g' -e 's/netweir-html/parsec-html/g' "$1" ;;
+  esac
 }
 
 out=$(mktemp -d)

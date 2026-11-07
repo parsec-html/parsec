@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! Changing a parsed document: new nodes, moves, removals and attributes.
 //! A removed node stays in the document's arena, detached, and can be
 //! inserted again.

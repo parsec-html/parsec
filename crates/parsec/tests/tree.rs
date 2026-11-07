@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! The tree-construction tests from web-platform-tests (formerly
 //! html5lib-tests), in their `.dat` format.
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 James Conway
+
 //! CSS selectors: every feature Netweir's own tests use, the rest of what
 //! lexbor offered, and where browsers and lexbor part ways, the browsers.
 
