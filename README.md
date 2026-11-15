@@ -52,14 +52,24 @@ assert_eq!(doc.text(hits[0]), "one");
 - **One dependency** (`memchr`) and one `unsafe` block, with its reasoning
   written beside it.
 
-Speed: Parsec's parser is the one inside
-[Netweir](https://github.com/netweir/netweir), whose published benchmark
-pulls every price, title and link from a generated shop page in 3.0 ms
-where selectolax (Lexbor) takes 5.7 ms, and 31 ms against 64 ms at 10 MB.
-That run includes Python and the queries, so it isn't a parser-only number.
-A head-to-head harness against Lexbor's own C, in one process, on the same
-corpus, is the first thing on the [roadmap](ROADMAP.md), and its numbers
-will replace this paragraph.
+Speed, timed against Lexbor's own C in one process: on 13 real pages,
+24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
+Times, the HTML spec and others, Parsec parses 370 MB a second. Lexbor
+manages 242 and html5ever 82. Parsec is ahead on every one of the 13, by
+1.4 to 2.7 times, and holds less memory than Lexbor on each. On a
+generated 10 MB shop listing it's twice as fast.
+
+It doesn't win everywhere. Of the eight hostile inputs, two go Lexbor's
+way: 300 open `<b>` tags followed by 3,000 paragraphs, where Lexbor is
+1.8 times faster, and a dozen formatting tags reopened in every
+paragraph, where it's 1.2 times faster
+([#68](https://github.com/parsec-html/parsec/issues/68)). The other way
+round, 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2 seconds.
+
+`bench/` builds Lexbor 3.0.1 from source and runs all three on the same
+strings, on an Apple M2 Max here. The wiki's
+[Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks) page
+has the method, every number and how to run it yourself.
 
 ## What's coming
 
