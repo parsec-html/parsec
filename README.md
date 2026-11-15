@@ -42,10 +42,15 @@ assert_eq!(doc.text(hits[0]), "one");
   is, SVG and MathML included.
 - **CSS selectors, Level 4**: `:has()`, `:is()`, `:where()`, `:not()` with
   lists, `:nth-child(… of S)`, `:scope`, attribute flags, and the form states
-  (`:checked`, `:disabled`, `:required` and friends).
+  (`:checked`, `:disabled`, `:required` and friends). `:lang()` and `:dir()`
+  match the way the document decides them, and `:target` and `:local-link`
+  match once you pass the page's URL, where Lexbor parses all four and never
+  matches them.
 - **A tree you can edit**: create, insert, move and remove nodes, set and
   rename attributes, then serialize as `innerHTML`, `outerHTML` or text.
-- **Limits you choose**: a time budget per parse and a cap on input size.
+- **Limits you choose**: a time budget per parse, a cap on input size, and
+  a maximum tree depth, past which elements go beside the current one
+  instead of inside it, as in Chromium.
   The slow-input cases in `examples/hostile.rs`, like thousands of nested
   formatting elements (the pattern that runs Lexbor out of memory), take
   time in proportion to their length.
@@ -85,7 +90,9 @@ every module Lexbor has, and then go past it:
 | Source positions on nodes and attributes | no | planned |
 | Linear worst case | no ([#340](https://github.com/lexbor/lexbor/issues/340)) | planned |
 | Thread-safe documents | no | planned, checked at compile time |
-| `:scope`, `:lang()`, `:dir()`, `:valid` and other static pseudo-classes | parsed, never match | `:scope` yes, the rest planned |
+| `:scope`, `:lang()`, `:dir()`, `:target`, `:local-link` | parsed, never match | yes |
+| `:valid`, `:in-range`, `:default` and the other static pseudo-classes | parsed, never match | planned |
+| A tree depth limit | no | yes |
 | XPath | no | planned |
 | WHATWG Encoding, 40 encodings | yes | planned |
 | WHATWG URL | yes | planned, with WPT pass counts published |

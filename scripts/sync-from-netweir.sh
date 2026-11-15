@@ -23,7 +23,7 @@ to="$here/crates/parsec"
 # What's synced: the source, tests, examples, scripts and fuzz target. The
 # test data (html5lib-tests, a submodule; tree-construction, pinned WPT
 # files) and the manifests are Parsec's own.
-synced="src examples scripts fuzz/fuzz_targets tests/css.rs tests/threads.rs tests/tokenizer.rs tests/tree.rs"
+synced="src examples scripts fuzz/fuzz_targets tests/css.rs tests/summary tests/threads.rs tests/tokenizer.rs tests/tree.rs"
 
 # Every Rust file carries Parsec's licence and copyright in place of any
 # header Netweir's copy has (Netweir is AGPL), so the drift check compares

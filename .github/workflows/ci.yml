@@ -125,4 +125,25 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
+      # The conformance runners write each suite's counts to
+      # $CONFORMANCE_DIR/<suite>.json; Linux's go up as an artifact and into
+      # the run's summary, even when a suite fails.
       - run: cargo test --workspace
+        env:
+          CONFORMANCE_DIR: ${{ github.workspace }}/conformance
+      - name: Conformance summary
+        if: always() && runner.os == 'Linux'
+        run: |
+          {
+            echo "| Suite | Passed | Failed | Skipped | Test data |"
+            echo "|---|---:|---:|---:|---|"
+            for f in conformance/*.json; do
+              jq -r '"| \(.suite) | \(.passed) | \(.failed) | \(.skipped) (\(.skipped_because)) | `\(.test_data_commit[0:12])` |"' "$f"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && runner.os == 'Linux'
+        with:
+          name: conformance
+          path: conformance/
+          if-no-files-found: error

@@ -18,6 +18,9 @@ pub enum EditError {
     NotAParent,
     /// `before` isn't a child of the parent.
     NotAChild,
+    /// The node is a document or a fragment, such as the root or a
+    /// template's contents, which is never anyone's child.
+    NotInsertable,
 }
 
 impl std::fmt::Display for EditError {
@@ -26,6 +29,9 @@ impl std::fmt::Display for EditError {
             EditError::Cycle => "a node can't be inserted into itself or its descendants",
             EditError::NotAParent => "only an element, a document or a fragment can have children",
             EditError::NotAChild => "the node to insert before isn't a child of the parent",
+            EditError::NotInsertable => {
+                "a document or a fragment can't be inserted, only its children"
+            }
         })
     }
 }
@@ -91,6 +97,14 @@ impl Document {
             Data::Element(_) | Data::Document | Data::Fragment
         ) {
             return Err(EditError::NotAParent);
+        }
+        // As the DOM's pre-insertion check: the root, or a template's
+        // contents, would otherwise end up under a detached element.
+        if matches!(
+            self.nodes[child as usize].data,
+            Data::Document | Data::Fragment
+        ) {
+            return Err(EditError::NotInsertable);
         }
         if let Some(b) = before
             && self.parent(b) != Some(parent)
@@ -253,6 +267,15 @@ impl Document {
             Ns::Xml => (Tag::Other, Name::Span(self.push_stable(name))),
             _ => {
                 let tag = Tag::from_name(&lower);
+                // SVG's mixed-case names, written as the spec writes them, are
+                // stored as the parser stores them, so lower_name and the
+                // markup agree with a parsed element's.
+                if ns == Ns::Svg
+                    && let Some(i) = crate::tree::svg_tag_name(&lower)
+                    && crate::tree::SVG_TAG_NAMES[i as usize].1 == name
+                {
+                    return (tag, Name::Svg(i));
+                }
                 let name = if tag != Tag::Other && tag.name() == name {
                     Name::Tag
                 } else {
@@ -356,7 +379,7 @@ fn stored_attr_name(ns: Ns, given: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::EditError;
-    use crate::{Ns, parse_fragment};
+    use crate::{NodeId, Ns, parse, parse_fragment};
 
     #[test]
     fn nodes_can_be_made_moved_and_removed() {
@@ -377,6 +400,47 @@ mod tests {
         assert_eq!(doc.inner_html(0), "<p>a</p>");
         doc.append(0, second).unwrap();
         assert_eq!(doc.inner_html(0), "<p>a</p><p>b<em>x &amp; y</em></p>");
+    }
+
+    #[test]
+    fn a_created_svg_element_is_named_as_a_parsed_one() {
+        let parsed = parse_fragment("<svg><linearGradient/></svg>", Ns::Html, "div", false);
+        let svg = parsed.children(parsed.root()).next().unwrap();
+        let parsed_gradient = parsed.children(svg).next().unwrap();
+        let mut doc = parse_fragment("", Ns::Html, "div", false);
+        let made = doc.create_element(Ns::Svg, "linearGradient");
+        assert_eq!(doc.lower_name(made), Some("lineargradient"));
+        assert_eq!(doc.lower_name(made), parsed.lower_name(parsed_gradient));
+        assert_eq!(doc.outer_html(made), parsed.outer_html(parsed_gradient));
+        // Another case is another element, kept as written.
+        let shouting = doc.create_element(Ns::Svg, "LINEARGRADIENT");
+        assert_eq!(
+            doc.outer_html(shouting),
+            "<LINEARGRADIENT></LINEARGRADIENT>"
+        );
+    }
+
+    #[test]
+    fn a_document_or_fragment_is_never_inserted() {
+        let mut doc = parse("<template><b>x</b></template><p>y</p>", false);
+        let root = doc.root();
+        let contents = (0..doc.len() as NodeId)
+            .find_map(|n| doc.template_contents(n))
+            .unwrap();
+        let loose = doc.create_element(Ns::Html, "div");
+        let before = doc.inner_html(root);
+        assert_eq!(doc.append(loose, root), Err(EditError::NotInsertable));
+        assert_eq!(doc.append(loose, contents), Err(EditError::NotInsertable));
+        assert_eq!(
+            doc.insert_before(loose, root, None),
+            Err(EditError::NotInsertable)
+        );
+        assert_eq!(doc.inner_html(root), before);
+        assert_eq!(doc.inner_html(loose), "");
+        // Their children still go anywhere.
+        let b = doc.first_child(contents).unwrap();
+        assert_eq!(doc.append(loose, b), Ok(()));
+        assert_eq!(doc.inner_html(loose), "<b>x</b>");
     }
 
     #[test]

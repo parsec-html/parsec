@@ -6,6 +6,8 @@
 
 use parsec::{AttrNs, Document, Kind, NodeId, Ns, parse, parse_fragment};
 
+mod summary;
+
 struct Case {
     file: String,
     data: String,
@@ -224,6 +226,19 @@ fn tree_construction_tests() {
         "tree construction: {passed} passed, {} failed, {skipped} skipped (need JavaScript)",
         failed.len()
     );
+    if only.is_none() {
+        summary::write(&summary::Counts {
+            suite: "html5lib-tree-construction",
+            passed,
+            failed: failed.len(),
+            skipped,
+            skipped_because: "they run script during the parse, which needs a JavaScript engine",
+            data: std::path::Path::new(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/tree-construction"
+            )),
+        });
+    }
     if std::env::var("TREE_BRIEF").is_ok() {
         for f in &failed {
             let mut lines = f.lines();

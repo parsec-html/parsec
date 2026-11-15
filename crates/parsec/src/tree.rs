@@ -106,6 +106,8 @@ const MARKER: NodeId = NONE;
 
 pub(crate) struct TreeBuilder {
     pub(crate) doc: Document,
+    /// From [`Options::max_depth`].
+    max_depth: Option<usize>,
     open: Vec<Open>,
     active: Vec<NodeId>,
     mode: Mode,
@@ -348,7 +350,7 @@ pub(crate) static SVG_TAG_NAMES: [(&str, &str); 37] = [
     ("textpath", "textPath"),
 ];
 
-fn svg_tag_name(name: &str) -> Option<u8> {
+pub(crate) fn svg_tag_name(name: &str) -> Option<u8> {
     SVG_TAG_NAMES
         .iter()
         .position(|(lower, _)| *lower == name)
@@ -542,6 +544,7 @@ impl TreeBuilder {
     pub(crate) fn new(capacity: usize, scripting: bool) -> TreeBuilder {
         TreeBuilder {
             doc: Document::new(Data::Document, capacity),
+            max_depth: None,
             open: Vec::with_capacity(64),
             active: Vec::new(),
             mode: Mode::Initial,
@@ -1068,6 +1071,15 @@ impl TreeBuilder {
             && e.tag == Template
         {
             return (e.contents, NONE);
+        }
+        // Past max_depth, beside the target instead of inside it, as
+        // Chromium's construction site does. Not when fostering, which has
+        // already picked a place outside the table, nor at the top.
+        if before == NONE
+            && self.max_depth.is_some_and(|max| self.open.len() > max)
+            && let Some(up) = self.doc.parent(target)
+        {
+            return (up, NONE);
         }
         (target, before)
     }
@@ -2886,6 +2898,11 @@ pub struct Options {
     /// 4,096 tokenizer steps, so a small input finishes even with
     /// `Duration::ZERO`: the budget bounds slow parses, not fast ones.
     pub budget: Option<std::time::Duration>,
+    /// Keep the tree at most this deep, as Chromium does at 512: once more
+    /// elements are open than this, a node goes beside the current one
+    /// instead of inside it. Only the tree gets flatter; the parse goes on
+    /// as before, and every element is still there. `None` is no limit.
+    pub max_depth: Option<usize>,
 }
 
 /// Why a parse returned no document.
@@ -2929,7 +2946,7 @@ pub fn parse(html: &str, scripting: bool) -> Document {
         html,
         Options {
             scripting,
-            budget: None,
+            ..Options::default()
         },
     )
     .unwrap_or_else(|e| panic!("{e}"))
@@ -2952,7 +2969,7 @@ pub fn parse_fragment(html: &str, ns: Ns, context: &str, scripting: bool) -> Doc
         context,
         Options {
             scripting,
-            budget: None,
+            ..Options::default()
         },
     )
     .unwrap_or_else(|e| panic!("{e}"))
@@ -2982,6 +2999,7 @@ fn run(html: &str, options: Options, fragment: Option<(Ns, &str)>) -> Result<Doc
     let start = std::time::Instant::now();
     let mut builder = TreeBuilder::new(html.len(), options.scripting);
     builder.doc.scripting = options.scripting;
+    builder.max_depth = options.max_depth;
     let input = source(&mut builder, html);
     let mode = match fragment {
         Some((ns, context)) => builder.fragment(ns, context),
@@ -3044,6 +3062,45 @@ mod tests {
         };
         assert!(parse_with(&html, roomy).is_ok());
     }
+    #[test]
+    fn max_depth_keeps_the_tree_shallow_and_every_element() {
+        fn deepest(doc: &Document, id: NodeId) -> usize {
+            1 + doc.children(id).map(|c| deepest(doc, c)).max().unwrap_or(0)
+        }
+        let html = "<div>".repeat(1_000) + "x" + &"</div>".repeat(1_000);
+        let free = parse(&html, false);
+        assert!(deepest(&free, free.root()) > 1_000);
+        let capped = parse_with(
+            &html,
+            Options {
+                max_depth: Some(100),
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        assert!(deepest(&capped, capped.root()) <= 102);
+        // Every div is still there, with the text, just flatter.
+        let divs = |doc: &Document| {
+            (0..doc.len() as NodeId)
+                .filter(|&n| doc.lower_name(n) == Some("div"))
+                .count()
+        };
+        assert_eq!(divs(&capped), 1_000);
+        assert!(capped.text(capped.root()).contains('x'));
+        // Under the limit, nothing changes.
+        let shallow = "<div><p>a<b>b</b></p></div>";
+        let same = parse_with(
+            shallow,
+            Options {
+                max_depth: Some(100),
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        let plain = parse(shallow, false);
+        assert_eq!(same.inner_html(same.root()), plain.inner_html(plain.root()));
+    }
+
     #[test]
     fn a_fragment_has_a_budget_and_a_size_limit_too() {
         let html = "<div><b>x</b> y</div>".repeat(200_000);
