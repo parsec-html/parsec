@@ -1,0 +1,29 @@
+[package]
+name = "parsec-html-bench"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+description = "Times Parsec, Lexbor's C and html5ever parsing the same pages in one process."
+
+# Its own workspace, so `cargo test --workspace` on every OS doesn't build
+# Lexbor's C.
+[workspace]
+
+[[bin]]
+name = "parsec-html-bench"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+html5ever = "0.40"
+markup5ever_rcdom = "0.40"
+parsec-html = { path = "../crates/parsec" }
+
+[build-dependencies]
+cmake = "0.1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

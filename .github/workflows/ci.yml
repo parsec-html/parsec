@@ -42,6 +42,29 @@ jobs:
           tool: cargo-deny
       - run: cargo deny check licenses bans sources
 
+  # The benchmark against Lexbor is its own workspace, so the test job on
+  # three OSes doesn't build Lexbor's C. Here it's linted, built, and run on
+  # pages it makes itself; the real pages aren't in the repository.
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - run: cargo fmt --manifest-path bench/Cargo.toml --check
+      - run: cargo clippy --manifest-path bench/Cargo.toml --release -- -D warnings
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+        with:
+          tool: cargo-deny
+      - run: cargo deny --manifest-path bench/Cargo.toml check licenses bans sources
+      - run: cargo run --release --manifest-path bench/Cargo.toml -- "shop 1 MB" "unclosed tables"
+
   # Known vulnerabilities in the Rust dependencies, from the RustSec
   # database. Not a required check: a new advisory shouldn't block an
   # unrelated pull request, but it shows red until it's fixed.

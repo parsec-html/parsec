@@ -1,0 +1,14 @@
+# name, Internet Archive timestamp, address, SHA-256 of the page as parsed
+wikipedia-html 20261102011533 https://en.wikipedia.org/wiki/HTML 2181b7c4109bfc5d3282d29b83fabca99905a3aa82f84d2279eda693ab42a885
+wikipedia-population 20261102024433 https://en.wikipedia.org/wiki/List_of_countries_and_dependencies_by_population db29ae5bb25987e61033f17d5d38a69e3408bc496534c82894997ce951104057
+mdn-html 20261101224401 https://developer.mozilla.org/en-US/docs/Web/HTML 190482e5648a67796900d6e9ae8234ebe3dc6f58d58b329e7bff2e30fd3ed0e2
+github-rust 20261102174509 https://github.com/rust-lang/rust bf22e2172fcb68996ceea8e8c95fe8ac96c97bcd4fb85f29230015629c7ef188
+bbc-news 20261102000823 https://www.bbc.com/news a761613593ed76f7ebbc2d0a8a5c961356d57047724d4280198e01626a1ce24c
+hacker-news 20261102000030 https://news.ycombinator.com/ e524329243a6833a8aa120faf669565eb6c6395222e649d5c953a354a718c5b3
+stackoverflow 20261111220417 https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags adbc85c86436ae0103c52a9aaa31432a42a72116e37e5fb3c5c4fa5224e96be0
+python-stdtypes 20260913103434 https://docs.python.org/3/library/stdtypes.html 8404db538b6fb48de1d1d0af2fc057f556b84b2cf6bbd9ed44f54a63762c41c1
+nytimes 20261103143613 https://www.nytimes.com/ 9b75c848f913e7a58df70a150f1d4d7aa403b4a546c181a5bc4192595c8b8a4b
+reddit-programming 20261102025229 https://www.reddit.com/r/programming/ 6bd66a952170216989d3573806d0e276023f99702ba56a35f95aa3ac88cd834d
+ebay 20261105000543 https://www.ebay.com/ c8722049d045892fef9baf7ecc7f1d35f1d0e55cba7e8962ce2bf465c9abf397
+whatwg-parsing 20261101205750 https://html.spec.whatwg.org/multipage/parsing.html 0212dda697e53fed7f3aa90321a8c747fc4a9cd003961cc029cfb6ae2153992d
+whatwg-full 20261102074225 https://html.spec.whatwg.org/ cef568b27e7384e2f478581594bbfe362747fa0fad733ba36043dc1881b43b5f

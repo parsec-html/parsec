@@ -1,3 +1,6 @@
 [submodule "crates/parsec/tests/html5lib-tests"]
 	path = crates/parsec/tests/html5lib-tests
 	url = https://github.com/html5lib/html5lib-tests
+[submodule "bench/lexbor"]
+	path = bench/lexbor
+	url = https://github.com/lexbor/lexbor
