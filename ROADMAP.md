@@ -17,7 +17,7 @@ the order can change when users show us something more urgent.
 
 | Milestone | Target |
 |---|---|
-| M1. Proof | November 2026 |
+| M1. Proof | done, November 2026 |
 | M2. HTML, past Lexbor | early 2027 |
 | M3. Selectors | early 2027, alongside M2 |
 | M4. Every way in, then 0.1.0 | spring 2027 |
@@ -33,11 +33,12 @@ roadmap.
 
 ## M1. Proof
 
-Before Parsec claims to be faster than Lexbor, there'll be a harness that
-shows it: Lexbor built from a pinned release, html5ever, and Parsec, parsing
-the same pages in one process. The results, with method and machine, go on
-the wiki and replace the borrowed numbers in the README. The conformance
-runners for everything that exists publish their counts the same way.
+Done. Before Parsec claimed to be faster than Lexbor, a harness had to
+show it: `bench/` builds Lexbor from a pinned release and runs it, html5ever
+and Parsec on the same pages in one process, then times Parsec's selectors
+against Lexbor's over the same documents. The results, with method and
+machine, are on the wiki and replaced the borrowed numbers in the README.
+Every CI run publishes the conformance counts in its summary.
 
 ## M2. HTML, past Lexbor
 

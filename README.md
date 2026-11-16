@@ -64,6 +64,13 @@ manages 242 and html5ever 82. Parsec is ahead on every one of the 13, by
 1.4 to 2.7 times, and holds less memory than Lexbor on each. On a
 generated 10 MB shop listing it's twice as fast.
 
+Selectors, too. Run 32 of them over those 13 pages and Parsec takes
+226 ms in all; Lexbor takes 728, 3.2 times as long. Parsec is ahead on
+every one, by 1.1 to 3.9 times, and by 31 times on `p:nth-child(2n+1)`,
+which costs Lexbor 339 ms. Where the match counts differ, on `[href]`,
+Lexbor is also counting SVG's `xlink:href`, which a selector with no
+namespace shouldn't match.
+
 It doesn't win everywhere. Of the eight hostile inputs, two go Lexbor's
 way: 300 open `<b>` tags followed by 3,000 paragraphs, where Lexbor is
 1.8 times faster, and a dozen formatting tags reopened in every
@@ -72,7 +79,8 @@ paragraph, where it's 1.2 times faster
 round, 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2 seconds.
 
 `bench/` builds Lexbor 3.0.1 from source and runs all three on the same
-strings, on an Apple M2 Max here. The wiki's
+strings, on an Apple M2 Max here, then times the selectors over the
+same documents. The wiki's
 [Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks) page
 has the method, every number and how to run it yourself.
 
