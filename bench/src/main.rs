@@ -17,9 +17,14 @@
 //! Each hostile input runs in a child process, so a parser that takes
 //! minutes or crashes on one is reported as such instead of stopping the
 //! table. A parse that takes over a second is timed five times, not 30.
+//!
+//! After the pages comes a table of selectors over the real pages, Parsec
+//! against Lexbor (html5ever has no selector engine of its own). Name
+//! `selectors` to run only that table.
 
 mod lexbor;
 mod pages;
+mod selectors;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -207,17 +212,13 @@ fn main() {
         println!("{} {}", r.secs, r.peak);
         return;
     }
+    if args.iter().any(|a| a == "selectors") {
+        header();
+        selectors::run(&real_pages());
+        return;
+    }
     let pages = pages::chosen(&args);
-
-    println!(
-        "Lexbor {}, html5ever {}, Parsec {}; {} {}, {} threads available\n",
-        env!("LEXBOR_VERSION"),
-        env!("HTML5EVER_VERSION"),
-        env!("PARSEC_COMMIT"),
-        std::env::consts::OS,
-        std::env::consts::ARCH,
-        std::thread::available_parallelism().map_or(1, |n| n.get()),
-    );
+    header();
     println!(
         "{:<28} {:>9}  {:>18}  {:>18}  {:>18}  {:>9}",
         "MB/s, peak MB", "size", PARSERS[0], PARSERS[1], PARSERS[2], "vs Lexbor"
@@ -280,6 +281,29 @@ fn main() {
     if group == "real" {
         total_row(total_bytes, &total_secs);
     }
+    if args.is_empty() {
+        selectors::run(&real_pages());
+    }
+}
+
+fn real_pages() -> Vec<pages::Page> {
+    pages::chosen(&[])
+        .into_iter()
+        .filter(|p| p.group == "real")
+        .collect()
+}
+
+/// The versions and the machine.
+fn header() {
+    println!(
+        "Lexbor {}, html5ever {}, Parsec {}; {} {}, {} threads available\n",
+        env!("LEXBOR_VERSION"),
+        env!("HTML5EVER_VERSION"),
+        env!("PARSEC_COMMIT"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        std::thread::available_parallelism().map_or(1, |n| n.get()),
+    );
 }
 
 /// The real pages as one corpus: all their bytes over all their medians.
