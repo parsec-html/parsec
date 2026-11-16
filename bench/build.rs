@@ -42,4 +42,14 @@ fn main() {
     println!("cargo:rustc-env=PARSEC_COMMIT={commit}");
     println!("cargo:rerun-if-changed=Cargo.lock");
     println!("cargo:rerun-if-changed=../.git/HEAD");
+    // A commit moves the branch, not HEAD, which only names the branch.
+    if let Some(branch) = std::process::Command::new("git")
+        .args(["symbolic-ref", "-q", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+    {
+        let branch = String::from_utf8_lossy(&branch.stdout);
+        println!("cargo:rerun-if-changed=../.git/{}", branch.trim());
+    }
 }
