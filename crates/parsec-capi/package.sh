@@ -31,8 +31,10 @@ build() {
   local log
   log=$(mktemp)
   cargo clean --quiet --manifest-path "$root/Cargo.toml" -p parsec-capi --release --target "$1"
+  # --color never: with CARGO_TERM_COLOR=always, as CI sets it, the note
+  # ends in an escape code that would stick to the last library's name.
   if ! cargo rustc --manifest-path "$root/Cargo.toml" -p parsec-capi --lib --release \
-    --locked --target "$1" -- --print native-static-libs > /dev/null 2> "$log"; then
+    --locked --color never --target "$1" -- --print native-static-libs > /dev/null 2> "$log"; then
     cat "$log" >&2
     exit 1
   fi
