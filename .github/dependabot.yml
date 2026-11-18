@@ -20,3 +20,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # bench/lexbor stays on a release tag. Dependabot follows the default
+    # branch, which doesn't contain the v3.0.1 tag, so it moved the bench to
+    # a 3.0.0 commit (#74). A newer Lexbor release is moved to by hand.
+    ignore:
+      - dependency-name: bench/lexbor

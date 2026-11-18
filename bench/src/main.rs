@@ -20,11 +20,13 @@
 //!
 //! After the pages comes a table of selectors over the real pages, Parsec
 //! against Lexbor (html5ever has no selector engine of its own). Name
-//! `selectors` to run only that table.
+//! `selectors` to run only that table, or `encoding` for decoding
+//! throughput against Lexbor's encoding module (not part of a full run).
 //!
 //! Last comes URL parsing, Parsec against Lexbor and Ada, over the links on
 //! the real pages and WPT's URL test inputs. Name `urls` to run only that.
 
+mod encoding;
 mod lexbor;
 mod pages;
 mod selectors;
@@ -214,6 +216,11 @@ fn main() {
         let page = pages::chosen(std::slice::from_ref(page)).remove(0);
         let r = measure(which.parse().unwrap(), &page.html);
         println!("{} {}", r.secs, r.peak);
+        return;
+    }
+    if args.iter().any(|a| a == "encoding") {
+        header();
+        encoding::run(&real_pages());
         return;
     }
     if args.iter().any(|a| a == "selectors") {

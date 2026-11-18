@@ -21,7 +21,8 @@ the order can change when users show us something more urgent.
 | M2. HTML, past Lexbor | early 2027 |
 | M3. Selectors | early 2027, alongside M2 |
 | M4. Every way in, then 0.1.0 | spring 2027 |
-| M5. Encoding and M6. URL | summer 2027 |
+| M5. Encoding | done, November 2026 |
+| M6. URL | summer 2027 |
 | M8. XPath | summer 2027 |
 | M7. CSS | late 2027 into 2028, in parts |
 
@@ -42,8 +43,10 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M2. HTML, past Lexbor
 
-- Bytes in, with the encoding sniffed from the BOM and `<meta>`, as browsers
-  do, and the html5lib encoding tests passing.
+- Done: bytes in, with the encoding sniffed from the BOM and `<meta>`, as
+  browsers do, and the html5lib encoding tests passing
+  (`parsec_encoding::parse_bytes`, all 82 cases that don't need
+  JavaScript).
 - Chunked input that builds exactly the tree whole input does.
 - Parse errors with their spec names, line and column.
 - Source positions on every node and attribute.
@@ -73,9 +76,12 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M5. Encoding
 
-The WHATWG Encoding Standard's 40 encodings, decoding and encoding,
-streaming into the parser, with the web-platform-tests encoding cases in
-CI.
+Done. The WHATWG Encoding Standard's 40 encodings, decoding and
+encoding, in `crates/parsec-encoding` on top of encoding_rs, with the
+web-platform-tests encoding data in CI: every label, every single-byte
+table, and 62,352 multi-byte characters, all passing. Decoding a stream
+works now, through encoding_rs's `Decoder`; feeding it into the parser
+chunk by chunk arrives with chunked input in M2.
 
 ## M6. URL
 
