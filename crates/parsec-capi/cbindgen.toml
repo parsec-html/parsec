@@ -1,0 +1,51 @@
+# Generates include/parsec.h from src/lib.rs:
+#   cbindgen --config crates/parsec-capi/cbindgen.toml --crate parsec-capi \
+#     --output crates/parsec-capi/include/parsec.h
+# The header is checked in, and CI fails if it no longer matches.
+language = "C"
+include_guard = "PARSEC_H"
+cpp_compat = true
+usize_is_size_t = true
+documentation_style = "c99"
+style = "type"
+sys_includes = ["stdbool.h", "stddef.h", "stdint.h"]
+no_includes = true
+header = """
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2026 James Conway
+ *
+ * Parsec's C API: an HTML parser that follows the WHATWG HTML Standard,
+ * with CSS selectors, editing and serialization.
+ *
+ * Generated from crates/parsec-capi/src/lib.rs by cbindgen; don't edit it.
+ * The wiki's C-API page has a guide and examples.
+ *
+ * The rules every function keeps:
+ *
+ * - Handles are opaque. A parsec_document or parsec_selector is made by
+ *   one function and freed by one, and NULL is accepted everywhere: a
+ *   call given NULL fails with PARSEC_ERR_NULL, or returns NULL,
+ *   PARSEC_NO_NODE, 0 or false, and the free functions do nothing.
+ * - Nodes are numbers. A parsec_node is valid for as long as its document
+ *   is, and a number that isn't a node of the document is refused, never
+ *   read. Removing a node detaches it; nothing is freed until the
+ *   document is.
+ * - Strings in are a pointer and a length in bytes, UTF-8, with no NUL
+ *   needed. NULL with a length of 0 is the empty string. Bytes that aren't
+ *   UTF-8 become U+FFFD.
+ * - Strings out come two ways. Borrowed ones (const char *, from
+ *   parsec_node_name, parsec_node_value, parsec_attr_get and the like)
+ *   point into the document, are *len bytes long with no NUL after them,
+ *   and stay valid until the document is next changed or freed. Owned
+ *   ones (char *, from parsec_inner_html, parsec_outer_html and
+ *   parsec_text) are copies, NUL-terminated, freed with
+ *   parsec_string_free and nothing else.
+ * - Nothing panics into C. A bug in Parsec comes back as
+ *   PARSEC_ERR_PANIC instead.
+ * - Threads: any number of threads may read one document at once (every
+ *   function taking a const parsec_document *), and a selector may be
+ *   used from any number of threads. A call taking a non-const
+ *   parsec_document * changes it, and needs the document to itself. A
+ *   document or selector may be freed on a different thread from the one
+ *   that made it.
+ */"""
