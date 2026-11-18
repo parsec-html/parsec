@@ -85,6 +85,12 @@ assert_eq!(doc.text(hits[0]), "one");
   changed in June 2026 and the `url` crate hasn't caught up with yet. The
   wiki's [URL](https://github.com/parsec-html/parsec/wiki/URL) page names
   every failing case and why it fails.
+- **A Python package** in `bindings/python`, with selectolax's API:
+  `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
+  edits, so moving over is mostly a change of import. One parsed page can
+  be shared by many threads, and on free-threaded Python the GIL stays
+  off. From Python, it parses the 13 pages below in 66 ms to
+  selectolax's 106, and runs the 32 selectors in 283 ms to its 781.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
@@ -154,9 +160,11 @@ every module Lexbor has, and then go past it:
 | WHATWG URL | yes, no WPT count published | yes, with WPT pass counts published |
 | CSS parser and CSSOM | yes | planned, with `var()`, media queries and computed values |
 | C API | yes | planned, with prebuilt libraries for Linux, macOS and Windows |
-| Python, WebAssembly | through bindings | planned, built here |
+| Python | through selectolax | yes, free-threaded too |
+| WebAssembly | through bindings | planned, built here |
 
-Every "yes" in the Parsec column is something `cargo test` checks. A
+Every "yes" in the Parsec column is something `cargo test` checks, or
+for Python, pytest in CI. A
 "planned" becomes a "yes" only when it ships.
 
 ## Using it
@@ -177,6 +185,13 @@ let page = b"<meta charset=shift_jis><title>\x93\xfa\x96\x7b</title>";
 let parsed = parsec_encoding::parse_bytes(page, Default::default()).unwrap();
 assert_eq!(parsed.encoding.name(), "Shift_JIS");
 assert_eq!(parsed.document.text(parsed.document.root()), "日本");
+```
+
+From Python, until the wheels go to PyPI with 0.1.0, build it from git
+(Rust 1.88 or newer) and `import parsec_html`:
+
+```sh
+pip install "git+https://github.com/parsec-html/parsec#subdirectory=bindings/python"
 ```
 
 The [wiki](https://github.com/parsec-html/parsec/wiki) is where the

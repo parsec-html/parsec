@@ -71,7 +71,8 @@ Every CI run publishes the conformance counts in its summary.
 - A C API with a generated header, pkg-config and CMake files, and
   prebuilt libraries for Linux, macOS and Windows on x86-64 and ARM.
 - A guide for moving from Lexbor, call by call.
-- Python wheels, including free-threaded builds.
+- Python wheels, including free-threaded builds. The package is done, in
+  `bindings/python`; its wheels go to PyPI with 0.1.0.
 - WebAssembly for npm.
 
 ## M5. Encoding
