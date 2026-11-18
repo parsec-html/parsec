@@ -20,6 +20,7 @@ bench = false
 html5ever = "0.40"
 markup5ever_rcdom = "0.40"
 parsec-html = { path = "../crates/parsec" }
+parsec-html-encoding = { path = "../crates/parsec-encoding" }
 
 [build-dependencies]
 cmake = "0.1"
