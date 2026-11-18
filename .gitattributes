@@ -1,0 +1,2 @@
+# Pinned test data stays byte for byte as upstream wrote it, on every OS.
+crates/parsec-encoding/tests/wpt/** -text

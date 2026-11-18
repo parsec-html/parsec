@@ -48,6 +48,27 @@ assert_eq!(doc.text(hits[0]), "one");
   matches them.
 - **A tree you can edit**: create, insert, move and remove nodes, set and
   rename attributes, then serialize as `innerHTML`, `outerHTML` or text.
+- **Bytes in, with the encoding found the way browsers find it.**
+  `parsec_encoding::parse_bytes` checks for a byte order mark, then the
+  `charset` you got from HTTP if you pass one, then the HTML Standard's
+  `<meta>` prescan of the first 1,024 bytes, then falls back to
+  windows-1252 (or the default for a language you name). If the parser
+  later meets a `<meta>` that disagrees with a guess, it decodes and parses
+  once more in the declared encoding, as a browser reloads. You get the
+  document, the encoding and how sure it is. It passes all 82 html5lib
+  `encoding/` cases that don't need JavaScript.
+- **Every encoding the web uses**, decoding and encoding, from
+  [encoding_rs](https://github.com/hsivonen/encoding_rs), Firefox's own
+  implementation of the WHATWG Encoding Standard. Against the
+  web-platform-tests `encoding/` data it gets every one right: all 228
+  labels, the 168 single-byte label tables, 395 ISO-2022-JP, GB18030 and
+  GBK decoder cases, and 62,352 characters in the Shift_JIS, EUC-JP,
+  ISO-2022-JP, EUC-KR and Big5 test pages. Lexbor, up to its latest
+  release (3.0.1), gets 5,240 of Shift_JIS's 7,393 right: its decoder
+  refuses lead bytes 0xE1 to 0xFB, so most of JIS level 2 kanji come out
+  as U+FFFD (fixed on Lexbor's master in
+  [lexbor#424](https://github.com/lexbor/lexbor/pull/424), not yet
+  released).
 - **Limits you choose**: a time budget per parse, a cap on input size, and
   a maximum tree depth, past which elements go beside the current one
   instead of inside it, as in Chromium.
@@ -77,6 +98,17 @@ which costs Lexbor 339 ms. Where the match counts differ, on `[href]`,
 Lexbor is also counting SVG's `xlink:href`, which a selector with no
 namespace shouldn't match.
 
+Decoding, too. Bytes to UTF-8 text on the same machine, Parsec (encoding_rs)
+turns Shift_JIS, windows-1251 and GBK versions of two real pages into text
+at 8 to 10 GB a second. Lexbor's decoders plus its UTF-8 encoder manage 240
+to 377 MB a second, so Parsec is 22 to 41 times faster. Those pages are
+mostly ASCII markup. On a generated megabyte of dense kanji, Cyrillic or
+hanzi the gap is 1.5 to 3.8 times. One caveat: Lexbor's decoders on their
+own, writing code points that you still have to convert, reach 716 MB a
+second on dense GBK, where Parsec reaches 501, so on that one Lexbor is
+ahead until you count the conversion. A UTF-8 page Parsec only validates
+and then parses where it is, at about 60 GB a second.
+
 It doesn't win everywhere. Of the eight hostile inputs, two go Lexbor's
 way: 300 open `<b>` tags followed by 3,000 paragraphs, where Lexbor is
 1.8 times faster, and a dozen formatting tags reopened in every
@@ -98,7 +130,7 @@ every module Lexbor has, and then go past it:
 | | Lexbor | Parsec |
 |---|---|---|
 | HTML parsing, fragments | yes | yes |
-| Bytes in, encoding sniffed | yes | planned |
+| Bytes in, encoding sniffed | yes | yes, `parse_bytes` |
 | Chunked input | yes | planned |
 | Parse errors with line and column | pointers only | planned |
 | Source positions on nodes and attributes | no | planned |
@@ -110,7 +142,7 @@ every module Lexbor has, and then go past it:
 | Queries that stop at the first match | no ([#32](https://github.com/lexbor/lexbor/issues/32)) | yes, `select_first` and `select_iter` |
 | A tree depth limit | no | yes |
 | XPath | no | planned |
-| WHATWG Encoding, 40 encodings | yes | planned |
+| WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |
 | WHATWG URL | yes | planned, with WPT pass counts published |
 | CSS parser and CSSOM | yes | planned, with `var()`, media queries and computed values |
 | C API | yes | planned, with prebuilt libraries for Linux, macOS and Windows |
@@ -130,7 +162,16 @@ Parsec isn't on crates.io yet. To try it from git:
 parsec-html = { git = "https://github.com/parsec-html/parsec" }
 ```
 
-The package is `parsec-html` and the crate you `use` is `parsec`.
+The package is `parsec-html` and the crate you `use` is `parsec`. For
+bytes in, add `parsec-html-encoding` the same way; its crate is
+`parsec_encoding`:
+
+```rust
+let page = b"<meta charset=shift_jis><title>\x93\xfa\x96\x7b</title>";
+let parsed = parsec_encoding::parse_bytes(page, Default::default()).unwrap();
+assert_eq!(parsed.encoding.name(), "Shift_JIS");
+assert_eq!(parsed.document.text(parsed.document.root()), "日本");
+```
 
 From Python, until the wheels go to PyPI with 0.1.0, build it from git
 (Rust 1.88 or newer) and `import parsec_html`:
