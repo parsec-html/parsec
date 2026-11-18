@@ -37,7 +37,7 @@ jobs:
       - run: for m in crates/*/fuzz/Cargo.toml; do cargo metadata --no-deps --format-version 1 --manifest-path "$m" > /dev/null || exit 1; done
       # A prebuilt binary: the cargo-deny action builds a Docker image on
       # every run, and fails whenever Docker Hub does.
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-deny
       - run: cargo deny check licenses bans sources
@@ -59,7 +59,7 @@ jobs:
           components: clippy, rustfmt
       - run: cargo fmt --manifest-path bench/Cargo.toml --check
       - run: cargo clippy --manifest-path bench/Cargo.toml --release -- -D warnings
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-deny
       - run: cargo deny --manifest-path bench/Cargo.toml check licenses bans sources
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-deny
       - run: cargo deny check advisories
