@@ -17,8 +17,8 @@ for li in page.css("li"):
 What you get over selectolax:
 
 - **Threads.** One parsed page can be read from as many threads as you
-  like, and edited from any of them. On free-threaded Python (3.13t,
-  3.14t) the module runs with the GIL off, and on any Python, parsing and
+  like, and edited from any of them. On free-threaded Python (3.14t
+  and later) the module runs with the GIL off, and on any Python, parsing and
   `css()` let go of it while they work.
 - **Selectors selectolax 1.0.2 won't run**: `:lang()`, `:dir()`,
   `:valid`, `:in-range`, `:scope` and more, which it rejects as

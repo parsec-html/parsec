@@ -1,8 +1,8 @@
 name: release-python
 
 # Wheels for parsec-html on PyPI, built when a v* tag is pushed: one per
-# CPython version from 3.9 to 3.15, free-threaded 3.13t, 3.14t and 3.15t
-# included, then an abi3t wheel (stable ABI, any CPython from 3.15,
+# CPython version from 3.9 to 3.15, free-threaded 3.14t and 3.15t
+# included (PyO3 doesn't support free-threaded 3.13), then an abi3t wheel (stable ABI, any CPython from 3.15,
 # free-threaded too) for the versions after. A manual run builds them all
 # and publishes nothing, to try a release first.
 #
@@ -54,7 +54,6 @@ jobs:
             3.13
             3.14
             3.15
-            3.13t
             3.14t
             3.15t
       # Windows on ARM has CPython from 3.11.
@@ -67,7 +66,6 @@ jobs:
             3.13
             3.14
             3.15
-            3.13t
             3.14t
             3.15t
       - name: Wheels for each version
@@ -76,7 +74,12 @@ jobs:
           working-directory: bindings/python
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux }}
-          args: --release --out dist --find-interpreter
+          # The manylinux images hold free-threaded 3.13 too, which PyO3
+          # doesn't support, so Linux names its versions; elsewhere
+          # setup-python installed only the ones wanted.
+          args: >-
+            --release --out dist
+            ${{ matrix.platform.manylinux && '--interpreter python3.9 python3.10 python3.11 python3.12 python3.13 python3.14 python3.15 python3.14t python3.15t' || '--find-interpreter' }}
       - name: The abi3t wheel
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
