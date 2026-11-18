@@ -60,7 +60,8 @@ assert_eq!(doc.text(hits[0]), "one");
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
   be shared by many threads, and on free-threaded Python the GIL stays
-  off. PYNUM
+  off. From Python, it parses the 13 pages below in 66 ms to
+  selectolax's 106, and runs the 32 selectors in 283 ms to its 781.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York

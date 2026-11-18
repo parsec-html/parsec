@@ -82,7 +82,18 @@ pseudo-class, and source positions, which arrive with
 
 `bench.py` times both on the 13 real pages `bench/` uses (24 MB in all):
 
-RESULTS
+| | parsec_html | selectolax | |
+|---|---:|---:|---:|
+| Parse all 13 pages | 66 ms | 106 ms | 1.6× |
+| The 32 selectors over all 13 | 283 ms | 781 ms | 2.8× |
+| Every link's `href` and text | 43 ms | 50 ms | 1.2× |
+
+Parsec parses each of the 13 pages faster, by 1.5 to 2.8 times, and runs
+each of the 32 selectors faster, by 1.04 to 29 times
+(`p:nth-child(2n+1)`). The narrowest margins are the selectors that
+match most of a page, such as `*` and `[class]`, where the time goes on
+making a Python object per match. Medians of 20 runs on an Apple M2 Max,
+CPython 3.14, at a load of 3; a second run gave the same to within 6%.
 
 ## Working on it
 
