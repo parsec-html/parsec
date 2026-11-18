@@ -4,3 +4,4 @@
 /crates/parsec/fuzz/artifacts
 /bench/target
 /bench/corpus
+__pycache__/

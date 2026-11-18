@@ -56,6 +56,11 @@ assert_eq!(doc.text(hits[0]), "one");
   time in proportion to their length.
 - **One dependency** (`memchr`) and one `unsafe` block, with its reasoning
   written beside it.
+- **A Python package** in `bindings/python`, with selectolax's API:
+  `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
+  edits, so moving over is mostly a change of import. One parsed page can
+  be shared by many threads, and on free-threaded Python the GIL stays
+  off. PYNUM
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
@@ -108,9 +113,11 @@ every module Lexbor has, and then go past it:
 | WHATWG URL | yes | planned, with WPT pass counts published |
 | CSS parser and CSSOM | yes | planned, with `var()`, media queries and computed values |
 | C API | yes | planned, with prebuilt libraries for Linux, macOS and Windows |
-| Python, WebAssembly | through bindings | planned, built here |
+| Python | through selectolax | yes, free-threaded too |
+| WebAssembly | through bindings | planned, built here |
 
-Every "yes" in the Parsec column is something `cargo test` checks. A
+Every "yes" in the Parsec column is something `cargo test` checks, or
+for Python, pytest in CI. A
 "planned" becomes a "yes" only when it ships.
 
 ## Using it
@@ -123,6 +130,13 @@ parsec-html = { git = "https://github.com/parsec-html/parsec" }
 ```
 
 The package is `parsec-html` and the crate you `use` is `parsec`.
+
+From Python, until the wheels go to PyPI with 0.1.0, build it from git
+(Rust 1.88 or newer) and `import parsec_html`:
+
+```sh
+pip install "git+https://github.com/parsec-html/parsec#subdirectory=bindings/python"
+```
 
 The [wiki](https://github.com/parsec-html/parsec/wiki) is where the
 documentation lives: how parsing works, every option, the selector list,
