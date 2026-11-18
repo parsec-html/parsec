@@ -24,14 +24,16 @@ static int failures;
         }                                                                 \
     } while (0)
 
-/* A borrowed string equals a C string. */
-static int is(const char *s, size_t len, const char *want) {
-    return s != NULL && len == strlen(want) && memcmp(s, want, len) == 0;
+/* A borrowed string equals a C string. The length is read through a
+ * pointer, after the call that sets it: C doesn't say in which order a
+ * call's arguments are worked out. */
+static int is(const char *s, const size_t *len, const char *want) {
+    return s != NULL && *len == strlen(want) && memcmp(s, want, *len) == 0;
 }
 
 /* An owned string equals a C string; it's freed either way. */
-static int owned_is(char *s, size_t len, const char *want) {
-    int ok = s != NULL && len == strlen(want) && strcmp(s, want) == 0;
+static int owned_is(char *s, const size_t *len, const char *want) {
+    int ok = s != NULL && *len == strlen(want) && strcmp(s, want) == 0;
     if (!ok && s != NULL) fprintf(stderr, "  got: %s\n", s);
     parsec_string_free(s);
     return ok;
@@ -71,16 +73,16 @@ static void parse_select_read(void) {
     parsec_node doctype = parsec_first_child(doc, root);
     CHECK(parsec_node_type(doc, doctype) == PARSEC_NODE_DOCTYPE);
     size_t len = 99;
-    CHECK(is(parsec_node_name(doc, doctype, &len), len, "html"));
-    CHECK(is(parsec_doctype_public_id(doc, doctype, &len), len, ""));
+    CHECK(is(parsec_node_name(doc, doctype, &len), &len, "html"));
+    CHECK(is(parsec_doctype_public_id(doc, doctype, &len), &len, ""));
 
     /* Every match, in document order. */
     parsec_selector *hits = compile("li.hit");
     struct collected c = {{0}, 0, 0};
     CHECK(parsec_select(doc, hits, root, collect, &c) == PARSEC_OK);
     CHECK(c.count == 2);
-    CHECK(owned_is(parsec_text(doc, c.nodes[0], &len), len, "one"));
-    CHECK(owned_is(parsec_text(doc, c.nodes[1], &len), len, "three"));
+    CHECK(owned_is(parsec_text(doc, c.nodes[0], &len), &len, "one"));
+    CHECK(owned_is(parsec_text(doc, c.nodes[1], &len), &len, "three"));
     CHECK(parsec_matches(doc, hits, c.nodes[0]));
 
     /* Stopping early, and the first match alone. */
@@ -91,7 +93,7 @@ static void parse_select_read(void) {
 
     /* Navigation and names. */
     parsec_node ul = parsec_parent(doc, c.nodes[0]);
-    CHECK(is(parsec_node_name(doc, ul, &len), len, "ul"));
+    CHECK(is(parsec_node_name(doc, ul, &len), &len, "ul"));
     CHECK(parsec_element_ns(doc, ul) == PARSEC_NS_HTML);
     CHECK(parsec_first_child(doc, ul) == c.nodes[0]);
     CHECK(parsec_last_child(doc, ul) == c.nodes[1]);
@@ -100,17 +102,17 @@ static void parse_select_read(void) {
     CHECK(parsec_next_sibling(doc, c.nodes[1]) == PARSEC_NO_NODE);
     parsec_node text = parsec_first_child(doc, two);
     CHECK(parsec_node_type(doc, text) == PARSEC_NODE_TEXT);
-    CHECK(is(parsec_node_value(doc, text, &len), len, "two"));
+    CHECK(is(parsec_node_value(doc, text, &len), &len, "two"));
     CHECK(parsec_node_value(doc, ul, &len) == NULL && len == 0);
 
     /* Attributes, by name and by index. */
-    CHECK(is(parsec_attr_get(doc, ul, "ID", 2, &len), len, "list"));
+    CHECK(is(parsec_attr_get(doc, ul, "ID", 2, &len), &len, "list"));
     CHECK(parsec_attr_get(doc, ul, "class", 5, &len) == NULL);
     CHECK(parsec_attr_count(doc, ul) == 1);
     const char *name, *value;
     size_t name_len, value_len;
     CHECK(parsec_attr_at(doc, ul, 0, &name, &name_len, &value, &value_len) == PARSEC_OK);
-    CHECK(is(name, name_len, "id") && is(value, value_len, "list"));
+    CHECK(is(name, &name_len, "id") && is(value, &value_len, "list"));
     CHECK(parsec_attr_at(doc, ul, 1, &name, NULL, NULL, NULL) == PARSEC_ERR_INVALID);
     CHECK(parsec_attr_at(doc, text, 0, NULL, NULL, NULL, NULL) == PARSEC_ERR_NOT_AN_ELEMENT);
 
@@ -118,8 +120,8 @@ static void parse_select_read(void) {
     parsec_selector *svg = compile("svg");
     parsec_node s = parsec_select_first(doc, svg, root);
     CHECK(parsec_element_ns(doc, s) == PARSEC_NS_SVG);
-    CHECK(is(parsec_attr_get(doc, s, "viewBox", 7, &len), len, "0 0 1 1"));
-    CHECK(is(parsec_node_name(doc, parsec_first_child(doc, s), &len), len, "foreignObject"));
+    CHECK(is(parsec_attr_get(doc, s, "viewBox", 7, &len), &len, "0 0 1 1"));
+    CHECK(is(parsec_node_name(doc, parsec_first_child(doc, s), &len), &len, "foreignObject"));
 
     parsec_selector_free(svg);
     parsec_selector_free(hits);
@@ -147,13 +149,13 @@ static void edit_and_serialize(void) {
     CHECK(parsec_attr_remove(doc, b, "id", 2, &removed) == PARSEC_OK && !removed);
 
     size_t len;
-    CHECK(owned_is(parsec_inner_html(doc, ul, &len), len,
+    CHECK(owned_is(parsec_inner_html(doc, ul, &len), &len,
                    "<li class=\"first\">a</li><li>b</li><li>c &amp; d</li><!--end-->"));
 
     /* Removing detaches; the number still works, and can go back in. */
     CHECK(parsec_remove(doc, b) == PARSEC_OK);
     CHECK(parsec_parent(doc, b) == PARSEC_NO_NODE);
-    CHECK(owned_is(parsec_outer_html(doc, b, &len), len, "<li>b</li>"));
+    CHECK(owned_is(parsec_outer_html(doc, b, &len), &len, "<li>b</li>"));
     CHECK(parsec_append(doc, ul, b) == PARSEC_OK);
 
     /* Edits that would break the tree are refused, and change nothing. */
@@ -179,7 +181,7 @@ static void fragments_and_options(void) {
     CHECK(parsec_parse_fragment(rows, strlen(rows), PARSEC_NS_HTML, "tbody", 5, 0, &frag) == PARSEC_OK);
     CHECK(parsec_node_type(frag, parsec_root()) == PARSEC_NODE_FRAGMENT);
     size_t len;
-    CHECK(owned_is(parsec_inner_html(frag, parsec_root(), &len), len, "<tr><td>1</td><td>2</td></tr>"));
+    CHECK(owned_is(parsec_inner_html(frag, parsec_root(), &len), &len, "<tr><td>1</td><td>2</td></tr>"));
     parsec_document_free(frag);
 
     /* Scripting decides what <noscript> holds. */
@@ -201,7 +203,7 @@ static void fragments_and_options(void) {
     parsec_selector *tpl = compile("template");
     parsec_node el = parsec_select_first(doc, tpl, parsec_root());
     parsec_node contents = parsec_template_contents(doc, el);
-    CHECK(owned_is(parsec_inner_html(doc, contents, &len), len, "<p>in</p>"));
+    CHECK(owned_is(parsec_inner_html(doc, contents, &len), &len, "<p>in</p>"));
     CHECK(parsec_template_contents(doc, contents) == PARSEC_NO_NODE);
     parsec_selector_free(tpl);
     parsec_document_free(doc);
@@ -222,7 +224,7 @@ static void fragments_and_options(void) {
 
     /* Bytes that aren't UTF-8 become U+FFFD. */
     CHECK(parsec_parse("<p>\xff</p>", 8, 0, &doc) == PARSEC_OK);
-    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), len, "\xef\xbf\xbd"));
+    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xef\xbf\xbd"));
     parsec_document_free(doc);
 }
 
@@ -234,7 +236,7 @@ static void errors_and_null(void) {
     CHECK(parsec_parse(NULL, 0, 0, &doc) == PARSEC_OK);
     /* An empty page still has html, head and body, as in a browser. */
     CHECK(parsec_node_count(doc) == 4);
-    CHECK(is(parsec_node_name(doc, parsec_first_child(doc, parsec_root()), &len), len, "html"));
+    CHECK(is(parsec_node_name(doc, parsec_first_child(doc, parsec_root()), &len), &len, "html"));
     parsec_document_free(doc);
     CHECK(parsec_parse(NULL, 1, 0, &doc) == PARSEC_ERR_NULL && doc == NULL);
     CHECK(parsec_parse("x", 1, 0, NULL) == PARSEC_ERR_NULL);
