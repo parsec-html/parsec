@@ -1,0 +1,35 @@
+{
+  "name": "parsec-html",
+  "version": "0.1.0",
+  "description": "An HTML parser that follows the WHATWG spec, with CSS selectors and an editable tree, compiled to WebAssembly.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/parsec-html/parsec.git",
+    "directory": "bindings/wasm"
+  },
+  "homepage": "https://github.com/parsec-html/parsec/wiki/WASM",
+  "keywords": ["html", "parser", "html5", "css-selectors", "wasm"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./node/parsec_html.d.ts",
+        "default": "./node/parsec_html.js"
+      },
+      "types": "./parsec_html.d.ts",
+      "default": "./parsec_html.js"
+    }
+  },
+  "types": "./parsec_html.d.ts",
+  "files": [
+    "parsec_html.js",
+    "parsec_html.d.ts",
+    "parsec_html_bg.wasm",
+    "parsec_html_bg.wasm.d.ts",
+    "node/",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "sideEffects": false
+}

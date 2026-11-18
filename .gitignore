@@ -4,3 +4,5 @@
 /crates/parsec/fuzz/artifacts
 /bench/target
 /bench/corpus
+/bindings/wasm/pkg
+/bindings/wasm/node_modules
