@@ -92,6 +92,17 @@ which costs Lexbor 339 ms. Where the match counts differ, on `[href]`,
 Lexbor is also counting SVG's `xlink:href`, which a selector with no
 namespace shouldn't match.
 
+Decoding, too. Bytes to UTF-8 text on the same machine, Parsec (encoding_rs)
+turns Shift_JIS, windows-1251 and GBK versions of two real pages into text
+at 8 to 10 GB a second. Lexbor's decoders plus its UTF-8 encoder manage 240
+to 377 MB a second, so Parsec is 22 to 41 times faster. Those pages are
+mostly ASCII markup. On a generated megabyte of dense kanji, Cyrillic or
+hanzi the gap is 1.5 to 3.8 times. One caveat: Lexbor's decoders on their
+own, writing code points that you still have to convert, reach 716 MB a
+second on dense GBK, where Parsec reaches 501, so on that one Lexbor is
+ahead until you count the conversion. A UTF-8 page Parsec only validates
+and then parses where it is, at about 60 GB a second.
+
 It doesn't win everywhere. Of the eight hostile inputs, two go Lexbor's
 way: 300 open `<b>` tags followed by 3,000 paragraphs, where Lexbor is
 1.8 times faster, and a dozen formatting tags reopened in every
