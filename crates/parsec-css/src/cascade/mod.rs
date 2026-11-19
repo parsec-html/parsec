@@ -621,8 +621,9 @@ impl Styler {
             for list in custom.values_mut() {
                 list.sort_by_key(|d| d.0);
             }
-            let parent_id = doc.parent(el).filter(|p| styles.contains_key(p));
+            let parent_id = doc.parent(el);
             let parent = parent_id.and_then(|p| styles.get(&p));
+            let parent_id = parent_id.filter(|_| parent.is_some());
             let root_style = if Some(el) == root {
                 None
             } else {
@@ -684,6 +685,7 @@ impl Styler {
     }
 
     /// Where a rule's declarations go in the cascade's order.
+    #[inline]
     fn key(&self, e: &Entry<'_>, ranks: &[u32], proximity: u32) -> Key {
         Key {
             origin: e.origin as u8,
@@ -698,6 +700,7 @@ impl Styler {
     /// Whether a rule applies to `el`, with its scoping proximity if so.
     /// `inclusive` is for a pseudo-element's rule, whose containers start
     /// at `el`, the originating element, which must be styled already.
+    #[inline]
     fn entry_matches(
         &self,
         e: &Entry<'_>,
