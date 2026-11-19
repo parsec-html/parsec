@@ -185,7 +185,10 @@ def test_fragments_and_bytes():
     assert rows.html == "<tbody><tr><td>x</td></tr></tbody>"
     svg = HTMLParser("<circle/>", is_fragment=True, fragment_tag="svg", fragment_namespace="svg")
     assert svg.html == "<circle></circle>"
-    assert HTMLParser(b"<p>\xff</p>").body.html == "<body><p>�</p></body>"
+    # bytes are decoded as a browser would: windows-1252 when nothing in
+    # or around them names an encoding.
+    assert HTMLParser(b"<p>\xff</p>").body.html == "<body><p>\u00ff</p></body>"
+    assert HTMLParser(b"<p>\xff</p>", transport_encoding="utf-8").body.html == "<body><p>\ufffd</p></body>"
     with pytest.raises(TypeError):
         HTMLParser(1)
     with pytest.raises(ValueError):
@@ -267,13 +270,13 @@ def test_positions_slice_what_was_passed_in():
     assert p.line_col(i.source_range[0]) == (1, i.source_range[0] + 1)
     # bytes give byte offsets into those bytes.
     data = WIDE.encode()
-    q = HTMLParser(data, positions=True)
+    q = HTMLParser(data, positions=True, transport_encoding="utf-8")
     assert data[slice(*q.css_first("b").source_range)] == b"<b>"
     assert data[slice(*q.css_first("i").first_child.source_range)] == "\U0001f600x".encode()
     # Even when they aren't all UTF-8: each bad byte is read as a U+FFFD,
     # three bytes long, but the offsets stay in the bytes given.
     bad = b"<p>\xff\xfe</p><b>x</b>"
-    r = HTMLParser(bad, positions=True, errors=True)
+    r = HTMLParser(bad, positions=True, errors=True, transport_encoding="utf-8")
     assert bad[slice(*r.css_first("b").source_range)] == b"<b>"
     assert bad[slice(*r.css_first("p").end_tag_range)] == b"</p>"
     assert r.line_col(bad.index(b"<b>")) == (1, 10)

@@ -49,6 +49,42 @@ What you get over selectolax:
 - **Parse errors.** With `errors=True`, `page.errors` lists each one with
   the HTML Standard's name for it and where it is:
   `2:1: unexpected-end-tag`.
+- **Bytes in any encoding.** Hand `HTMLParser` the `bytes` you
+  downloaded and it decodes them as a browser would: a byte order mark
+  first, then the HTTP `charset`, which you pass as `transport_encoding`,
+  then a `<meta>`, then `default_encoding` (windows-1252 unless you say
+  otherwise; `encoding_for_locale("ja")` gives the one a Japanese
+  browser uses). `page.encoding` says which it was, and
+  `page.encoding_confidence` whether it's `"certain"` or `"tentative"`.
+  Positions stay byte offsets into your bytes, whatever the encoding.
+
+  ```python
+  with urllib.request.urlopen(url) as r:
+      page = HTMLParser(r.read(), transport_encoding=r.headers.get_content_charset())
+  page.encoding        # 'Shift_JIS'
+  ```
+
+  A `charset` that names no encoding is passed over, as browsers pass
+  it over.
+
+  `StreamParser` does the same as the bytes arrive, and you get the same
+  page however they're cut:
+
+  ```python
+  with urllib.request.urlopen(url) as r:
+      s = StreamParser(transport_encoding=r.headers.get_content_charset())
+      while chunk := r.read(65536):
+          s.feed(chunk)
+  page = s.close()     # an HTMLParser
+  ```
+
+  The names are those of lxml's feed parser and the standard library's
+  `html.parser`; the keywords are html5lib's.
+
+  **This changed.** `bytes` used to be read as UTF-8. Now a UTF-8 page
+  with no byte order mark and no `<meta charset>` decodes as
+  windows-1252, as it would in a browser. If you know your bytes are
+  UTF-8, say so with `transport_encoding="utf-8"`, or pass a `str`.
 
 ## Installing
 
@@ -70,8 +106,8 @@ from parsec_html import HTMLParser
 
 `HTMLParser(html, is_fragment=False, fragment_tag="div",
 fragment_namespace="html", scripting=False)` takes what
-`LexborHTMLParser` does (plus `budget`, `max_depth`, `url`, `positions`
-and `errors`), and the parser and its nodes have selectolax's
+`LexborHTMLParser` does (plus `budget`, `max_depth`, `url`, `positions`,
+`errors`, `transport_encoding` and `default_encoding`), and the parser and its nodes have selectolax's
 names: `root`, `head`, `body`, `html`, `css`, `css_first` (with `default`
 and `strict`), `css_matches`, `any_css_matches`, `tags`, `text(deep,
 separator, strip, skip_empty)`, `merge_text_nodes`, `strip_tags`,
@@ -91,7 +127,7 @@ Where it behaves differently:
 | A selector that doesn't parse | `SelectolaxError` | `SelectorError`, a `ValueError` |
 | A node after `decompose()` | freed | still readable, and can be inserted again |
 | `attrs.items()`, `keys()`, `values()` | iterators | lists |
-| `bytes` in | UTF-8, or sniffed with `encoding=True` | UTF-8, bad bytes replaced; sniffing comes with [#5](https://github.com/parsec-html/parsec/issues/5) |
+| `bytes` in | UTF-8, or sniffed with `encoding=True` | sniffed as a browser sniffs them: byte order mark, `transport_encoding`, `<meta>`, then `default_encoding` |
 | Class names | `LexborHTMLParser`, `LexborNode` | `HTMLParser`, `Node` |
 
 Not there yet: `clone()`, `raw_html`, `raw_value`, `html_pretty`,

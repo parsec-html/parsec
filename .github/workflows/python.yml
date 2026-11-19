@@ -74,6 +74,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
+      # Only html5lib-tests, for its encoding cases: the bench submodules
+      # aren't needed.
+      - run: git submodule update --init crates/parsec/tests/html5lib-tests
       - run: python -m pip install --require-hashes -r bindings/python/ci-requirements.txt
       - run: maturin build --release --out dist --interpreter python --manifest-path bindings/python/Cargo.toml ${{ matrix.abi3t && '--features abi3t' || '' }}
       - run: python -m pip install --no-deps dist/*.whl

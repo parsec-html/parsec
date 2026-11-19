@@ -2,7 +2,7 @@
 and an editable tree. The API follows selectolax's Lexbor backend."""
 
 from collections.abc import Iterable, Iterator
-from typing import Optional, TypeVar, Union, overload
+from typing import Literal, Optional, TypeVar, Union, overload
 
 __version__: str
 
@@ -44,7 +44,18 @@ class HTMLParser:
         url: Optional[str] = None,
         positions: bool = False,
         errors: bool = False,
-    ) -> None: ...
+        transport_encoding: Optional[str] = None,
+        default_encoding: Optional[str] = None,
+    ) -> None:
+        """A str is parsed as it is. bytes are decoded in the encoding a
+        browser would pick: a byte order mark's, else transport_encoding,
+        else a <meta>'s, else default_encoding (windows-1252)."""
+    @property
+    def encoding(self) -> Optional[str]:
+        """The Encoding Standard's name for what bytes were decoded from,
+        such as "UTF-8" or "Shift_JIS"; None for a str."""
+    @property
+    def encoding_confidence(self) -> Optional[Literal["certain", "tentative"]]: ...
     @property
     def errors(self) -> list[ParseError]: ...
     @property
@@ -172,3 +183,25 @@ class Attributes:
     @overload
     def get(self, key: str, default: _T) -> Union[str, _T]: ...
     def sget(self, key: str, default: str = "") -> str: ...
+
+class StreamParser:
+    """Parses bytes a piece at a time: feed() each, then close() for the
+    HTMLParser that the whole would give."""
+
+    def __init__(
+        self,
+        scripting: bool = False,
+        budget: Optional[float] = None,
+        max_depth: Optional[int] = None,
+        url: Optional[str] = None,
+        positions: bool = False,
+        errors: bool = False,
+        transport_encoding: Optional[str] = None,
+        default_encoding: Optional[str] = None,
+    ) -> None: ...
+    def feed(self, data: bytes) -> None: ...
+    def close(self) -> HTMLParser: ...
+
+def encoding_for_locale(locale: str) -> str:
+    """The encoding a browser set to this language falls back to, for
+    default_encoding: "ja" gives "Shift_JIS"."""

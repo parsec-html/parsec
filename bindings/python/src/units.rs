@@ -3,10 +3,13 @@
 
 //! Offsets in the caller's units. The core counts UTF-8 bytes into the
 //! text it parsed; a caller slices what it passed in, which is code points
-//! for a Python `str` and UTF-16 units for a JavaScript string. The same
-//! `Counted` is in bindings/wasm/src/units.rs, counting UTF-16 instead.
+//! for a Python `str`, bytes in their own encoding for `bytes`, and UTF-16
+//! units for a JavaScript string. The same `Counted` is in
+//! bindings/wasm/src/units.rs, counting UTF-16 instead.
 
 use std::sync::OnceLock;
+
+use parsec_encoding::{Encoding, Offsets};
 
 const BLOCK: usize = 64;
 
@@ -80,14 +83,14 @@ pub fn code_point(b: u8) -> u32 {
 
 /// How the core's offsets become the caller's.
 pub enum Units {
-    /// They're the same: an ASCII `str`, or `bytes` that were all UTF-8.
+    /// They're the same: an ASCII `str`, or `bytes` that decoded to the
+    /// same bytes (ASCII, or UTF-8 with nothing replaced).
     Same,
     /// A `str` with more than ASCII in it: code point indexes.
     Chars(Counted),
-    /// `bytes` with sequences that weren't UTF-8, each of which the parse
-    /// read as a three-byte U+FFFD: after each, where the parsed text and
-    /// the bytes had got to.
-    Repaired(Vec<(usize, usize)>),
+    /// Any other `bytes`: byte offsets into them, in the encoding they
+    /// were decoded from.
+    Bytes(Offsets),
 }
 
 impl Units {
@@ -100,23 +103,13 @@ impl Units {
         }
     }
 
-    /// For `bytes`, which the parse was given as their lossy decoding.
-    pub fn of_bytes(bytes: &[u8]) -> Units {
-        let mut fixes = Vec::new();
-        let (mut parsed, mut given) = (0, 0);
-        for chunk in bytes.utf8_chunks() {
-            parsed += chunk.valid().len();
-            given += chunk.valid().len();
-            if !chunk.invalid().is_empty() {
-                parsed += '\u{FFFD}'.len_utf8();
-                given += chunk.invalid().len();
-                fixes.push((parsed, given));
-            }
-        }
-        if fixes.is_empty() {
+    /// For `bytes`, which the parse was given decoded from `encoding`.
+    pub fn of_bytes(bytes: &[u8], encoding: &'static Encoding) -> Units {
+        let offsets = Offsets::new(bytes, encoding);
+        if offsets.is_identity() {
             Units::Same
         } else {
-            Units::Repaired(fixes)
+            Units::Bytes(offsets)
         }
     }
 
@@ -125,13 +118,7 @@ impl Units {
         match self {
             Units::Same => offset,
             Units::Chars(c) => c.to_units(offset),
-            Units::Repaired(fixes) => {
-                let i = fixes.partition_point(|&(p, _)| p <= offset);
-                match i.checked_sub(1).map(|i| fixes[i]) {
-                    Some((p, g)) => g + (offset - p),
-                    None => offset,
-                }
-            }
+            Units::Bytes(o) => o.to_source(offset),
         }
     }
 
@@ -140,13 +127,7 @@ impl Units {
         match self {
             Units::Same => offset,
             Units::Chars(c) => c.to_bytes(offset),
-            Units::Repaired(fixes) => {
-                let i = fixes.partition_point(|&(_, g)| g <= offset);
-                match i.checked_sub(1).map(|i| fixes[i]) {
-                    Some((p, g)) => p + (offset - g),
-                    None => offset,
-                }
-            }
+            Units::Bytes(o) => o.to_decoded(offset),
         }
     }
 }

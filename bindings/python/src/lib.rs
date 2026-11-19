@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use parsec::css::{MatchOptions, SelectorList};
 use parsec::{AttrNs, Document, Kind, NodeId, Ns, Options, ParseError};
+use parsec_encoding::{ByteParser, Confidence, Encoding};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath, XValue};
 use pyo3::exceptions::{PyKeyError, PyTimeoutError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -53,6 +54,9 @@ struct HtmlParser {
     index: Mutex<Option<Arc<Index>>>,
     /// Turns the core's byte offsets into indexes of what was passed in.
     units: Units,
+    /// What `bytes` were decoded from, and how sure that is; None for a
+    /// `str`.
+    encoding: Option<(&'static Encoding, Confidence)>,
 }
 
 /// A parse error the parser recovered from, as `HTMLParser.errors` lists
@@ -399,7 +403,80 @@ fn attr_index(doc: &Document, id: NodeId, key: &str) -> Option<usize> {
     })
 }
 
+fn options(
+    scripting: bool,
+    budget: Option<f64>,
+    max_depth: Option<usize>,
+    positions: bool,
+    errors: bool,
+) -> PyResult<Options> {
+    let budget = budget
+        .map(|s| {
+            Duration::try_from_secs_f64(s)
+                .map_err(|e| PyValueError::new_err(format!("budget: {e}")))
+        })
+        .transpose()?;
+    Ok(Options {
+        scripting,
+        budget,
+        max_depth,
+        spans: positions,
+        errors,
+    })
+}
+
+fn label(what: &str, label: &str) -> PyResult<&'static Encoding> {
+    Encoding::for_label(label.as_bytes()).ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "{what}: {label:?} isn't an encoding label the Encoding Standard knows"
+        ))
+    })
+}
+
+fn byte_options(
+    html: Options,
+    transport: Option<&str>,
+    default: Option<&str>,
+) -> PyResult<parsec_encoding::Options> {
+    Ok(parsec_encoding::Options {
+        html,
+        // As the HTML Standard has it, a transport layer's label that names
+        // no encoding is passed over: it's usually a server's typo.
+        transport: transport.and_then(|l| Encoding::for_label(l.as_bytes())),
+        fallback: match default {
+            Some(l) => label("default_encoding", l)?,
+            None => parsec_encoding::Options::default().fallback,
+        },
+    })
+}
+
+fn confidence(c: Confidence) -> &'static str {
+    match c {
+        Confidence::Certain => "certain",
+        Confidence::Tentative => "tentative",
+    }
+}
+
 impl HtmlParser {
+    fn made(
+        doc: Document,
+        fragment: bool,
+        scripting: bool,
+        url: Option<String>,
+        units: Units,
+        encoding: Option<(&'static Encoding, Confidence)>,
+    ) -> HtmlParser {
+        HtmlParser {
+            doc: RwLock::new(doc),
+            fragment,
+            scripting,
+            url,
+            index: Mutex::new(None),
+            units,
+            encoding,
+        }
+    }
+
     /// A span of the core's as `(start, end)` in the input's own units.
     fn range(&self, r: std::ops::Range<usize>) -> (usize, usize) {
         (self.units.out(r.start), self.units.out(r.end))
@@ -647,16 +724,23 @@ fn merge_text_nodes(doc: &mut Document, id: NodeId) {
 
 #[pymethods]
 impl HtmlParser {
-    /// Parses `html`, a `str` or UTF-8 `bytes`, as a whole document, or as
-    /// a fragment inside `fragment_tag` when `is_fragment`. `budget` is a
-    /// time limit in seconds and `max_depth` caps the tree's depth; `url`
-    /// is the page's address, for `:target` and `:local-link`.
+    /// Parses `html` as a whole document, or as a fragment inside
+    /// `fragment_tag` when `is_fragment`. `budget` is a time limit in
+    /// seconds and `max_depth` caps the tree's depth; `url` is the page's
+    /// address, for `:target` and `:local-link`.
+    ///
+    /// A `str` is parsed as it is. `bytes` are decoded first, in the
+    /// encoding a browser would pick: a byte order mark's, else
+    /// `transport_encoding` (the `charset` of an HTTP `Content-Type`,
+    /// passed over if it names no encoding, as browsers do), else a
+    /// `<meta>` naming one, else `default_encoding` (windows-1252 unless
+    /// given). The names are html5lib's.
     ///
     /// `positions` records where each node and attribute was written, for
     /// `Node.source_range` and the like; `errors` keeps the parse errors,
     /// for `errors`.
     #[new]
-    #[pyo3(signature = (html, is_fragment = false, fragment_tag = "div", fragment_namespace = "html", scripting = false, budget = None, max_depth = None, url = None, positions = false, errors = false))]
+    #[pyo3(signature = (html, is_fragment = false, fragment_tag = "div", fragment_namespace = "html", scripting = false, budget = None, max_depth = None, url = None, positions = false, errors = false, transport_encoding = None, default_encoding = None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -670,30 +754,62 @@ impl HtmlParser {
         url: Option<String>,
         positions: bool,
         errors: bool,
+        transport_encoding: Option<&str>,
+        default_encoding: Option<&str>,
     ) -> PyResult<Self> {
-        let bytes = html.cast::<PyBytes>().ok().map(|b| b.as_bytes());
-        let Some(html) = text_of(html)? else {
+        let options = options(scripting, budget, max_depth, positions, errors)?;
+        let ns = namespace(fragment_namespace)?;
+        let keep = positions || errors;
+        if let Ok(b) = html.cast::<PyBytes>() {
+            let bytes = b.as_bytes();
+            let options = byte_options(options, transport_encoding, default_encoding)?;
+            let (doc, encoding, confidence, units) = py
+                .detach(|| -> Result<_, ParseError> {
+                    let (doc, encoding, confidence) = if is_fragment {
+                        // A fragment has no restart on a later `<meta>`:
+                        // that's a document's.
+                        let (encoding, confidence) =
+                            parsec_encoding::sniff(bytes, options.transport, options.fallback);
+                        let (text, _) = encoding.decode_with_bom_removal(bytes);
+                        let html = options.html;
+                        let doc = parsec::parse_fragment_with(&text, ns, fragment_tag, html)?;
+                        (doc, encoding, confidence)
+                    } else {
+                        let p = parsec_encoding::parse_bytes(bytes, options)?;
+                        (p.document, p.encoding, p.confidence)
+                    };
+                    let units = if keep {
+                        Units::of_bytes(bytes, encoding)
+                    } else {
+                        Units::Same
+                    };
+                    Ok((doc, encoding, confidence, units))
+                })
+                .map_err(parse_error)?;
+            return Ok(HtmlParser::made(
+                doc,
+                is_fragment,
+                scripting,
+                url,
+                units,
+                Some((encoding, confidence)),
+            ));
+        }
+        let Ok(html) = html.cast::<PyString>() else {
             return Err(PyTypeError::new_err("html must be str or bytes"));
         };
-        let units = match bytes {
-            _ if !(positions || errors) => Units::Same,
-            Some(b) => Units::of_bytes(b),
-            None => Units::of_str(&html),
+        if transport_encoding.is_some() || default_encoding.is_some() {
+            // As html5lib: a str has no encoding to choose.
+            return Err(PyTypeError::new_err(
+                "transport_encoding and default_encoding are for bytes; a str is already decoded",
+            ));
+        }
+        let html = html.to_cow()?;
+        let units = if keep {
+            Units::of_str(&html)
+        } else {
+            Units::Same
         };
-        let budget = budget
-            .map(|s| {
-                Duration::try_from_secs_f64(s)
-                    .map_err(|e| PyValueError::new_err(format!("budget: {e}")))
-            })
-            .transpose()?;
-        let options = Options {
-            scripting,
-            budget,
-            max_depth,
-            spans: positions,
-            errors,
-        };
-        let ns = namespace(fragment_namespace)?;
         let doc = py
             .detach(|| {
                 if is_fragment {
@@ -703,14 +819,31 @@ impl HtmlParser {
                 }
             })
             .map_err(parse_error)?;
-        Ok(HtmlParser {
-            doc: RwLock::new(doc),
-            fragment: is_fragment,
+        Ok(HtmlParser::made(
+            doc,
+            is_fragment,
             scripting,
             url,
-            index: Mutex::new(None),
             units,
-        })
+            None,
+        ))
+    }
+
+    /// The encoding `bytes` were decoded from, by its name in the Encoding
+    /// Standard ("UTF-8", "Shift_JIS", "windows-1252"): what a browser's
+    /// `document.characterSet` says. None for a `str`.
+    #[getter]
+    fn encoding(&self) -> Option<&'static str> {
+        self.encoding.map(|(e, _)| e.name())
+    }
+
+    /// "certain" when a byte order mark, `transport_encoding` or a `<meta>`
+    /// the parser met decided the encoding, "tentative" when it's from the
+    /// first 1,024 bytes' `<meta>` alone or `default_encoding`, as the
+    /// HTML Standard calls them. None for a `str`.
+    #[getter]
+    fn encoding_confidence(&self) -> Option<&'static str> {
+        self.encoding.map(|(_, c)| confidence(c))
     }
 
     /// Runs an XPath 1.0 expression over the document, as lxml's
@@ -1585,12 +1718,114 @@ impl Attributes {
     }
 }
 
+/// Parses a page given as `bytes` a piece at a time, as a browser does
+/// while it downloads one: `feed()` each piece as it comes, then
+/// `close()` for the `HTMLParser`, the same one `HTMLParser(b"".join(
+/// pieces), ...)` gives, however the bytes were cut. The names are those
+/// of lxml's feed parser and the standard library's `html.parser`.
+#[pyclass(frozen, module = "parsec_html", name = "StreamParser")]
+struct StreamParser {
+    /// None once closed. Locked only while detached from the interpreter.
+    state: Mutex<Option<Stream>>,
+    scripting: bool,
+    url: Option<String>,
+}
+
+struct Stream {
+    parser: ByteParser,
+    /// Every byte, for the offsets, when positions or errors are kept.
+    bytes: Option<Vec<u8>>,
+}
+
+#[pymethods]
+impl StreamParser {
+    /// Takes what `HTMLParser` takes, but for the page and the fragment
+    /// arguments, which a stream doesn't have.
+    #[new]
+    #[pyo3(signature = (scripting = false, budget = None, max_depth = None, url = None, positions = false, errors = false, transport_encoding = None, default_encoding = None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        scripting: bool,
+        budget: Option<f64>,
+        max_depth: Option<usize>,
+        url: Option<String>,
+        positions: bool,
+        errors: bool,
+        transport_encoding: Option<&str>,
+        default_encoding: Option<&str>,
+    ) -> PyResult<Self> {
+        let html = options(scripting, budget, max_depth, positions, errors)?;
+        let options = byte_options(html, transport_encoding, default_encoding)?;
+        Ok(StreamParser {
+            state: Mutex::new(Some(Stream {
+                parser: ByteParser::new(options),
+                bytes: (positions || errors).then(Vec::new),
+            })),
+            scripting,
+            url,
+        })
+    }
+
+    /// The next piece of the page.
+    fn feed(&self, py: Python<'_>, data: &[u8]) -> PyResult<()> {
+        py.detach(|| {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let stream = state.as_mut().ok_or_else(closed)?;
+            stream.parser.feed(data);
+            if let Some(kept) = &mut stream.bytes {
+                kept.extend_from_slice(data);
+            }
+            Ok(())
+        })
+    }
+
+    /// The end of the page: the parsed document. A parser closes once.
+    fn close(&self, py: Python<'_>) -> PyResult<HtmlParser> {
+        let (parsed, units) = py.detach(|| {
+            let stream = self
+                .state
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .take()
+                .ok_or_else(closed)?;
+            let parsed = stream.parser.finish().map_err(parse_error)?;
+            let units = match stream.bytes {
+                Some(bytes) => Units::of_bytes(&bytes, parsed.encoding),
+                None => Units::Same,
+            };
+            Ok::<_, PyErr>((parsed, units))
+        })?;
+        Ok(HtmlParser::made(
+            parsed.document,
+            false,
+            self.scripting,
+            self.url.clone(),
+            units,
+            Some((parsed.encoding, parsed.confidence)),
+        ))
+    }
+}
+
+fn closed() -> PyErr {
+    PyValueError::new_err("the StreamParser is closed")
+}
+
+/// The encoding a browser set to the language `locale` (a BCP 47 tag such
+/// as "ja", "ru-RU" or "zh-Hant") falls back to for a page that names
+/// none, from the HTML Standard's table: pass it as `default_encoding`.
+#[pyfunction]
+fn encoding_for_locale(locale: &str) -> &'static str {
+    parsec_encoding::locale_default(locale).name()
+}
+
 #[pymodule(gil_used = false)]
 fn parsec_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<HtmlParser>()?;
     m.add_class::<Node>()?;
     m.add_class::<Attributes>()?;
     m.add_class::<SyntaxIssue>()?;
+    m.add_class::<StreamParser>()?;
+    m.add_function(wrap_pyfunction!(encoding_for_locale, m)?)?;
     m.add("SelectorError", m.py().get_type::<SelectorError>())?;
     m.add("XPathError", m.py().get_type::<XPathError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
