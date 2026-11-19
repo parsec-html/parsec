@@ -12,7 +12,9 @@
 // As wpt-values-cases.js does, each file's inline scripts run in a
 // sandbox with no DOM, where test_computed_value and
 // fuzzy_test_computed_color record what they expect getComputedStyle()
-// on #target to give once `target.style[property] = specified` is set.
+// on #target to give once `target.style[property] = specified` is set,
+// and test_pseudo_computed_value what one of its pseudo-elements gives
+// with that declaration in a rule for it.
 // Anything else a file does to the page (changing styles from script,
 // building elements) throws, and is counted as skipped with why.
 'use strict';
@@ -40,7 +42,6 @@ const NEEDS = {
   fuzzy_test_valid_color: 'parsing, not computing (tests/wpt-values)',
   fuzzy_test_valid_color_property: 'parsing, not computing (tests/wpt-values)',
   test_math_used: 'layout',
-  test_pseudo_computed_value: 'pseudo-elements',
   fuzzy_test_computed_color_using_currentcolor: 'a color set from script',
   test_valid_selector: 'selectors, not values',
   test_invalid_selector: 'selectors, not values',
@@ -81,6 +82,12 @@ function sandboxFor(file) {
   const sandbox = {
     test_computed_value(property, specified, expect, titleExtra, options) {
       computed(property, specified, expect, options);
+    },
+    // A rule `#target::before { property: specified }`, read with
+    // getComputedStyle(target, '::before').
+    test_pseudo_computed_value(pseudo, property, specified, expect) {
+      if (typeof property !== 'string' || typeof specified !== 'string') unsupported('a value that is not a string');
+      record({ kind: 'pseudo', pseudo, property, specified, expect: expect || specified });
     },
     // inheritance-testcommon.js
     assert_initial(property, initial) {

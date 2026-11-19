@@ -11,7 +11,8 @@
 //
 // The files are css/css-cascade (layers, `@scope`, `@import`),
 // css/css-conditional/container-queries, css/css-properties-values-api
-// (`@property`) and css/css-counter-styles/counter-style-at-rule.
+// (`@property`), css/css-counter-styles/counter-style-at-rule and
+// css/css-pseudo (pseudo-elements' computed values).
 //
 // Most of these tests add a <style> from script, read an element's
 // computed style or a rule of a sheet through CSSOM, and remove the
@@ -19,7 +20,7 @@
 // elements is recorded, a <template>'s contents put into an element is
 // recorded, an element is remembered by the selector the test found it
 // with (and the element it was looked for under) and its place in the
-// matches, and `getComputedStyle(element)[property]`, a sheet's
+// matches, and `getComputedStyle(element, pseudo)[property]`, a sheet's
 // `cssRules.length` and a rule's attributes give probes; an assertion on
 // a probe is a case. Anything else a test does throws, and the test is
 // counted as skipped with why. The tests' own helper scripts run in the
@@ -71,12 +72,70 @@ function sandboxFor(file, html) {
   for (const m of html.matchAll(/<template\b[^>]*>[\s\S]*?<\/template\s*>/gi)) {
     templates.push({ start: m.index, end: m.index + m[0].length });
   }
-  const rule = (sheet, index) =>
+  // The page's own <style>s, as document.styleSheets has them, and the
+  // declarations a test sets on their rules through `rule.style`.
+  const pageStyles = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi)].map((m) => m[1]);
+  const edits = new Map();
+  const declarations = (sheetIndex, index) =>
+    new Proxy(
+      {},
+      {
+        get(_, p) {
+          unsupported(`reading rule.style.${String(p)}`);
+        },
+        set(_, p, value) {
+          const key = `${sheetIndex}/${index}`;
+          if (!edits.has(key)) edits.set(key, new Map());
+          const name = p === 'cssFloat' ? 'float' : String(p).replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+          if (value === '') edits.get(key).delete(name);
+          else edits.get(key).set(name, String(value));
+          return true;
+        },
+      }
+    );
+  // A page <style>'s text with the declarations set on its rules put at
+  // the end of each rule's block.
+  const restyled = (sheetIndex) => {
+    const text = pageStyles[sheetIndex];
+    const at = [];
+    let depth = 0;
+    let rules = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '/' && text[i + 1] === '*') {
+        const end = text.indexOf('*/', i + 2);
+        i = end < 0 ? text.length : end + 1;
+      } else if (c === '"' || c === "'") {
+        while (++i < text.length && text[i] !== c) if (text[i] === '\\') i++;
+      } else if (c === '{') {
+        depth++;
+      } else if (c === '}' && depth > 0 && --depth === 0) {
+        at[rules++] = i;
+      } else if (c === ';' && depth === 0) {
+        rules++;
+      }
+    }
+    let out = text;
+    const changed = [...edits.keys()]
+      .map((k) => k.split('/').map(Number))
+      .filter(([s, r]) => s === sheetIndex && at[r] !== undefined && edits.get(`${s}/${r}`).size)
+      .sort((a, b) => b[1] - a[1]);
+    for (const [s, r] of changed) {
+      const decls = [...edits.get(`${s}/${r}`)].map(([n, v]) => `; ${n}: ${v}`).join('');
+      out = out.slice(0, at[r]) + decls + out.slice(at[r]);
+    }
+    return out;
+  };
+  const rule = (sheet, index, sheetIndex) =>
     new Proxy(
       {},
       {
         get(_, p) {
           if (typeof p !== 'string') return undefined;
+          if (p === 'style') {
+            if (sheetIndex === undefined) unsupported('a rule\'s style in a sheet added from script');
+            return declarations(sheetIndex, index);
+          }
           if (p === 'constructor') return { name: probe({ kind: 'rule', sheet, index, attr: 'constructor.name' }) };
           if (p === 'cssText') {
             return {
@@ -177,7 +236,32 @@ function sandboxFor(file, html) {
     };
     return el;
   };
+  const pageSheet = (i) => {
+    if (i >= pageStyles.length) unsupported('a sheet that isn\'t a <style>');
+    const rules = () =>
+      new Proxy([], {
+        get(_, p) {
+          if (p === 'length') return probe({ kind: 'rules', sheet: pageStyles[i] });
+          if (typeof p === 'string' && /^\d+$/.test(p)) return rule(pageStyles[i], Number(p), i);
+          unsupported(`sheet.cssRules.${String(p)}`);
+        },
+      });
+    return {
+      get cssRules() { return rules(); },
+      insertRule: () => unsupported('insertRule'),
+    };
+  };
   const document = {
+    get styleSheets() {
+      if (state.styles.length) unsupported('document.styleSheets with sheets added');
+      return new Proxy([], {
+        get(_, p) {
+          if (p === 'length') return pageStyles.length;
+          if (typeof p === 'string' && /^\d+$/.test(p)) return pageSheet(Number(p));
+          unsupported(`document.styleSheets.${String(p)}`);
+        },
+      });
+    },
     head: element({ selector: 'head', index: 0 }),
     createElement: (t) => (t === 'style' ? styleElement() : unsupported(`a <${t}>`)),
     createTextNode: (t) => ({ __text: String(t) }),
@@ -204,9 +288,11 @@ function sandboxFor(file, html) {
       };
     },
   };
-  const computed = (el) => {
+  const computed = (el, pseudo) => {
     if (!el || !el.__el) unsupported('getComputedStyle of something not found by a selector');
-    const read = (prop) => probe({ kind: 'computed', element: el.__el, property: prop });
+    if (pseudo !== undefined && pseudo !== null && typeof pseudo !== 'string') unsupported('a pseudo-element that isn\'t a string');
+    const read = (prop) =>
+      probe(Object.assign({ kind: 'computed', element: el.__el }, pseudo ? { pseudo } : {}, { property: prop }));
     return new Proxy(
       {},
       {
@@ -218,11 +304,18 @@ function sandboxFor(file, html) {
       }
     );
   };
-  const record = (pr, expect) => {
+  const record = (pr, expect, like) => {
     const base = { file, sheets: state.styles.map((s) => s.__text) };
     if (state.inserts.length) base.inserts = state.inserts.slice();
+    const restyle = pageStyles.map((_, i) => ({ index: i, text: restyled(i) })).filter((r) => r.text !== pageStyles[r.index]);
+    if (restyle.length) base.restyle = restyle;
     if (pr.kind === 'computed') {
-      state.cases.push(Object.assign(base, { element: pr.element, property: pr.property, expect }));
+      const read = { element: pr.element };
+      if (pr.pseudo) read.pseudo = pr.pseudo;
+      read.property = pr.property;
+      // What another read gives, where the test expects that.
+      if (like) read.like = { element: like.element, pseudo: like.pseudo, property: like.property };
+      state.cases.push(Object.assign(base, read, { expect }));
     } else {
       state.cases.push(Object.assign(base, pr, { expect }));
     }
@@ -275,7 +368,11 @@ function sandboxFor(file, html) {
         if (!same(actual, expected)) throw new Error(`${actual} != ${expected}`);
         return;
       }
-      if (state.probes.has(expected)) unsupported('comparing two probes');
+      if (state.probes.has(expected)) {
+        const e = state.probes.get(expected);
+        if (a.kind !== 'computed' || e.kind !== 'computed') unsupported('comparing two probes');
+        return record(a, null, e);
+      }
       if (a.kind === 'contains') {
         if (expected !== -1) unsupported('where in a rule\'s text something is');
         return record(a, false);
@@ -368,6 +465,7 @@ const dirs = [
   'css/css-conditional/container-queries',
   'css/css-properties-values-api',
   'css/css-counter-styles/counter-style-at-rule',
+  'css/css-pseudo',
 ];
 
 (async () => {

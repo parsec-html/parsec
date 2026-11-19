@@ -4053,7 +4053,49 @@
   },
   {
    "file": "css/css-cascade/layer-counter-style-override.html",
-   "skipped_because": "needs element.offsetLeft"
+   "cases": [
+    {
+     "file": "css/css-cascade/layer-counter-style-override.html",
+     "sheets": [
+      "\n      #target::before {\n        content: counter(dont-care, custom-counter-style);\n      }\n\n      @counter-style custom-counter-style {\n        system: extends four;\n      }\n\n      @layer {\n        @counter-style custom-counter-style {\n          system: extends three;\n        }\n      }\n    "
+     ],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "width",
+     "like": {
+      "element": {
+       "selector": "[id=\"reference\"]",
+       "index": 0
+      },
+      "property": "width"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-cascade/layer-counter-style-override.html",
+     "sheets": [
+      "\n      @layer base, override;\n\n      #target::before {\n        content: counter(dont-care, custom-counter-style);\n      }\n\n      @layer override {\n        @counter-style custom-counter-style {\n          system: extends four;\n        }\n      }\n\n      @layer base {\n        @counter-style custom-counter-style {\n          system: extends three;\n        }\n      }\n    "
+     ],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "width",
+     "like": {
+      "element": {
+       "selector": "[id=\"reference\"]",
+       "index": 0
+      },
+      "property": "width"
+     },
+     "expect": null
+    }
+   ],
+   "skipped": {
+    "the rest of the file needs element.offsetLeft": 1
+   }
   },
   {
    "file": "css/css-cascade/layer-cssom-insert-after-style.html",
@@ -7253,7 +7295,49 @@
   },
   {
    "file": "css/css-cascade/layer-keyframes-override.html",
-   "skipped_because": "needs element.offsetLeft"
+   "cases": [
+    {
+     "file": "css/css-cascade/layer-keyframes-override.html",
+     "sheets": [
+      "\n      #target {\n        animation: anim 1s paused;\n      }\n\n      @keyframes anim {\n        from { background-color: green; }\n      }\n\n      @layer {\n        @keyframes anim {\n          from { background-color: red; }\n        }\n      }\n    "
+     ],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "like": {
+      "element": {
+       "selector": "[id=\"reference\"]",
+       "index": 0
+      },
+      "property": "background-color"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-cascade/layer-keyframes-override.html",
+     "sheets": [
+      "\n      @layer base, override;\n\n      #target {\n        animation: anim 1s paused;\n      }\n\n      @layer override {\n        @keyframes anim {\n          from { background-color: green; }\n        }\n      }\n\n      @layer base {\n        @keyframes anim {\n          from { background-color: red; }\n        }\n      }\n    "
+     ],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "like": {
+      "element": {
+       "selector": "[id=\"reference\"]",
+       "index": 0
+      },
+      "property": "background-color"
+     },
+     "expect": null
+    }
+   ],
+   "skipped": {
+    "the rest of the file needs element.offsetLeft": 1
+   }
   },
   {
    "file": "css/css-cascade/layer-media-query.html",
@@ -7273,7 +7357,49 @@
   },
   {
    "file": "css/css-cascade/layer-property-override.html",
-   "skipped_because": "needs element.offsetLeft"
+   "cases": [
+    {
+     "file": "css/css-cascade/layer-property-override.html",
+     "sheets": [
+      "\n      #target {\n        background-color: var(--foo);\n      }\n\n      @property --foo {\n        syntax: '<color>';\n        inherits: false;\n        initial-value: green;\n      }\n\n      @layer {\n        @property --foo {\n          syntax: '<color>';\n          inherits: false;\n          initial-value: red;\n        }\n      }\n   "
+     ],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "like": {
+      "element": {
+       "selector": "[id=\"reference\"]",
+       "index": 0
+      },
+      "property": "background-color"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-cascade/layer-property-override.html",
+     "sheets": [
+      "\n      @layer base, override;\n\n      #target {\n        background-color: var(--foo);\n      }\n\n      @layer override {\n        @property --foo {\n          syntax: '<color>';\n          inherits: false;\n          initial-value: green;\n        }\n      }\n\n      @layer base {\n        @property --foo {\n          syntax: '<color>';\n          inherits: false;\n          initial-value: red;\n        }\n      }\n    "
+     ],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "like": {
+      "element": {
+       "selector": "[id=\"reference\"]",
+       "index": 0
+      },
+      "property": "background-color"
+     },
+     "expect": null
+    }
+   ],
+   "skipped": {
+    "the rest of the file needs element.offsetLeft": 1
+   }
   },
   {
    "file": "css/css-cascade/layer-replaceSync-clears-stale.html",
@@ -9909,7 +10035,7 @@
   },
   {
    "file": "css/css-cascade/unset-value-storage.html",
-   "skipped_because": "TypeError: Cannot read properties of undefined (reading '0')"
+   "skipped_because": "needs reading rule.style.getPropertyValue"
   },
   {
    "file": "css/css-conditional/container-queries/animation-container-size.html",
@@ -12935,6 +13061,7 @@
       "selector": "#t6",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -12945,6 +13072,7 @@
       "selector": "#t7",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -12995,6 +13123,7 @@
       "selector": "#pseudo-1",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -13005,6 +13134,7 @@
       "selector": "#pseudo-2",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     }
@@ -16577,6 +16707,7 @@
       "selector": "[id=\"target14\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "content",
      "expect": "\"foo\""
     },
@@ -16587,6 +16718,7 @@
       "selector": "[id=\"target14\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "--x",
      "expect": "30"
     },
@@ -16597,6 +16729,7 @@
       "selector": "[id=\"target15\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "content",
      "expect": "\"foo\""
     },
@@ -16607,6 +16740,7 @@
       "selector": "[id=\"target15\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "--x",
      "expect": "30"
     },
@@ -16617,6 +16751,7 @@
       "selector": "[id=\"target16\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "content",
      "expect": "\"foo\""
     },
@@ -16627,6 +16762,7 @@
       "selector": "[id=\"target16\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "--x",
      "expect": "30"
     },
@@ -16637,6 +16773,7 @@
       "selector": "[id=\"target17\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "content",
      "expect": "\"foo\""
     },
@@ -16647,6 +16784,7 @@
       "selector": "[id=\"target17\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "--x",
      "expect": ""
     },
@@ -17042,6 +17180,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17052,6 +17191,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::after",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17062,6 +17202,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::marker",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17072,6 +17213,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17082,6 +17224,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17092,6 +17235,7 @@
       "selector": "[id=\"outer\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17102,6 +17246,7 @@
       "selector": "[id=\"outer\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     }
@@ -17120,6 +17265,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     },
@@ -17130,6 +17276,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::after",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     },
@@ -17140,6 +17287,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::marker",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     },
@@ -17150,6 +17298,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     },
@@ -17160,6 +17309,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     },
@@ -17170,6 +17320,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::backdrop",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     }
@@ -17188,6 +17339,7 @@
       "selector": "[id=\"c1\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -17198,6 +17350,7 @@
       "selector": "[id=\"c1\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "height",
      "expect": "100px"
     },
@@ -17208,6 +17361,7 @@
       "selector": "[id=\"c2\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(255, 0, 0)"
     }
@@ -17226,6 +17380,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17236,6 +17391,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::after",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17246,6 +17402,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::marker",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17256,6 +17413,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17266,6 +17424,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17276,6 +17435,7 @@
       "selector": "[id=\"outer\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "font-size",
      "expect": "30px"
     },
@@ -17286,6 +17446,7 @@
       "selector": "[id=\"outer\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "font-size",
      "expect": "30px"
     }
@@ -17304,6 +17465,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "font-size",
      "expect": "0px"
     },
@@ -17314,6 +17476,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::after",
      "property": "font-size",
      "expect": "0px"
     },
@@ -17324,6 +17487,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::marker",
      "property": "font-size",
      "expect": "0px"
     },
@@ -17334,6 +17498,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "font-size",
      "expect": "0px"
     },
@@ -17344,6 +17509,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "font-size",
      "expect": "0px"
     },
@@ -17354,6 +17520,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::backdrop",
      "property": "font-size",
      "expect": "0px"
     }
@@ -17372,6 +17539,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17382,6 +17550,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::after",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17392,6 +17561,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::marker",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17402,6 +17572,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17412,6 +17583,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "font-size",
      "expect": "20px"
     },
@@ -17422,6 +17594,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::highlight(foo)",
      "property": "text-decoration-thickness",
      "expect": "20px"
     },
@@ -17432,6 +17605,7 @@
       "selector": "[id=\"outer\"]",
       "index": 0
      },
+     "pseudo": "::first-line",
      "property": "font-size",
      "expect": "30px"
     },
@@ -17442,6 +17616,7 @@
       "selector": "[id=\"outer\"]",
       "index": 0
      },
+     "pseudo": "::first-letter",
      "property": "font-size",
      "expect": "30px"
     }
@@ -17476,6 +17651,7 @@
       "selector": "[id=\"target\"]",
       "index": 0
      },
+     "pseudo": "::highlight(foo)",
      "property": "text-decoration-thickness",
      "expect": "0px"
     }
@@ -19983,6 +20159,7 @@
       "selector": "#t6",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     },
@@ -19993,6 +20170,7 @@
       "selector": "#t7",
       "index": 0
      },
+     "pseudo": "::before",
      "property": "color",
      "expect": "rgb(0, 128, 0)"
     }
@@ -20997,7 +21175,7 @@
   },
   {
    "file": "css/css-properties-values-api/at-property-cssom.html",
-   "skipped_because": "TypeError: Cannot read properties of undefined (reading '0')"
+   "skipped_because": "needs sheet.cssRules.Symbol(Symbol.iterator)"
   },
   {
    "file": "css/css-properties-values-api/at-property-media-query.html",
@@ -24943,6 +25121,3019 @@
     }
    ],
    "skipped": {}
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-convertPoint.tentative.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-geometry-edge-cases.tentative.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-getBoxQuads.tentative.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-identity.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-scroll-button.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-selectorText.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-view-transitions-scoped.tentative.html",
+   "skipped_because": "needs element.startViewTransition"
+  },
+  {
+   "file": "css/css-pseudo/CSSPseudoElement-view-transitions.tentative.html",
+   "skipped_because": "needs element.pseudo"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-001-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-002-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-004-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-012.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-014.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-016.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-018.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-021.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-025.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-027.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-031.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-041.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-043.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-045.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-051.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-052.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-053.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-054.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-056.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-057.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/active-selection-063.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/after-with-animation-removed.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/backdrop-animate-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/backdrop-animate.html",
+   "skipped_because": "needs element.showModal"
+  },
+  {
+   "file": "css/css-pseudo/backdrop-pseudo-element-click.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/before-after-dynamic-custom-property-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/before-as-flex-container.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/before-dynamic-display-none.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/before-in-display-none-thcrash.html",
+   "skipped_because": "needs element.style"
+  },
+  {
+   "file": "css/css-pseudo/before-preceding-whitespace-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/chrome-486467574.html",
+   "skipped_because": "needs a <div>"
+  },
+  {
+   "file": "css/css-pseudo/chrome-bug-1299142-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/chrome-first-letter-container-query-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/chrome-first-letter-inside-replaced-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/events-on-after-before-marker.tentative.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/events-on-pseudo-element-mutation.tentative.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/events-on-pseudo-element-shadow-dom.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/events-on-pseudo-element.tentative.html",
+   "skipped_because": "needs /dom/events/scrolling/scroll_support.js"
+  },
+  {
+   "file": "css/css-pseudo/events-on-view-transition-pseudos.tentative.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/file-selector-button-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/file-selector-button-after-part.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/file-selector-button-display-none-overflow-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/file-selector-button-display-toggle-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/file-selector-button-float.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/file-selector-button-inherit.html",
+   "cases": [
+    {
+     "file": "css/css-pseudo/file-selector-button-inherit.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"inp\"]",
+      "index": 0
+     },
+     "pseudo": "::file-selector-button",
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-pseudo/file-selector-button-inherit.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"inp\"]",
+      "index": 0
+     },
+     "pseudo": "::file-selector-button",
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-pseudo/firefox-bug-1907238-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-005.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-allowed-properties.html",
+   "cases": [
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "kind": "rule",
+     "sheet": "\n#target::first-letter {}\n#target { visibility: hidden; }\n",
+     "index": 0,
+     "attr": "selectorText",
+     "expect": "#target::first-letter"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-attachment: fixed}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-attachment",
+     "expect": "fixed"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-blend-mode: hue}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-blend-mode",
+     "expect": "hue"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-clip: padding-box}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-clip",
+     "expect": "padding-box"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-color: rgb(10, 20, 30)}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-color",
+     "expect": "rgb(10, 20, 30)"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-image: linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255))}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-image",
+     "expect": "linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255))"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-origin: border-box}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-origin",
+     "expect": "border-box"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-position: 10px 20px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-position",
+     "expect": "10px 20px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-repeat: no-repeat}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-repeat",
+     "expect": "no-repeat"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; background-size: 10px 20px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "background-size",
+     "expect": "10px 20px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; border: 40px dotted rgb(10, 20, 30)}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "border",
+     "expect": "40px dotted rgb(10, 20, 30)"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; border-image: linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255)) 10% / 20 / 30px repeat}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "border-image",
+     "expect": "linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255)) 10% / 20 / 30px repeat"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; border-radius: 10px 20px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "border-radius",
+     "expect": "10px 20px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; box-shadow: rgb(10, 20, 30) 10px 20px 30px 40px inset}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "box-shadow",
+     "expect": "rgb(10, 20, 30) 10px 20px 30px 40px inset"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; color: rgba(10, 20, 30, 0.4)}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "color",
+     "expect": "rgba(10, 20, 30, 0.4)"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; float: right}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "float",
+     "expect": "right"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; font: italic small-caps 900 10px / 20px sans-serif}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "font",
+     "expect": "italic small-caps 900 10px / 20px sans-serif"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; font-feature-settings: \"vert\" 2}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "font-feature-settings",
+     "expect": "\"vert\" 2"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; font-size-adjust: 0.5}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "font-size-adjust",
+     "expect": "0.5"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; font-kerning: none}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "font-kerning",
+     "expect": "none"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; font-variation-settings: \"XHGT\" 0.7}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "font-variation-settings",
+     "expect": "\"XHGT\" 0.7"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; letter-spacing: 12px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "letter-spacing",
+     "expect": "12px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; margin: 10px 20px 30px 40px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "margin",
+     "expect": "10px 20px 30px 40px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; padding: 10px 20px 30px 40px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "padding",
+     "expect": "10px 20px 30px 40px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; opacity: 0.5}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "opacity",
+     "expect": "0.5"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; text-decoration: overline wavy rgb(10, 20, 30)}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "text-decoration",
+     "expect": "overline wavy rgb(10, 20, 30)"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; text-justify: inter-word}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "text-justify",
+     "expect": "inter-word"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; text-shadow: rgb(10, 20, 30) 10px 20px 30px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "text-shadow",
+     "expect": "rgb(10, 20, 30) 10px 20px 30px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; text-transform: capitalize}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "text-transform",
+     "expect": "capitalize"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; text-underline-position: under}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "text-underline-position",
+     "expect": "under"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; vertical-align: 12%}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "vertical-align",
+     "expect": "12%"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; word-spacing: 12px}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "word-spacing",
+     "expect": "12px"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-name: foo}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-name",
+     "expect": "foo"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-duration: 1s}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-duration",
+     "expect": "1s"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-timing-function: ease-in-out}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-timing-function",
+     "expect": "ease-in-out"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-delay: 2s}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-delay",
+     "expect": "2s"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-iteration-count: 3}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-iteration-count",
+     "expect": "3"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-direction: alternate}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-direction",
+     "expect": "alternate"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-fill-mode: forwards}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-fill-mode",
+     "expect": "forwards"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-play-state: paused}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-play-state",
+     "expect": "paused"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; animation-composition: add}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "animation-composition",
+     "expect": "add"
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; position: absolute}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "position",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "position"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; transition: transform 1s}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "transition",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "transition"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; transform: rotate(45deg)}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "transform",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "transform"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-letter-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n#target::first-letter {; word-break: break-all}\n#target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-letter",
+     "property": "word-break",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "word-break"
+     },
+     "expect": null
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-pseudo/first-letter-and-sibling-display-change.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-and-whitespace.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-animate.html",
+   "skipped_because": "needs element.animate"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-background-image-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-background-image.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-before-dynamic-multi.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-before-dynamic-on-block.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-before-dynamic-punctuation.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-before-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-bidi-pre-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-block-to-inline.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-c0.tentative.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-capitalize-supplementary-char.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-crash.html",
+   "skipped_because": "asserts nothing about a computed style or a rule"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-digraph-document-lang-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-digraph-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-digraph.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-exclude-block-child-marker.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-exclude-inline-child-marker.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-exclude-inline-marker.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-first-line-dynamic-001-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-float-insert-text-before.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-hi-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-hi-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-input-textarea.tentative.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-insert-text-node-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-list-item-dynamic-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-of-html-root-refcrash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-opacity-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-opacity-float-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-punctuation-and-space.html",
+   "skipped_because": "no static cases"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-punctuation-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-require-first-formatted-line.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-skip-empty-span-nested.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-skip-empty-span.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-skip-marker.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-text-and-display-change.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-trailing-punctuation.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-width-2.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-width.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-with-before-after.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-with-preceding-new-line.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-with-quote.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-letter-with-span.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-allowed-properties.html",
+   "cases": [
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "kind": "rule",
+     "sheet": "\n  #target::first-line {}\n  #target { visibility: hidden; }\n",
+     "index": 0,
+     "attr": "selectorText",
+     "expect": "#target::first-line"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-attachment: fixed}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-attachment",
+     "expect": "fixed"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-blend-mode: hue}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-blend-mode",
+     "expect": "hue"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-clip: padding-box}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-clip",
+     "expect": "padding-box"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-color: rgb(10, 20, 30)}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-color",
+     "expect": "rgb(10, 20, 30)"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-image: linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255))}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-image",
+     "expect": "linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255))"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-origin: border-box}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-origin",
+     "expect": "border-box"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-position: 50% 50%}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-position",
+     "expect": "50% 50%"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-repeat: no-repeat}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-repeat",
+     "expect": "no-repeat"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; background-size: 10px 20px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "background-size",
+     "expect": "10px 20px"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; color: rgba(10, 20, 30, 0.4)}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "color",
+     "expect": "rgba(10, 20, 30, 0.4)"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-family: sans-serif}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-family",
+     "expect": "sans-serif"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-feature-settings: \"vert\" 2}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-feature-settings",
+     "expect": "\"vert\" 2"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-kerning: none}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-kerning",
+     "expect": "none"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-size: 30px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-size",
+     "expect": "30px"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-size-adjust: 0.5}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-size-adjust",
+     "expect": "0.5"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-style: italic}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-style",
+     "expect": "italic"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-variant: small-caps}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-variant",
+     "expect": "small-caps"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-weight: 900}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-weight",
+     "expect": "900"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; font-variation-settings: \"XHGT\" 0.7}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "font-variation-settings",
+     "expect": "\"XHGT\" 0.7"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; letter-spacing: 12px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "letter-spacing",
+     "expect": "12px"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; opacity: 0.5}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "opacity",
+     "expect": "0.5"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; text-decoration: overline wavy rgb(10, 20, 30)}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "text-decoration",
+     "expect": "overline wavy rgb(10, 20, 30)"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; text-justify: none}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "text-justify",
+     "expect": "none"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; text-shadow: rgb(10, 20, 30) 10px 20px 30px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "text-shadow",
+     "expect": "rgb(10, 20, 30) 10px 20px 30px"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; text-transform: capitalize}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "text-transform",
+     "expect": "capitalize"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; text-underline-position: under}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "text-underline-position",
+     "expect": "under"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; vertical-align: 12%}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "vertical-align",
+     "expect": "12%"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; word-spacing: 12px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "word-spacing",
+     "expect": "12px"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-name: foo}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-name",
+     "expect": "foo"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-duration: 1s}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-duration",
+     "expect": "1s"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-timing-function: ease-in-out}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-timing-function",
+     "expect": "ease-in-out"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-delay: 2s}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-delay",
+     "expect": "2s"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-iteration-count: 3}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-iteration-count",
+     "expect": "3"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-direction: alternate}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-direction",
+     "expect": "alternate"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-fill-mode: forwards}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-fill-mode",
+     "expect": "forwards"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-play-state: paused}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-play-state",
+     "expect": "paused"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; animation-composition: add}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "animation-composition",
+     "expect": "add"
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; border: 40px dotted rgb(10, 20, 30)}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "border",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "border"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; border-image: linear-gradient(rgb(0, 0, 0), rgb(255, 255, 255)) 10% / 20 / 30px repeat}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "border-image",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "border-image"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; border-radius: 10px 20px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "border-radius",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "border-radius"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; margin: 10px 20px 30px 40px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "margin",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "margin"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; padding: 10px 20px 30px 40px}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "padding",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "padding"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; position: absolute}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "position",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "position"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; transition: transform 1s}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "transition",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "transition"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; transform: rotate(45deg)}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "transform",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "transform"
+     },
+     "expect": null
+    },
+    {
+     "file": "css/css-pseudo/first-line-allowed-properties.html",
+     "sheets": [],
+     "restyle": [
+      {
+       "index": 0,
+       "text": "\n  #target::first-line {; word-break: break-all}\n  #target { visibility: hidden; }\n"
+      }
+     ],
+     "element": {
+      "selector": "#target",
+      "index": 0
+     },
+     "pseudo": "::first-line",
+     "property": "word-break",
+     "like": {
+      "element": {
+       "selector": "#target",
+       "index": 0
+      },
+      "property": "word-break"
+     },
+     "expect": null
+    }
+   ],
+   "skipped": {
+    "the rest of the file needs element.style": 1
+   }
+  },
+  {
+   "file": "css/css-pseudo/first-line-and-marker.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-and-placeholder.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-animate.html",
+   "skipped_because": "needs element.animate"
+  },
+  {
+   "file": "css/css-pseudo/first-line-below-float.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-change-inline-color-nested.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-change-inline-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-first-letter-insert-crash.html",
+   "skipped_because": "needs element.insertBefore"
+  },
+  {
+   "file": "css/css-pseudo/first-line-float-mapped-attribute-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-font-relative-units-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-inherited-no-transition.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-inherited-transition-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-inherited-with-transition.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-inherited.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-input-image-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-input-textarea.tentative.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-insert-text-node-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-line-height-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-line-height-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-nested-gcs.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-on-ancestor-block.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-on-list-item-with-block-children.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-opacity-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-replaced-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-select-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-before-after.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-inline-block-before.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-inline-block.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-out-of-flow-and-nested-div.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-out-of-flow-and-nested-span.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-out-of-flow.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/first-line-with-quote.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/focus-visible-originating-element.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/get-computed-style-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/grammar-error-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/grammar-error-002-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/grammar-error-003-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/grammar-spelling-errors-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/grammar-spelling-errors-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-custom-properties-dynamic-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-fill-color-ignores-stroke-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-004-ref1.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-004-ref2.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-004-ref3.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-005-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-001a.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-002a.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-002b.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-003a.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-003b.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-004a.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-004b.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-currentcolor-005.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-shadows-horizontal.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-shadows-vertical.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-soft-hyphens-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-painting-soft-hyphens-002-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-styling-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-styling-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-styling-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-styling-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-styling-005.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-z-index-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/highlight-z-index-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/hit-testing-active-pseudo-layout-on-mouseup.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/hover-on-pseudo-elements.tentative.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/idlharness.html",
+   "skipped_because": "needs /resources/WebIDLParser.js"
+  },
+  {
+   "file": "css/css-pseudo/input-element-pseudo-open-click.optional.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/input-element-pseudo-open.optional.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/marker-and-other-pseudo-elements.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-animate-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-animate.html",
+   "skipped_because": "needs element.animate"
+  },
+  {
+   "file": "css/css-pseudo/marker-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-computed-content.html",
+   "skipped_because": "needs element.className"
+  },
+  {
+   "file": "css/css-pseudo/marker-computed-size.html",
+   "skipped_because": "ReferenceError: addEventListener is not defined"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-001b.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-001c.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-003b.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-005.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-006.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-008.tentative.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-010-ref-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-010-ref-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-010.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-012.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-013.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-014.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-015.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-016.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-017.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-018.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-019.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-020.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-021.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-022.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-023.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-content-024.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-default-styles.html",
+   "skipped_because": "needs element.className"
+  },
+  {
+   "file": "css/css-pseudo/marker-display-computed.html",
+   "skipped_because": "needs element.className"
+  },
+  {
+   "file": "css/css-pseudo/marker-display-dynamic-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-font-properties.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-font-variant-numeric-default.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-font-variant-numeric-normal.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-hit-testing.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/marker-hyphens.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-inherit-line-height.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-inherit-values.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-intrinsic-contribution-001.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'ready')"
+  },
+  {
+   "file": "css/css-pseudo/marker-intrinsic-contribution-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-letter-spacing-ref-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-letter-spacing-ref-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-letter-spacing.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-line-break.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-line-height.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-list-style-position-ref-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-list-style-position-ref-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-list-style-position.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-overflow-wrap.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-reverted-styles.html",
+   "skipped_because": "needs element.className"
+  },
+  {
+   "file": "css/css-pseudo/marker-tab-size.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-align-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-align-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-align-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-combine-upright-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-combine-upright-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-combine-upright.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-decoration-skip-ink.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-emphasis.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-shadow.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-transform-default.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-transform-dynamic.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-text-transform-uppercase.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-unicode-bidi-default.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-unicode-bidi-normal.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-variable-computed-style.html",
+   "cases": [
+    {
+     "file": "css/css-pseudo/marker-variable-computed-style.html",
+     "sheets": [],
+     "element": {
+      "selector": ".firstTest",
+      "index": 0
+     },
+     "pseudo": "::marker",
+     "property": "color",
+     "expect": "rgba(0, 128, 0, 0.75)"
+    },
+    {
+     "file": "css/css-pseudo/marker-variable-computed-style.html",
+     "sheets": [],
+     "element": {
+      "selector": ".secondTest",
+      "index": 0
+     },
+     "pseudo": "::marker",
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-pseudo/marker-variable.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-word-break.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/marker-word-spacing.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/outside-marker-paint-order.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/placeholder-as-multicol-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/placeholder-excluded-properties.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/placeholder-inherit.html",
+   "cases": [
+    {
+     "file": "css/css-pseudo/placeholder-inherit.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"inp\"]",
+      "index": 0
+     },
+     "pseudo": "::placeholder",
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-pseudo/placeholder-inherit.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"inp\"]",
+      "index": 0
+     },
+     "pseudo": "::placeholder",
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-pseudo/placeholder-input-dynamic-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/placeholder-input-number.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/placeholder-vertical-align.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/pseudo-element-removal.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/pseudo-replaced-elements.html",
+   "skipped_because": "needs element.tagName"
+  },
+  {
+   "file": "css/css-pseudo/relative-box-order-of-pseudo-elements.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/scroll-button-pseudo-element-click.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-color-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-color-non-applicable-properties.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-color-revert.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-color-transparent.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-painting-order-ref1.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-painting-order-ref2.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-background-painting-order.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-contenteditable-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-input-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-intercharacter-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-intercharacter-012.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-link-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-link-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-link-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-originating-decoration-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-originating-strikethrough-order.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-originating-underline-order.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-over-highlight-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-overlay-and-grammar-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-overlay-and-spelling-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-paint-image.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-text-decoration-currentcolor.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-textarea-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-transparent-text-author-background.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-transparent-text-ua-background.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/selection-universal-shadow-dom.html",
+   "skipped_because": "needs element.attachShadow"
+  },
+  {
+   "file": "css/css-pseudo/spelling-error-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/spelling-error-002-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/spelling-error-003-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/spelling-error-004-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/spelling-error-005-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/spelling-error-006.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/svg-text-selection-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/svg-text-selection-fill-only.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/svg-text-selection-shadow.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/svg-text-selection-stroke-only.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/svg-text-selection-transparent-background.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-005.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-006.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-007.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-008.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-009.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-010.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-dynamic-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-dynamic-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-dynamic-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-dynamic-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-shadow-horizontal.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-shadow-vertical.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-text-decoration-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/target-text-text-decoration-currentcolor.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-pseudo/text-selection.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-pseudo/textpath-selection-011.html",
+   "skipped_because": "not a testharness test"
   }
  ]
 }

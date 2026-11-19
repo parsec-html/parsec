@@ -12,6 +12,9 @@
 //!   `getComputedStyle(target)[property]` must be what the test expects
 //!   (to within its epsilon for the colour tests that give one), and
 //!   setting that back must give it again.
+//! - `pseudo`: with `#target::before { property: specified }` added,
+//!   `getComputedStyle(target, '::before')[property]` must be what the
+//!   test expects, and setting that back must give it again.
 //! - `initial`: `target.style[property] = 'initial'` computes to the
 //!   test's initial value.
 //! - `inherited`: with `other` set on `#container`, `#target` gets it if
@@ -28,7 +31,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use parsec::{Document, NodeId};
-use parsec_css::cascade::Styler;
+use parsec_css::cascade::{Origin, Pseudo, Styler};
 use parsec_css::media::Environment;
 use serde_json::Value;
 
@@ -125,6 +128,29 @@ impl Page {
         )
     }
 
+    /// `getComputedStyle(target, pseudo)[property]` with
+    /// `#target<pseudo> { property: value }` added.
+    fn pseudo(&mut self, pseudo: &str, property: &str, value: &str) -> String {
+        self.doc.set_attr(self.target, "style", &self.target_style);
+        let Some(p) = Pseudo::parse(pseudo) else {
+            return String::new();
+        };
+        let mut styler = Styler::new(Environment {
+            width: 800.0,
+            height: 600.0,
+            ..Environment::default()
+        })
+        .with_document_styles(&self.doc);
+        styler.add(
+            &format!("#target{pseudo} {{ {property}: {value} }}"),
+            Origin::Author,
+        );
+        styler
+            .style(&self.doc)
+            .get_pseudo(self.target, &p, property)
+            .unwrap_or_default()
+    }
+
     fn target(&mut self, property: &str, target: &str, container: &str) -> String {
         let (t, _) = self.styled(target, container);
         t.and_then(|t| t.get(property)).unwrap_or_default()
@@ -156,6 +182,18 @@ fn run(page: &mut Page, case: &Value) -> (bool, String) {
             let ok = matches(&got, &case["expect"], fuzzy);
             let again = if ok && got != specified {
                 page.target(&p, &format!("{p}: {got}"), "")
+            } else {
+                got.clone()
+            };
+            (ok && again == got, got)
+        }
+        "pseudo" => {
+            let pseudo = case["pseudo"].as_str().unwrap();
+            let specified = case["specified"].as_str().unwrap();
+            let got = page.pseudo(pseudo, &p, specified);
+            let ok = matches(&got, &case["expect"], None);
+            let again = if ok && got != specified {
+                page.pseudo(pseudo, &p, &got)
             } else {
                 got.clone()
             };
@@ -220,7 +258,7 @@ fn wpt_computed() {
                 Value::String(name.into()),
                 case["property"].clone(),
             ];
-            for k in ["specified", "expect", "other"] {
+            for k in ["pseudo", "specified", "expect", "other"] {
                 if !case[k].is_null() {
                     key_parts.push(case[k].clone());
                 }

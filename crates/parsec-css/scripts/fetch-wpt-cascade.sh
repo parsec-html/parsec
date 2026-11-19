@@ -22,7 +22,7 @@ git remote add origin https://github.com/web-platform-tests/wpt.git
 git sparse-checkout set --no-cone '/css/*/parsing/' '/css/*/inheritance*.html' \
   '/css/mediaqueries/' '/css/css-cascade/' '/css/support/' '/LICENSE.md' \
   '/css/css-conditional/container-queries/' '/css/css-properties-values-api/' \
-  '/css/css-counter-styles/counter-style-at-rule/'
+  '/css/css-counter-styles/counter-style-at-rule/' '/css/css-pseudo/'
 git fetch -q --depth 1 --filter=blob:none origin "$commit"
 git checkout -q FETCH_HEAD
 git rev-parse HEAD > COMMIT

@@ -4,15 +4,18 @@
 //! web-platform-tests' cascade and at-rule tests, the static part:
 //! css/css-cascade (layers, `@scope`, `@import`),
 //! css/css-conditional/container-queries, css/css-properties-values-api
-//! (`@property`) and css/css-counter-styles/counter-style-at-rule,
+//! (`@property`), css/css-counter-styles/counter-style-at-rule and
+//! css/css-pseudo,
 //! extracted by `scripts/wpt-cascade-cases.js` into `tests/wpt-cascade`
 //! with each test file beside its cases.
 //!
 //! A computed-value case parses the file with Parsec, puts in the
-//! `<template>` contents the test put in, applies the file's `<style>`
-//! elements and the ones the test added, and reads the element the test
-//! read (the nth match of the selector it found it with, under the element
-//! it looked in): it must compute to what the test expects. `@import`s are
+//! `<template>` contents the test put in and the declarations it set on
+//! its `<style>`s' rules, applies those and the `<style>`s the test added,
+//! and reads the element the test read (the nth match of the selector it
+//! found it with, under the element it looked in), or its pseudo-element:
+//! it must compute to what the test expects, or to what another read the
+//! test compares it with gives. `@import`s are
 //! fetched from the files beside the test, or from their `data:` URL. A
 //! container's size is its computed `width` and `height`, where they're
 //! in pixels, which is what the tests give them.
@@ -35,7 +38,7 @@ use std::path::{Path, PathBuf};
 
 use parsec::css::SelectorList;
 use parsec::{Document, Kind, NodeId};
-use parsec_css::cascade::{Origin, Styled, Styler};
+use parsec_css::cascade::{Origin, Pseudo, Styled, Styler};
 use parsec_css::media::Environment;
 use parsec_css::rules::{
     ContainerQuery, CounterStyle, Import, Keyframes, PropertyRule, ScopeBounds,
@@ -93,9 +96,29 @@ fn clone_into(doc: &mut Document, from: NodeId, into: NodeId) {
     }
 }
 
-/// The page a case reads: the file, with the templates it put in.
-fn page(source: &str, inserts: Option<&Value>) -> Document {
+/// The page a case reads: the file, with the declarations it set on its
+/// `<style>`s' rules, and the templates it put in.
+fn page(source: &str, inserts: Option<&Value>, restyle: Option<&Value>) -> Document {
     let mut doc = parsec::parse(source, true);
+    if let Some(list) = restyle.and_then(Value::as_array) {
+        let styles = SelectorList::parse("style")
+            .unwrap()
+            .select(&doc, doc.root());
+        for r in list {
+            let (Some(i), Some(text)) = (r["index"].as_u64(), r["text"].as_str()) else {
+                continue;
+            };
+            let Some(&style) = styles.get(i as usize) else {
+                continue;
+            };
+            let kids: Vec<NodeId> = doc.children(style).collect();
+            for k in kids {
+                doc.remove(k);
+            }
+            let t = doc.create_text(text);
+            let _ = doc.append(style, t);
+        }
+    }
     let Some(list) = inserts.and_then(Value::as_array) else {
         return doc;
     };
@@ -155,9 +178,21 @@ fn styler(env: &Environment, doc: &Document, sheets: &[&str], base: PathBuf) -> 
     s
 }
 
+/// `getComputedStyle(el, pseudo)[property]`, for the read `case` names.
+/// A pseudo-element the cascade doesn't style reads as the empty string.
+fn read(styled: &Styled, el: NodeId, case: &Value) -> String {
+    let property = case["property"].as_str().unwrap();
+    match case["pseudo"].as_str() {
+        None => styled.get(el, property),
+        Some(p) => Pseudo::parse(p).and_then(|p| styled.get_pseudo(el, &p, property)),
+    }
+    .unwrap_or_default()
+}
+
 /// A rule as CSSOM keeps it.
 enum Om {
-    Style,
+    /// With its selector's text.
+    Style(String),
     Container(Vec<ContainerQuery>),
     CounterStyle(CounterStyle),
     Property(PropertyRule),
@@ -172,7 +207,7 @@ fn cssom(rule: &Rule<'_, Block<'_>>) -> Option<Om> {
     match rule {
         Rule::Qualified(q) => SelectorList::parse(parsec_css::to_css(&q.prelude).trim())
             .ok()
-            .map(|_| Om::Style),
+            .map(|_| Om::Style(parsec_css::to_css(&q.prelude).trim().to_string())),
         Rule::At(a) => {
             let name = a.name.to_ascii_lowercase();
             Some(match name.as_str() {
@@ -211,7 +246,8 @@ fn cssom(rule: &Rule<'_, Block<'_>>) -> Option<Om> {
 fn attribute(om: &Om, attr: &str) -> Value {
     let s = |x: &str| Value::String(x.into());
     match (om, attr) {
-        (Om::Style, "constructor.name") => s("CSSStyleRule"),
+        (Om::Style(_), "constructor.name") => s("CSSStyleRule"),
+        (Om::Style(sel), "selectorText") => s(sel),
         (Om::Container(_), "constructor.name") => s("CSSContainerRule"),
         (Om::CounterStyle(_), "constructor.name") => s("CSSCounterStyleRule"),
         (Om::Property(_), "constructor.name") => s("CSSPropertyRule"),
@@ -339,10 +375,10 @@ fn wpt_cascade() {
                         .iter()
                         .filter_map(Value::as_str)
                         .collect();
-                    let inserts = case.get("inserts");
+                    let (inserts, restyle) = (case.get("inserts"), case.get("restyle"));
                     let (doc, styled) = pages
-                        .entry(inserts.map_or(String::new(), Value::to_string))
-                        .or_insert_with(|| (page(&source, inserts), HashMap::new()));
+                        .entry(format!("{inserts:?}{restyle:?}"))
+                        .or_insert_with(|| (page(&source, inserts, restyle), HashMap::new()));
                     let Some(el) = find(doc, &case["element"]) else {
                         seen.remove(&key);
                         continue;
@@ -350,10 +386,13 @@ fn wpt_cascade() {
                     let s = styled
                         .entry(sheets.join("\u{0}"))
                         .or_insert_with(|| styler(&env, doc, &sheets, base.clone()).style(doc));
-                    let got = s
-                        .get(el, case["property"].as_str().unwrap())
-                        .unwrap_or_default();
-                    (Some(got.as_str()) == case["expect"].as_str(), got)
+                    let got = read(s, el, case);
+                    // Or what the test reads somewhere else.
+                    let want = match &case["like"] {
+                        Value::Null => case["expect"].as_str().map(String::from),
+                        like => find(doc, &like["element"]).map(|o| read(s, o, like)),
+                    };
+                    (Some(&got) == want.as_ref(), got)
                 }
             };
             let area = name.split('/').nth(1).unwrap_or("").to_string();

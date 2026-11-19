@@ -754,3 +754,4 @@
 ["initial","css/css-transforms/inheritance.html","transform-origin","30px 20px"]
 ["initial","css/fill-stroke/inheritance.html","text-decoration-fill","match-text"]
 ["initial","css/fill-stroke/inheritance.html","text-decoration-stroke","match-text"]
+["pseudo","css/css-pseudo/parsing/marker-supported-properties.html","list-style","::marker","inside url('foo') decimal","outside none disc"]
