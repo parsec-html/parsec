@@ -9,18 +9,20 @@
  *
  * The rules every function keeps:
  *
- * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath
- *   or parsec_xpath_result is made by one function and freed by one, and
- *   NULL is accepted everywhere: a call given NULL fails with
- *   PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or false, and the
- *   free functions do nothing.
+ * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath,
+ *   parsec_xpath_result or parsec_byte_parser is made by one function and
+ *   freed by one, and NULL is accepted everywhere: a call given NULL
+ *   fails with PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or
+ *   false, and the free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
  *   is, and a number that isn't a node of the document is refused, never
  *   read. Removing a node detaches it; nothing is freed until the
  *   document is.
  * - Strings in are a pointer and a length in bytes, UTF-8, with no NUL
  *   needed. NULL with a length of 0 is the empty string. Bytes that aren't
- *   UTF-8 become U+FFFD.
+ *   UTF-8 become U+FFFD. The exception is a page given to
+ *   parsec_parse_bytes or a parsec_byte_parser, which is decoded as a
+ *   browser decodes it, in whatever encoding it's in.
  * - Strings out come two ways. Borrowed ones (const char *, from
  *   parsec_node_name, parsec_node_value, parsec_attr_get and the like)
  *   point into the document, are *len bytes long with no NUL after them,
@@ -34,7 +36,8 @@
  *   function taking a const parsec_document *, parsec_xpath_evaluate
  *   included), and a selector or a compiled XPath may be used from any
  *   number of threads. A call taking a non-const parsec_document *
- *   changes it, and needs the document to itself. A
+ *   changes it, and needs the document to itself, as a
+ *   parsec_byte_parser needs itself to itself for each call. A
  *   document or selector may be freed on a different thread from the one
  *   that made it.
  */
@@ -78,6 +81,10 @@
 #define PARSEC_NODE_DOCTYPE 10
 
 #define PARSEC_NODE_FRAGMENT 11
+
+// A parse of bytes as they arrive. Made by `parsec_byte_parser_new`,
+// freed by `parsec_byte_parser_free`.
+typedef struct parsec_byte_parser parsec_byte_parser;
 
 // A parsed document. Made by `parsec_parse` and friends, freed by
 // `parsec_document_free`.
@@ -246,6 +253,57 @@ parsec_status parsec_parse_fragment(const char *html,
                                     size_t context_len,
                                     uint32_t flags,
                                     parsec_document **out);
+
+// Parses `len` bytes as a whole document, decoding them first as a
+// browser does: in the encoding of a byte order mark, else of
+// `transport` (the `charset` of an HTTP `Content-Type`, say:
+// `transport_len` bytes naming any of the Encoding Standard's labels,
+// such as "shift_jis" or "latin1"; NULL with a length of 0 for none, and
+// one that's no label is passed over, as browsers do), else of a
+// `<meta>` in the page, else windows-1252. `flags` are
+// `parsec_parse`'s, and spans and error offsets are byte offsets into
+// these bytes, whatever their encoding.
+//
+// If `encoding` isn't NULL, `*encoding` is the name of the encoding the
+// bytes were decoded from, as `parsec_document_encoding` gives it.
+// Fails as `parsec_parse` does. On any error `*out` is NULL.
+parsec_status parsec_parse_bytes(const char *bytes,
+                                 size_t len,
+                                 const char *transport,
+                                 size_t transport_len,
+                                 uint32_t flags,
+                                 parsec_document **out,
+                                 const char **encoding);
+
+// The name of the encoding a document's bytes were decoded from, in the
+// Encoding Standard's spelling ("UTF-8", "Shift_JIS", "windows-1252"),
+// NUL-terminated and valid for as long as the document. NULL for a
+// document parsed from text, or a NULL handle.
+const char *parsec_document_encoding(const parsec_document *doc);
+
+// Starts parsing a document given as bytes a piece at a time, as a
+// browser does while it downloads one, into `*out`: feed it each piece
+// with `parsec_byte_parser_feed`, then get the document from
+// `parsec_byte_parser_finish`, the one `parsec_parse_bytes` gives for all
+// the pieces joined, however they were cut. `transport` and `flags` are
+// `parsec_parse_bytes`'s. On any error `*out` is NULL.
+parsec_status parsec_byte_parser_new(const char *transport,
+                                     size_t transport_len,
+                                     uint32_t flags,
+                                     parsec_byte_parser **out);
+
+// Gives the parser the next `len` bytes of the page.
+// `PARSEC_ERR_INVALID` once it has finished.
+parsec_status parsec_byte_parser_feed(parsec_byte_parser *parser, const char *bytes, size_t len);
+
+// Ends the page and puts the document in `*out`. A parser finishes once:
+// after that every call but `parsec_byte_parser_free` fails with
+// `PARSEC_ERR_INVALID`, and it still has to be freed. On any error `*out`
+// is NULL.
+parsec_status parsec_byte_parser_finish(parsec_byte_parser *parser, parsec_document **out);
+
+// Frees a byte parser, finished or not. NULL is fine and does nothing.
+void parsec_byte_parser_free(parsec_byte_parser *parser);
 
 // Frees a document and everything in it: its nodes, and every string
 // borrowed from it. NULL is fine and does nothing.

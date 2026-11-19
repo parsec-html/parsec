@@ -244,6 +244,8 @@ jobs:
       - name: The header compiles as C++ too
         run: echo '#include <parsec.h>' | c++ -x c++ -std=c++11 -Wall -Werror -fsyntax-only -I crates/parsec-capi/include -
       - run: crates/parsec-capi/package.sh "$RUNNER_TEMP/parsec"
+      # For the html5lib-tests encoding cases tests/capi.c runs.
+      - run: git submodule update --init crates/parsec/tests/html5lib-tests
       - name: tests/capi.c under ASan, LSan and UBSan
         env:
           PKG_CONFIG_PATH: ${{ runner.temp }}/parsec/lib/pkgconfig
@@ -254,4 +256,4 @@ jobs:
           # shellcheck disable=SC2046 # pkg-config's flags are words
           clang -std=c99 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer \
             crates/parsec-capi/tests/capi.c $(pkg-config --cflags --libs parsec) -o "$RUNNER_TEMP/capi"
-          "$RUNNER_TEMP/capi"
+          "$RUNNER_TEMP/capi" crates/parsec/tests/html5lib-tests/encoding

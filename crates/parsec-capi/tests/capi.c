@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Copyright 2026 James Conway
  *
- * The C API from C: parse, select, read, edit, serialize, and every error
- * path a binding could hit. Built and run by tests/c.rs, by CI on Linux,
- * macOS and Windows through CMake, and on Linux under AddressSanitizer,
- * LeakSanitizer and UndefinedBehaviorSanitizer. Exits 0 when every check
- * passes; the first failure prints its line.
+ * The C API from C: parse, select, read, edit, serialize, bytes in any
+ * encoding, and every error path a binding could hit. Given the
+ * html5lib-tests encoding/ folder as its argument, it runs those cases
+ * too. Built and run by tests/c.rs, by CI on Linux, macOS and Windows
+ * through CMake, and on Linux under AddressSanitizer, LeakSanitizer and
+ * UndefinedBehaviorSanitizer. Exits 0 when every check passes; the first
+ * failure prints its line.
  */
 
 #include <parsec.h>
@@ -462,7 +464,179 @@ static void xpath(void) {
     parsec_document_free(doc);
 }
 
-int main(void) {
+/* ASCII letters equal, whatever their case: an encoding label as
+ * html5lib-tests writes it against Parsec's name for the encoding. */
+static int same_label(const char *a, const char *b) {
+    for (; *a && *b; a++, b++) {
+        char x = *a >= 'A' && *a <= 'Z' ? *a + 32 : *a;
+        char y = *b >= 'A' && *b <= 'Z' ? *b + 32 : *b;
+        if (x != y) return 0;
+    }
+    return *a == *b;
+}
+
+static void bytes_and_encodings(void) {
+    /* 日本 in Shift_JIS, named by a <meta>: 4 bytes for 6 decoded. */
+    const char page[] = "<meta charset=shift_jis><p class=a>\x93\xfa\x96\x7b</p>\n<b>x</b></i>";
+    const size_t n = sizeof page - 1;
+    parsec_document *doc = NULL;
+    const char *enc = NULL;
+    size_t len = 0, start = 0, end = 0, line = 0, column = 0;
+    CHECK(parsec_parse_bytes(page, n, NULL, 0, PARSEC_SPANS | PARSEC_ERRORS, &doc, &enc) == PARSEC_OK);
+    CHECK(enc != NULL && strcmp(enc, "Shift_JIS") == 0);
+    CHECK(parsec_document_encoding(doc) == enc);
+    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xe6\x97\xa5\xe6\x9c\xac\nx"));
+    /* Spans and errors are offsets into the Shift_JIS bytes. */
+    parsec_selector *sel = compile("p");
+    parsec_node p = parsec_select_first(doc, sel, parsec_root());
+    parsec_selector_free(sel);
+    CHECK(parsec_node_span(doc, p, &start, &end) && start == 24 && end == 35);
+    CHECK(parsec_attr_span(doc, p, 0, &start, &end) && start == 27 && end == 34);
+    CHECK(parsec_node_span(doc, parsec_first_child(doc, p), &start, &end) && start == 35 && end == 39);
+    CHECK(parsec_end_span(doc, p, &start, &end) && start == 39 && end == 43);
+    sel = compile("b");
+    parsec_node b = parsec_select_first(doc, sel, parsec_root());
+    parsec_selector_free(sel);
+    CHECK(parsec_node_span(doc, b, &start, &end) && start == 44 && end == 47);
+    CHECK(parsec_line_col(doc, 52, &line, &column) == PARSEC_OK && line == 2 && column == 9);
+    size_t stray = 0;
+    for (size_t i = 0; i < parsec_errors_count(doc); i++) {
+        parsec_syntax_error e;
+        CHECK(parsec_errors_get(doc, i, &e) == PARSEC_OK);
+        if (e.code_len == 18 && memcmp(e.code, "unexpected-end-tag", 18) == 0) {
+            CHECK(e.offset == 52 && e.line == 2 && e.column == 9);
+            stray++;
+        }
+    }
+    CHECK(stray == 1);
+    parsec_document_free(doc);
+
+    /* The transport layer's encoding beats the guess, and a label is any
+     * of the Encoding Standard's. */
+    CHECK(parsec_parse_bytes("<p>\xc3\xa9", 5, "UTF8", 4, 0, &doc, &enc) == PARSEC_OK);
+    CHECK(strcmp(enc, "UTF-8") == 0);
+    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xc3\xa9"));
+    parsec_document_free(doc);
+    /* With nothing to go on, windows-1252, as in browsers. */
+    CHECK(parsec_parse_bytes("<p>\xc3\xa9", 5, NULL, 0, 0, &doc, NULL) == PARSEC_OK);
+    CHECK(strcmp(parsec_document_encoding(doc), "windows-1252") == 0);
+    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xc3\x83\xc2\xa9"));
+    parsec_document_free(doc);
+    /* A label that names no encoding is passed over, as browsers do. */
+    CHECK(parsec_parse_bytes("<p>\xe9", 4, "nope", 4, 0, &doc, &enc) == PARSEC_OK);
+    CHECK(strcmp(enc, "windows-1252") == 0);
+    parsec_document_free(doc);
+    CHECK(parsec_parse_bytes(NULL, 1, NULL, 0, 0, &doc, NULL) == PARSEC_ERR_NULL);
+    CHECK(parsec_parse_bytes("<p>", 3, NULL, 0, 99, &doc, NULL) == PARSEC_ERR_INVALID);
+    CHECK(parsec_parse_bytes("<p>", 3, NULL, 0, 0, NULL, NULL) == PARSEC_ERR_NULL);
+    CHECK(parsec_parse("<p>", 3, 0, &doc) == PARSEC_OK);
+    CHECK(parsec_document_encoding(doc) == NULL);
+    CHECK(parsec_document_encoding(NULL) == NULL);
+    parsec_document_free(doc);
+
+    /* In pieces of 3 bytes, cutting the kanji: what the whole gives. */
+    parsec_byte_parser *bp = NULL;
+    CHECK(parsec_byte_parser_new(NULL, 0, PARSEC_SPANS, &bp) == PARSEC_OK && bp != NULL);
+    for (size_t at = 0; at < n; at += 3)
+        CHECK(parsec_byte_parser_feed(bp, page + at, n - at < 3 ? n - at : 3) == PARSEC_OK);
+    CHECK(parsec_byte_parser_finish(bp, &doc) == PARSEC_OK);
+    CHECK(strcmp(parsec_document_encoding(doc), "Shift_JIS") == 0);
+    sel = compile("b");
+    b = parsec_select_first(doc, sel, parsec_root());
+    parsec_selector_free(sel);
+    CHECK(parsec_node_span(doc, b, &start, &end) && start == 44 && end == 47);
+    parsec_document_free(doc);
+    /* Finished once: then only freeing it works. */
+    CHECK(parsec_byte_parser_feed(bp, "x", 1) == PARSEC_ERR_INVALID);
+    CHECK(parsec_byte_parser_finish(bp, &doc) == PARSEC_ERR_INVALID && doc == NULL);
+    parsec_byte_parser_free(bp);
+    /* One left unfinished frees what it held. */
+    CHECK(parsec_byte_parser_new("sjis", 4, 0, &bp) == PARSEC_OK);
+    CHECK(parsec_byte_parser_feed(bp, page, n) == PARSEC_OK);
+    parsec_byte_parser_free(bp);
+    CHECK(parsec_byte_parser_new(NULL, 0, 99, &bp) == PARSEC_ERR_INVALID && bp == NULL);
+    CHECK(parsec_byte_parser_new(NULL, 0, 0, NULL) == PARSEC_ERR_NULL);
+    CHECK(parsec_byte_parser_feed(NULL, "x", 1) == PARSEC_ERR_NULL);
+    CHECK(parsec_byte_parser_finish(NULL, &doc) == PARSEC_ERR_NULL);
+    parsec_byte_parser_free(NULL);
+}
+
+/* A whole file, NUL-terminated, or NULL. */
+static char *slurp(const char *dir, const char *name, size_t *len) {
+    char path[4096];
+    snprintf(path, sizeof path, "%s/%s", dir, name);
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) return NULL;
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *data = malloc((size_t)size + 1);
+    *len = data != NULL ? fread(data, 1, (size_t)size, f) : 0;
+    if (data != NULL) data[*len] = '\0';
+    fclose(f);
+    return data;
+}
+
+/* Where `needle` first is in `n` bytes at `s`, or NULL. */
+static const char *find(const char *s, size_t n, const char *needle) {
+    size_t m = strlen(needle);
+    for (size_t i = 0; i + m <= n; i++)
+        if (memcmp(s + i, needle, m) == 0) return s + i;
+    return NULL;
+}
+
+/* html5lib-tests' encoding cases, whole and in pieces of 1 to 7 bytes,
+ * from `dir`, the suite's encoding/ folder. The scripted case needs
+ * document.write, so it isn't here. */
+static void html5lib_encoding(const char *dir) {
+    const char *files[] = {"tests1.dat", "tests2.dat", "test-yahoo-jp.dat"};
+    size_t cases = 0, passed = 0;
+    for (int f = 0; f < 3; f++) {
+        size_t size = 0;
+        char *data = slurp(dir, files[f], &size);
+        CHECK(data != NULL);
+        if (data == NULL) continue;
+        const char *rest = data, *stop = data + size;
+        const char *at;
+        while ((at = find(rest, (size_t)(stop - rest), "#data\n")) != NULL) {
+            const char *page = at + 6;
+            const char *tail = find(page, (size_t)(stop - page), "\n#encoding\n");
+            CHECK(tail != NULL);
+            if (tail == NULL) break;
+            const char *label = tail + 11;
+            char want[64] = {0};
+            size_t w = 0;
+            while (label + w < stop && label[w] != '\n' && w < sizeof want - 1) {
+                want[w] = label[w];
+                w++;
+            }
+            size_t n = (size_t)(tail - page);
+            parsec_document *doc = NULL;
+            const char *whole = NULL;
+            CHECK(parsec_parse_bytes(page, n, NULL, 0, 0, &doc, &whole) == PARSEC_OK);
+            int ok = whole != NULL && same_label(whole, want);
+            parsec_document_free(doc);
+            parsec_byte_parser *bp = NULL;
+            CHECK(parsec_byte_parser_new(NULL, 0, 0, &bp) == PARSEC_OK);
+            for (size_t i = 0, piece = 1 + cases % 7; i < n; i += piece, piece = 1 + (piece + cases) % 7)
+                CHECK(parsec_byte_parser_feed(bp, page + i, n - i < piece ? n - i : piece) == PARSEC_OK);
+            CHECK(parsec_byte_parser_finish(bp, &doc) == PARSEC_OK);
+            const char *streamed = parsec_document_encoding(doc);
+            ok = ok && streamed != NULL && same_label(streamed, want);
+            if (!ok) fprintf(stderr, "html5lib %s case %zu: want %s\n", files[f], cases, want);
+            parsec_document_free(doc);
+            parsec_byte_parser_free(bp);
+            passed += (size_t)ok;
+            cases++;
+            rest = tail;
+        }
+        free(data);
+    }
+    CHECK(cases == 82 && passed == cases);
+    printf("html5lib encoding: %zu of %zu passed, whole and in pieces\n", passed, cases);
+}
+
+int main(int argc, char **argv) {
     parse_select_read();
     edit_and_serialize();
     fragments_and_options();
@@ -470,6 +644,13 @@ int main(void) {
     positions();
     syntax_errors();
     xpath();
+    bytes_and_encodings();
+    /* tests/c.rs and the sanitizer job pass the html5lib-tests encoding
+     * folder; the CMake runs, from a package, have none. */
+    if (argc > 1)
+        html5lib_encoding(argv[1]);
+    else
+        printf("html5lib encoding: not run, as no folder was given\n");
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

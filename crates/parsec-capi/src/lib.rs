@@ -21,6 +21,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
 use std::sync::OnceLock;
 
+use encoding::{Encoding, Offsets, Parsed};
 use html::css::SelectorList;
 use html::{Document, Kind, NodeId, Ns, Options, ParseError};
 use xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
@@ -32,6 +33,22 @@ pub struct parsec_document {
     /// The XPath index of the tree as it is, built by the first query.
     /// Every change goes through `doc_mut`, which drops it.
     index: OnceLock<Index>,
+    /// For a document parsed from bytes, the name of the encoding they
+    /// were decoded from, NUL-terminated.
+    encoding: Option<Box<str>>,
+    /// For a document parsed from bytes with `PARSEC_SPANS` or
+    /// `PARSEC_ERRORS`, turns offsets into the decoded text into offsets
+    /// into the bytes; None when they're the same.
+    offsets: Option<Offsets>,
+}
+
+/// A parse of bytes as they arrive. Made by `parsec_byte_parser_new`,
+/// freed by `parsec_byte_parser_free`.
+pub struct parsec_byte_parser {
+    /// None once finished.
+    parser: Option<encoding::ByteParser>,
+    /// Every byte, for the offsets, when spans or errors are kept.
+    bytes: Option<Vec<u8>>,
 }
 
 /// A compiled XPath 1.0 expression. Made by `parsec_xpath_compile`, freed
@@ -174,11 +191,14 @@ fn status(r: Result<(), parsec_status>) -> parsec_status {
     r.err().unwrap_or(PARSEC_OK)
 }
 
-unsafe fn doc_ref<'a>(doc: *const parsec_document) -> Result<&'a Document, parsec_status> {
+unsafe fn handle<'a>(doc: *const parsec_document) -> Result<&'a parsec_document, parsec_status> {
     // SAFETY: the caller passes NULL or a live document (header preamble).
-    unsafe { doc.as_ref() }
-        .map(|d| &d.doc)
-        .ok_or(PARSEC_ERR_NULL)
+    unsafe { doc.as_ref() }.ok_or(PARSEC_ERR_NULL)
+}
+
+unsafe fn doc_ref<'a>(doc: *const parsec_document) -> Result<&'a Document, parsec_status> {
+    // SAFETY: as handle.
+    unsafe { handle(doc) }.map(|d| &d.doc)
 }
 
 unsafe fn doc_mut<'a>(doc: *mut parsec_document) -> Result<&'a mut Document, parsec_status> {
@@ -202,20 +222,25 @@ fn node(doc: &Document, n: parsec_node) -> Result<NodeId, parsec_status> {
 /// decoding a page as UTF-8 would make them. NULL is the empty string when
 /// `len` is 0.
 unsafe fn text<'a>(s: *const c_char, len: usize) -> Result<Cow<'a, str>, parsec_status> {
+    // SAFETY: as the caller vouches for `s` and `len`.
+    Ok(String::from_utf8_lossy(unsafe { bytes(s, len)? }))
+}
+
+/// `len` bytes at `s`. NULL is no bytes when `len` is 0.
+unsafe fn bytes<'a>(s: *const c_char, len: usize) -> Result<&'a [u8], parsec_status> {
     if len > isize::MAX as usize {
         return Err(PARSEC_ERR_INVALID);
     }
     if s.is_null() {
         return if len == 0 {
-            Ok(Cow::Borrowed(""))
+            Ok(&[])
         } else {
             Err(PARSEC_ERR_NULL)
         };
     }
     // SAFETY: the caller gives `len` readable bytes at `s`, which stay put
     // for the call; the length was checked above.
-    let bytes = unsafe { std::slice::from_raw_parts(s.cast::<u8>(), len) };
-    Ok(String::from_utf8_lossy(bytes))
+    Ok(unsafe { std::slice::from_raw_parts(s.cast::<u8>(), len) })
 }
 
 unsafe fn put<T>(out: *mut T, value: T) {
@@ -286,19 +311,62 @@ fn options(flags: u32) -> Result<Options, parsec_status> {
     })
 }
 
+fn parse_status(e: ParseError) -> parsec_status {
+    match e {
+        ParseError::TooLarge { .. } => PARSEC_ERR_TOO_LARGE,
+        ParseError::Timeout { .. } => PARSEC_ERR_TIMEOUT,
+    }
+}
+
 fn parsed(
     r: Result<Document, ParseError>,
     out: &mut *mut parsec_document,
 ) -> Result<(), parsec_status> {
-    let doc = r.map_err(|e| match e {
-        ParseError::TooLarge { .. } => PARSEC_ERR_TOO_LARGE,
-        ParseError::Timeout { .. } => PARSEC_ERR_TIMEOUT,
-    })?;
     *out = Box::into_raw(Box::new(parsec_document {
-        doc,
+        doc: r.map_err(parse_status)?,
         index: OnceLock::new(),
+        encoding: None,
+        offsets: None,
     }));
     Ok(())
+}
+
+/// As `parsed`, for a document from `bytes`, which are given when its
+/// offsets are kept.
+fn parsed_bytes(
+    r: Result<Parsed, ParseError>,
+    bytes: Option<&[u8]>,
+    out: &mut *mut parsec_document,
+) -> Result<&'static Encoding, parsec_status> {
+    let p = r.map_err(parse_status)?;
+    let offsets = bytes
+        .map(|b| Offsets::new(b, p.encoding))
+        .filter(|o| !o.is_identity());
+    *out = Box::into_raw(Box::new(parsec_document {
+        doc: p.document,
+        index: OnceLock::new(),
+        encoding: Some(format!("{}\0", p.encoding.name()).into()),
+        offsets,
+    }));
+    Ok(p.encoding)
+}
+
+/// The encoding options for bytes: `label` (NULL or empty for none) as
+/// the transport layer's encoding, and `flags`. As the HTML Standard has
+/// it, a label that names no encoding is passed over.
+unsafe fn byte_options(
+    label: *const c_char,
+    label_len: usize,
+    flags: u32,
+) -> Result<encoding::Options, parsec_status> {
+    // SAFETY: as the caller vouches for `label` and `label_len`.
+    let label = unsafe { bytes(label, label_len)? };
+    let transport = Encoding::for_label(label);
+    Ok(encoding::Options {
+        html: options(flags)?,
+        transport,
+        ..encoding::Options::default()
+    })
 }
 
 /// The out pointer as a reference, with `*out` cleared first so it's NULL
@@ -440,6 +508,145 @@ pub unsafe extern "C" fn parsec_parse_fragment(
             )
         })())
     })
+}
+
+/// Parses `len` bytes as a whole document, decoding them first as a
+/// browser does: in the encoding of a byte order mark, else of
+/// `transport` (the `charset` of an HTTP `Content-Type`, say:
+/// `transport_len` bytes naming any of the Encoding Standard's labels,
+/// such as "shift_jis" or "latin1"; NULL with a length of 0 for none, and
+/// one that's no label is passed over, as browsers do), else of a
+/// `<meta>` in the page, else windows-1252. `flags` are
+/// `parsec_parse`'s, and spans and error offsets are byte offsets into
+/// these bytes, whatever their encoding.
+///
+/// If `encoding` isn't NULL, `*encoding` is the name of the encoding the
+/// bytes were decoded from, as `parsec_document_encoding` gives it.
+/// Fails as `parsec_parse` does. On any error `*out` is NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_parse_bytes(
+    bytes: *const c_char,
+    len: usize,
+    transport: *const c_char,
+    transport_len: usize,
+    flags: u32,
+    out: *mut *mut parsec_document,
+    encoding: *mut *const c_char,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: as the header says for every argument.
+            let out = unsafe { clear(out)? };
+            let input = unsafe { self::bytes(bytes, len)? };
+            let options = unsafe { byte_options(transport, transport_len, flags)? };
+            let keep = options.html.spans || options.html.errors;
+            parsed_bytes(
+                encoding::parse_bytes(input, options),
+                keep.then_some(input),
+                out,
+            )?;
+            // SAFETY: `*out` was just made; `encoding` NULL or writable.
+            unsafe { put(encoding, parsec_document_encoding(*out)) };
+            Ok(())
+        })())
+    })
+}
+
+/// The name of the encoding a document's bytes were decoded from, in the
+/// Encoding Standard's spelling ("UTF-8", "Shift_JIS", "windows-1252"),
+/// NUL-terminated and valid for as long as the document. NULL for a
+/// document parsed from text, or a NULL handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_document_encoding(doc: *const parsec_document) -> *const c_char {
+    guard(ptr::null(), || {
+        // SAFETY: NULL or a live document.
+        unsafe { handle(doc) }
+            .ok()
+            .and_then(|d| d.encoding.as_deref())
+            .map_or(ptr::null(), |name| name.as_ptr().cast())
+    })
+}
+
+/// Starts parsing a document given as bytes a piece at a time, as a
+/// browser does while it downloads one, into `*out`: feed it each piece
+/// with `parsec_byte_parser_feed`, then get the document from
+/// `parsec_byte_parser_finish`, the one `parsec_parse_bytes` gives for all
+/// the pieces joined, however they were cut. `transport` and `flags` are
+/// `parsec_parse_bytes`'s. On any error `*out` is NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_byte_parser_new(
+    transport: *const c_char,
+    transport_len: usize,
+    flags: u32,
+    out: *mut *mut parsec_byte_parser,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: as the header says for every argument.
+            let out = unsafe { clear(out)? };
+            let options = unsafe { byte_options(transport, transport_len, flags)? };
+            let keep = options.html.spans || options.html.errors;
+            *out = Box::into_raw(Box::new(parsec_byte_parser {
+                parser: Some(encoding::ByteParser::new(options)),
+                bytes: keep.then(Vec::new),
+            }));
+            Ok(())
+        })())
+    })
+}
+
+/// Gives the parser the next `len` bytes of the page.
+/// `PARSEC_ERR_INVALID` once it has finished.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_byte_parser_feed(
+    parser: *mut parsec_byte_parser,
+    bytes: *const c_char,
+    len: usize,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or a live parser no other call is using.
+            let p = unsafe { parser.as_mut() }.ok_or(PARSEC_ERR_NULL)?;
+            let chunk = unsafe { self::bytes(bytes, len)? };
+            p.parser.as_mut().ok_or(PARSEC_ERR_INVALID)?.feed(chunk);
+            if let Some(kept) = &mut p.bytes {
+                kept.extend_from_slice(chunk);
+            }
+            Ok(())
+        })())
+    })
+}
+
+/// Ends the page and puts the document in `*out`. A parser finishes once:
+/// after that every call but `parsec_byte_parser_free` fails with
+/// `PARSEC_ERR_INVALID`, and it still has to be freed. On any error `*out`
+/// is NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_byte_parser_finish(
+    parser: *mut parsec_byte_parser,
+    out: *mut *mut parsec_document,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: as the header says for every argument.
+            let out = unsafe { clear(out)? };
+            let p = unsafe { parser.as_mut() }.ok_or(PARSEC_ERR_NULL)?;
+            let running = p.parser.take().ok_or(PARSEC_ERR_INVALID)?;
+            let bytes = p.bytes.take();
+            parsed_bytes(running.finish(), bytes.as_deref(), out)?;
+            Ok(())
+        })())
+    })
+}
+
+/// Frees a byte parser, finished or not. NULL is fine and does nothing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_byte_parser_free(parser: *mut parsec_byte_parser) {
+    if !parser.is_null() {
+        // SAFETY: `parser` came from parsec_byte_parser_new and hasn't
+        // been freed.
+        guard((), || drop(unsafe { Box::from_raw(parser) }))
+    }
 }
 
 /// Frees a document and everything in it: its nodes, and every string
@@ -1124,13 +1331,24 @@ pub unsafe extern "C" fn parsec_remove(
 
 // ---- source positions ------------------------------------------------------
 
-/// Writes a byte range out, or says there's none.
-unsafe fn range(r: Option<std::ops::Range<usize>>, start: *mut usize, end: *mut usize) -> bool {
+/// An offset into the parsed text as one into the input.
+fn source(d: &parsec_document, offset: usize) -> usize {
+    d.offsets.as_ref().map_or(offset, |o| o.to_source(offset))
+}
+
+/// Writes a byte range out, as offsets into the input, or says there's
+/// none.
+unsafe fn range(
+    d: &parsec_document,
+    r: Option<std::ops::Range<usize>>,
+    start: *mut usize,
+    end: *mut usize,
+) -> bool {
     let Some(r) = r else { return false };
     // SAFETY: NULL or writable (put checks).
     unsafe {
-        put(start, r.start);
-        put(end, r.end);
+        put(start, source(d, r.start));
+        put(end, source(d, r.end));
     }
     true
 }
@@ -1150,10 +1368,11 @@ pub unsafe extern "C" fn parsec_node_span(
 ) -> bool {
     guard(false, || {
         // SAFETY: NULL or a live document; out pointers NULL or writable.
-        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+        let Ok(h) = (unsafe { handle(doc) }) else {
             return false;
         };
-        unsafe { range(node_of(d, node).and_then(|n| d.span(n)), start, end) }
+        let r = node_of(&h.doc, node).and_then(|n| h.doc.span(n));
+        unsafe { range(h, r, start, end) }
     })
 }
 
@@ -1169,10 +1388,11 @@ pub unsafe extern "C" fn parsec_end_span(
 ) -> bool {
     guard(false, || {
         // SAFETY: NULL or a live document; out pointers NULL or writable.
-        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+        let Ok(h) = (unsafe { handle(doc) }) else {
             return false;
         };
-        unsafe { range(node_of(d, node).and_then(|n| d.end_span(n)), start, end) }
+        let r = node_of(&h.doc, node).and_then(|n| h.doc.end_span(n));
+        unsafe { range(h, r, start, end) }
     })
 }
 
@@ -1189,11 +1409,11 @@ pub unsafe extern "C" fn parsec_attr_span(
 ) -> bool {
     guard(false, || {
         // SAFETY: NULL or a live document; out pointers NULL or writable.
-        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+        let Ok(h) = (unsafe { handle(doc) }) else {
             return false;
         };
-        let r = node_of(d, node).and_then(|n| d.attr_span(n, index));
-        unsafe { range(r, start, end) }
+        let r = node_of(&h.doc, node).and_then(|n| h.doc.attr_span(n, index));
+        unsafe { range(h, r, start, end) }
     })
 }
 
@@ -1211,8 +1431,9 @@ pub unsafe extern "C" fn parsec_line_col(
     guard(PARSEC_ERR_PANIC, || {
         status((|| {
             // SAFETY: NULL or a live document; out pointers NULL or writable.
-            let d = unsafe { doc_ref(doc)? };
-            let (l, c) = d.line_col(offset);
+            let h = unsafe { handle(doc)? };
+            let offset = h.offsets.as_ref().map_or(offset, |o| o.to_decoded(offset));
+            let (l, c) = h.doc.line_col(offset);
             unsafe {
                 put(line, l);
                 put(column, c);
@@ -1245,16 +1466,16 @@ pub unsafe extern "C" fn parsec_errors_get(
     guard(PARSEC_ERR_PANIC, || {
         status((|| {
             // SAFETY: NULL or a live document; `out` NULL or writable.
-            let d = unsafe { doc_ref(doc)? };
+            let h = unsafe { handle(doc)? };
             if out.is_null() {
                 return Err(PARSEC_ERR_NULL);
             }
-            let e = d.errors().get(index).ok_or(PARSEC_ERR_INVALID)?;
+            let e = h.doc.errors().get(index).ok_or(PARSEC_ERR_INVALID)?;
             unsafe {
                 out.write(parsec_syntax_error {
                     code: e.code.as_ptr().cast(),
                     code_len: e.code.len(),
-                    offset: e.offset,
+                    offset: source(h, e.offset),
                     line: e.line,
                     column: e.column,
                 })

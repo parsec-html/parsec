@@ -31,7 +31,8 @@ fn the_c_test_program_passes() {
         .status()
         .unwrap_or_else(|e| panic!("couldn't run {cc}: {e}; set CC to a C compiler"));
     assert!(built.success(), "{cc} couldn't build tests/capi.c");
-    let run = Command::new(&out).output().unwrap();
+    let html5lib = here.join("../parsec/tests/html5lib-tests/encoding");
+    let run = Command::new(&out).arg(html5lib).output().unwrap();
     print!("{}", String::from_utf8_lossy(&run.stdout));
     assert!(
         run.status.success(),

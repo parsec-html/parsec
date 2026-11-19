@@ -22,18 +22,20 @@ header = """
  *
  * The rules every function keeps:
  *
- * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath
- *   or parsec_xpath_result is made by one function and freed by one, and
- *   NULL is accepted everywhere: a call given NULL fails with
- *   PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or false, and the
- *   free functions do nothing.
+ * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath,
+ *   parsec_xpath_result or parsec_byte_parser is made by one function and
+ *   freed by one, and NULL is accepted everywhere: a call given NULL
+ *   fails with PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or
+ *   false, and the free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
  *   is, and a number that isn't a node of the document is refused, never
  *   read. Removing a node detaches it; nothing is freed until the
  *   document is.
  * - Strings in are a pointer and a length in bytes, UTF-8, with no NUL
  *   needed. NULL with a length of 0 is the empty string. Bytes that aren't
- *   UTF-8 become U+FFFD.
+ *   UTF-8 become U+FFFD. The exception is a page given to
+ *   parsec_parse_bytes or a parsec_byte_parser, which is decoded as a
+ *   browser decodes it, in whatever encoding it's in.
  * - Strings out come two ways. Borrowed ones (const char *, from
  *   parsec_node_name, parsec_node_value, parsec_attr_get and the like)
  *   point into the document, are *len bytes long with no NUL after them,
@@ -47,7 +49,8 @@ header = """
  *   function taking a const parsec_document *, parsec_xpath_evaluate
  *   included), and a selector or a compiled XPath may be used from any
  *   number of threads. A call taking a non-const parsec_document *
- *   changes it, and needs the document to itself. A
+ *   changes it, and needs the document to itself, as a
+ *   parsec_byte_parser needs itself to itself for each call. A
  *   document or selector may be freed on a different thread from the one
  *   that made it.
  */"""

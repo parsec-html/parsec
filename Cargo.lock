@@ -221,6 +221,7 @@ name = "parsec-capi"
 version = "0.1.0"
 dependencies = [
  "parsec-html",
+ "parsec-html-encoding",
  "parsec-xpath",
 ]
 
