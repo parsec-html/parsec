@@ -102,6 +102,8 @@ pub(super) struct Input<'d, 's> {
     pub root: Option<&'d Computed>,
     pub is_root: bool,
     pub env: &'d Environment,
+    /// The custom properties `@property` registers, with their syntax.
+    pub registered: &'d HashMap<String, (crate::rules::PropertyRule, crate::rules::Syntax)>,
 }
 
 /// What computing one property needs to know.
@@ -190,10 +192,77 @@ pub(super) fn compute(input: Input<'_, '_>) -> Computed {
     if input.is_root {
         out.root_font_size = out.font_size;
     }
+    registered(&input, &custom, parent, &mut out);
     // `currentcolor` and the border widths depend on others, worked out
     // after everything's in.
     fix_up(&mut out, input.is_root, parent);
     out
+}
+
+/// Registered custom properties, CSS Properties and Values API 1 §2: each
+/// takes its declared value if it matches the syntax, computed (`1em` as
+/// pixels, colours worked out); otherwise, or if nothing's declared, the
+/// parent's if it inherits, and its initial value if not.
+fn registered(
+    input: &Input<'_, '_>,
+    custom: &Resolved<'_>,
+    parent: Option<&Computed>,
+    out: &mut Computed,
+) {
+    for (name, (rule, syntax)) in input.registered {
+        let initial = rule.initial_value.clone();
+        let from_parent = || {
+            parent
+                .and_then(|p| p.custom.get(name).cloned().flatten())
+                .or_else(|| initial.clone())
+        };
+        let unset = || {
+            if rule.inherits {
+                from_parent()
+            } else {
+                initial.clone()
+            }
+        };
+        let declared = input
+            .custom
+            .get(name)
+            .and_then(|l| l.last())
+            .map(|(_, v)| v);
+        let keyword = match declared.map(|v| &v[..]) {
+            Some([ComponentValue::Token(crate::Token::Ident(w), _)]) => {
+                Some(w.to_ascii_lowercase())
+            }
+            _ => None,
+        };
+        let value = match (declared, keyword.as_deref()) {
+            (None, _) => unset(),
+            (Some(_), Some("inherit")) => from_parent(),
+            (Some(_), Some("initial")) => initial.clone(),
+            (Some(_), Some("unset" | "revert" | "revert-layer")) => unset(),
+            (Some(_), _) => match custom.get(name) {
+                // Guaranteed-invalid: as `unset`.
+                None => unset(),
+                Some(tokens) if syntax.is_universal() => {
+                    Some(crate::to_css(tokens).trim().to_string())
+                }
+                Some(tokens) => match syntax.parse_value(tokens) {
+                    Some(c) => {
+                        let cx = out.cx("--", out.font_size);
+                        let c: Vec<Component<'_>> = components(&c, &cx, None)
+                            .into_iter()
+                            .map(|x| match x {
+                                Component::Color(c) => Component::Color(c.computed()),
+                                x => x,
+                            })
+                            .collect();
+                        Some(Specified::Value(c).to_string())
+                    }
+                    None => unset(),
+                },
+            },
+        };
+        out.custom.insert(name.clone(), value);
+    }
 }
 
 fn px_of(s: &str) -> Option<f64> {

@@ -11,6 +11,19 @@
 use crate::parser::{Bracket, ComponentValue};
 use crate::tokenizer::Token;
 
+/// The at-rules `at-rule()` says are supported: those this crate reads.
+const AT_RULES: &[&str] = &[
+    "media",
+    "supports",
+    "layer",
+    "import",
+    "container",
+    "scope",
+    "property",
+    "keyframes",
+    "counter-style",
+];
+
 const FORMATS: &[&str] = &[
     "collection",
     "embedded-opentype",
@@ -137,6 +150,13 @@ fn in_parens(v: &ComponentValue<'_>, depth: usize) -> Option<bool> {
                 }
                 "font-format" => one(FORMATS),
                 "font-tech" => one(TECHS),
+                // CSS Conditional 5 §2.5: an at-rule this crate reads.
+                "at-rule" => match args[..] {
+                    [ComponentValue::Token(Token::AtKeyword(w), _)] => {
+                        AT_RULES.iter().any(|a| w.eq_ignore_ascii_case(a))
+                    }
+                    _ => false,
+                },
                 _ => false,
             })
         }

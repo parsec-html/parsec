@@ -136,16 +136,23 @@ assert_eq!(doc.text(hits[0]), "one");
   Parsec document with the user agent's, the user's and the author's
   sheets, `@media` and `@supports` evaluated against an environment you
   give (`parsec_css::media` and `::supports`), `@layer`, nesting,
-  specificity, `!important` and `style=""`, then read any element's
-  computed value as `getComputedStyle()` gives it: inheritance, the
-  CSS-wide keywords with `revert` and `revert-layer`, `var()`, absolute
-  lengths, and colours worked out, mixes and relative colours included.
-  Lexbor has no media query evaluation and no computed values
+  specificity, `!important` and `style=""`, `@scope` with scoping
+  proximity, `@container` against the container sizes you give (size and
+  `style()` queries), `@import` through a fetch you give with `layer()`,
+  `supports()` and media, and `@property` registrations, then read any
+  element's computed value as `getComputedStyle()` gives it: inheritance,
+  the CSS-wide keywords with `revert` and `revert-layer`, `var()`,
+  absolute lengths, and colours worked out, mixes and relative colours
+  included. `@keyframes` and `@counter-style` are parsed and given back
+  (`parsec_css::rules`), whichever wins for each name. Lexbor has no media
+  query evaluation and no computed values
   ([discussion #265](https://github.com/lexbor/lexbor/discussions/265)).
   `cargo test` runs WPT's media query cases (1,370 of 1,370), its
-  computed-value cases (10,974 of 12,041) and its static cascade cases
-  (104 of 123); [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade)
-  on the wiki has what fails and why.
+  computed-value cases (10,974 of 12,041) and its static cascade and
+  at-rule cases, `@scope`, `@container`, `@property` and
+  `@counter-style` among them (1,139 of 1,345);
+  [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade) on the
+  wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
@@ -244,7 +251,7 @@ every module Lexbor has, and then go past it:
 | Unicode normalization | yes | yes, all of NormalizationTest passing |
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 93% of WPT's parsing cases |
-| Media queries, cascade, computed values | no | yes, against an environment you give; WPT counts published |
+| Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import` and `@property`; WPT counts published |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |
 | WebAssembly | through bindings | yes, on npm with 0.1.0 |

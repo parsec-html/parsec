@@ -139,8 +139,15 @@ environment you give it, and computed values with inheritance.
   `revert`, `var()` and computed values as `getComputedStyle()` writes
   them. WPT: 1,370 of 1,370 media query cases, 10,974 of 12,041
   computed-value cases, 104 of 123 cascade cases.
-- Still to come: `@container` and `@scope`, `@property`, and the values
-  that need layout (`width: 50%` as pixels).
+- Done: the cascade's other at-rules
+  ([#95](https://github.com/parsec-html/parsec/issues/95)). `@scope` with
+  scoping proximity, `@container` against sizes the caller gives,
+  `@import` through the caller's fetch with `layer()`, `supports()` and
+  media, `@property` registrations, and `@keyframes` and
+  `@counter-style` parsed and given back. WPT: 1,139 of 1,345 static
+  cascade and at-rule cases.
+- Still to come: the values that need layout (`width: 50%` as pixels,
+  container query units).
 
 ## M8. XPath
 

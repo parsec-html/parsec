@@ -24,19 +24,31 @@
 //! assert_eq!(styled.get(p, "display").as_deref(), Some("block"));
 //! ```
 //!
+//! `@scope` applies with scoping proximity in the cascade order;
+//! `@container` against the sizes [`Styler::container_sizes`] gives;
+//! `@import` through the fetch [`Styler::fetch`] gives, with `layer()`,
+//! `supports()` and media; `@property` registers custom properties, which
+//! then take their syntax, initial value and inheritance from it; and
+//! [`Styler::at_rules`] gives the `@keyframes`, `@counter-style` and
+//! `@property` rules that win.
+//!
 //! What it doesn't do is layout: a value that needs boxes to work out,
-//! `width: 50%` as pixels say, stays as its computed value, and
-//! `@container` and `@scope` rules don't apply. `@import` isn't fetched.
+//! `width: 50%` as pixels say, stays as its computed value, and a
+//! container's size is the caller's to give.
 
 mod compute;
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use parsec::css::SelectorList;
 use parsec::{Document, Kind, NodeId};
 
 use crate::media::{Environment, MediaQueryList};
 use crate::parser::{Block, ComponentValue, Item, Rule};
+use crate::rules::{
+    ContainerQuery, CounterStyle, Import, Keyframes, PropertyRule, ScopeBounds, Syntax,
+};
 use crate::tokenizer::Token;
 use crate::values::{CssWide, Specified, expand, property};
 
@@ -58,7 +70,17 @@ struct Sheet {
     css: String,
     origin: Origin,
     media: Option<MediaQueryList>,
+    /// The `<style>` it came from, whose parent an `@scope` with no root
+    /// is scoped to.
+    owner: Option<NodeId>,
 }
+
+/// What an `@import`'s URL gives: the stylesheet's text, or `None`.
+pub type Fetch = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
+
+/// A container's size, width and height in CSS pixels, from the element
+/// and its computed values; `None` for one whose size isn't known.
+pub type ContainerSize = Arc<dyn Fn(NodeId, &Computed) -> Option<(f64, f64)> + Send + Sync>;
 
 /// Collects stylesheets and styles documents with them.
 #[derive(Default)]
@@ -67,6 +89,22 @@ pub struct Styler {
     sheets: Vec<Sheet>,
     /// Whether `style=""` attributes count, as they do in a browser.
     style_attributes: bool,
+    fetch: Option<Fetch>,
+    container_size: Option<ContainerSize>,
+}
+
+/// How deep `@import`s may nest, and how many one styling may follow:
+/// past either, the rest aren't fetched.
+const MAX_IMPORT_DEPTH: usize = 16;
+const MAX_IMPORTS: usize = 256;
+
+/// The `@keyframes`, `@counter-style` and `@property` rules that win, by
+/// name: the last of a name in the cascade's order, layers counted.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AtRules {
+    pub keyframes: Vec<Keyframes>,
+    pub counter_styles: Vec<CounterStyle>,
+    pub properties: Vec<PropertyRule>,
 }
 
 /// A declaration where the cascade put it.
@@ -87,6 +125,9 @@ struct Key {
     attached: bool,
     layer: u32,
     specificity: (u32, u32, u32),
+    /// Scoping proximity, CSS Cascade 6 §6.6: nearer roots win, and an
+    /// unscoped rule is the farthest of all.
+    proximity: u32,
     order: u32,
 }
 
@@ -102,6 +143,25 @@ struct Entry<'s> {
     layer: usize,
     order: u32,
     declarations: Vec<(&'s str, &'s [ComponentValue<'s>], bool)>,
+    scope: Option<Arc<Scope>>,
+    /// The `@container` rules it's in, each a list of queries any of
+    /// which may hold.
+    containers: Vec<Arc<Vec<ContainerQuery>>>,
+}
+
+/// An `@scope` a rule is in.
+struct Scope {
+    start: ScopeStart,
+    end: Option<SelectorList>,
+    /// The `@scope` this one is in, which its roots must be in scope of.
+    outer: Option<Arc<Scope>>,
+}
+
+enum ScopeStart {
+    Selector(SelectorList),
+    /// No `<scope-start>`: the parent of the `<style>` it's in, or the
+    /// document for a sheet with none.
+    Owner(Option<NodeId>),
 }
 
 /// Every element's computed values.
@@ -127,8 +187,8 @@ impl Styler {
     pub fn new(env: Environment) -> Styler {
         let mut s = Styler {
             env,
-            sheets: Vec::new(),
             style_attributes: true,
+            ..Styler::default()
         };
         s.add(HTML_UA_STYLESHEET, Origin::UserAgent);
         s
@@ -138,8 +198,8 @@ impl Styler {
     pub fn bare(env: Environment) -> Styler {
         Styler {
             env,
-            sheets: Vec::new(),
             style_attributes: true,
+            ..Styler::default()
         }
     }
 
@@ -153,6 +213,7 @@ impl Styler {
             css: css.to_string(),
             origin,
             media: None,
+            owner: None,
         });
         self
     }
@@ -164,7 +225,30 @@ impl Styler {
             css: css.to_string(),
             origin,
             media: Some(MediaQueryList::parse_str(media)),
+            owner: None,
         });
+        self
+    }
+
+    /// Fetches `@import`ed stylesheets with `fetch`, given each URL as
+    /// written; without it, `@import` is ignored.
+    pub fn fetch(
+        mut self,
+        fetch: impl Fn(&str) -> Option<String> + Send + Sync + 'static,
+    ) -> Styler {
+        self.fetch = Some(Arc::new(fetch));
+        self
+    }
+
+    /// Gives each container's size, for `@container`: `size` is asked for
+    /// an element whose `container-type` makes it a container, with its
+    /// computed values, and gives its width and height in CSS pixels. A
+    /// query on a container with no size given is false.
+    pub fn container_sizes(
+        mut self,
+        size: impl Fn(NodeId, &Computed) -> Option<(f64, f64)> + Send + Sync + 'static,
+    ) -> Styler {
+        self.container_size = Some(Arc::new(size));
         self
     }
 
@@ -182,6 +266,9 @@ impl Styler {
                 Some(m) => self.add_with_media(&css, Origin::Author, &m),
                 None => self.add(&css, Origin::Author),
             };
+            if let Some(last) = self.sheets.last_mut() {
+                last.owner = Some(el);
+            }
         }
         self
     }
@@ -213,16 +300,110 @@ impl Styler {
         styled.styles.remove(&el)
     }
 
-    fn style_some(&self, doc: &Document, only: Option<&[NodeId]>) -> Styled {
-        let parsed: Vec<_> = self
-            .sheets
-            .iter()
-            .filter(|s| !(s.origin == Origin::UserAgent && s.css == HTML_UA_STYLESHEET))
-            .filter(|s| s.media.as_ref().is_none_or(|m| m.matches(&self.env)))
-            .map(|s| (s, crate::parse_stylesheet_deep(&s.css)))
-            .collect();
-        let mut layers = Layers::default();
-        let mut entries = Vec::new();
+    /// Each sheet that applies, with what it `@import`s before it, in the
+    /// cascade's order.
+    fn units(&self) -> Vec<Unit> {
+        let mut out = Vec::new();
+        let mut count = 0;
+        for s in &self.sheets {
+            if s.origin == Origin::UserAgent && s.css == HTML_UA_STYLESHEET {
+                continue;
+            }
+            if !s.media.as_ref().is_none_or(|m| m.matches(&self.env)) {
+                continue;
+            }
+            self.expand(
+                s.css.clone(),
+                (s.origin, s.owner),
+                (Vec::new(), Vec::new()),
+                0,
+                &mut count,
+                &mut out,
+            );
+        }
+        out
+    }
+
+    /// A sheet, after the sheets its `@import`s bring in, each in the
+    /// layer the import puts it.
+    #[allow(clippy::too_many_arguments)]
+    fn expand(
+        &self,
+        css: String,
+        (origin, owner): (Origin, Option<NodeId>),
+        (layer, scopes): (Vec<String>, Vec<ScopeBounds>),
+        depth: usize,
+        count: &mut usize,
+        out: &mut Vec<Unit>,
+    ) {
+        if let Some(fetch) = &self.fetch {
+            let sheet = crate::parse_stylesheet(&css);
+            // `@layer` statements before the imports name their layers
+            // first.
+            let mut declared = Vec::new();
+            for rule in &sheet.rules {
+                let Rule::At(a) = rule else { break };
+                match a.name.to_ascii_lowercase().as_str() {
+                    "charset" => {}
+                    "layer" if a.block.is_none() => {
+                        for n in layer_names(&a.prelude) {
+                            let mut path = layer.clone();
+                            path.extend(n);
+                            declared.push(path);
+                        }
+                    }
+                    "import" => {
+                        let Some(import) = Import::parse(a) else {
+                            continue;
+                        };
+                        if !import.applies(&self.env)
+                            || depth >= MAX_IMPORT_DEPTH
+                            || *count >= MAX_IMPORTS
+                        {
+                            continue;
+                        }
+                        *count += 1;
+                        let mut path = layer.clone();
+                        match &import.layer {
+                            Some(Some(n)) => path.extend(n.split('.').map(String::from)),
+                            // Each anonymous layer its own.
+                            Some(None) => path.push(format!("\u{0}import{count}")),
+                            None => {}
+                        }
+                        // The layer is named whether the sheet loads or not.
+                        if import.layer.is_some() {
+                            declared.push(path.clone());
+                        }
+                        out.push(Unit::layers(std::mem::take(&mut declared)));
+                        let Some(text) = fetch(&import.url) else {
+                            continue;
+                        };
+                        let mut inner = scopes.clone();
+                        inner.extend(import.scope.clone());
+                        self.expand(text, (origin, owner), (path, inner), depth + 1, count, out);
+                    }
+                    _ => break,
+                }
+            }
+        }
+        out.push(Unit {
+            css,
+            origin,
+            owner,
+            layer,
+            declare: Vec::new(),
+            scopes,
+        });
+    }
+
+    /// The rules of every sheet that applies, collected.
+    fn collect<'u>(
+        &self,
+        parsed: &'u [(&'u Unit, crate::Stylesheet<'u, Block<'u>>)],
+        layers: &mut Layers,
+        entries: &mut Vec<Entry<'u>>,
+        at: &mut Collected,
+    ) {
         let mut order = 0;
         // The HTML user agent stylesheet is the same every time: its rules
         // are collected once, for every styler.
@@ -235,17 +416,66 @@ impl Styler {
             entries.extend(ua.iter().cloned());
             order = *n;
         }
-        for (sheet, parsed) in &parsed {
+        for (unit, parsed) in parsed {
+            for path in &unit.declare {
+                layers.id(path);
+            }
             let mut cx = Collect {
                 env: &self.env,
-                origin: sheet.origin,
-                layers: &mut layers,
-                entries: &mut entries,
+                origin: unit.origin,
+                layers,
+                entries,
                 order: &mut order,
+                owner: unit.owner,
+                scope: None,
+                containers: Vec::new(),
+                at,
             };
-            cx.rules(&parsed.rules, &[], &[]);
+            // An `@import … scope()`'s sheet is as if in that `@scope`.
+            if unit.scopes.iter().all(|b| cx.enter_scope(b, &[])) {
+                cx.rules(&parsed.rules, &[], &unit.layer);
+            }
         }
+    }
+
+    /// The `@keyframes`, `@counter-style` and `@property` rules in force:
+    /// for each name, the one the cascade's order puts last.
+    pub fn at_rules(&self) -> AtRules {
+        let units = self.units();
+        let parsed: Vec<_> = units
+            .iter()
+            .map(|u| (u, crate::parse_stylesheet_deep(&u.css)))
+            .collect();
+        let mut layers = Layers::default();
+        let mut entries = Vec::new();
+        let mut at = Collected::default();
+        self.collect(&parsed, &mut layers, &mut entries, &mut at);
         let ranks = layers.ranks();
+        at.resolved(&ranks)
+    }
+
+    fn style_some(&self, doc: &Document, only: Option<&[NodeId]>) -> Styled {
+        let units = self.units();
+        let parsed: Vec<_> = units
+            .iter()
+            .map(|u| (u, crate::parse_stylesheet_deep(&u.css)))
+            .collect();
+        let mut layers = Layers::default();
+        let mut entries = Vec::new();
+        let mut at = Collected::default();
+        self.collect(&parsed, &mut layers, &mut entries, &mut at);
+        let ranks = layers.ranks();
+        let registered: HashMap<String, (PropertyRule, Syntax)> = at
+            .resolved(&ranks)
+            .properties
+            .into_iter()
+            .filter(PropertyRule::registers)
+            .filter_map(|p| {
+                let syntax = Syntax::parse(&p.syntax)?;
+                Some((p.name.clone(), (p, syntax)))
+            })
+            .collect();
+        let mut scope_cache = ScopeCache::default();
         let mut index = Index::default();
         for (i, e) in entries.iter().enumerate() {
             match &e.bucket {
@@ -306,14 +536,38 @@ impl Styler {
             candidates.dedup();
             for &i in &candidates {
                 let e = &entries[i];
-                if !e.selector.matches(doc, el, None) {
+                if !e
+                    .containers
+                    .iter()
+                    .all(|c| self.container_holds(c, doc, el, &styles))
+                {
                     continue;
                 }
+                let proximity = match &e.scope {
+                    None => {
+                        if !e.selector.matches(doc, el, None) {
+                            continue;
+                        }
+                        0
+                    }
+                    Some(scope) => {
+                        let levels = scope_roots(scope, doc, el, &mut scope_cache);
+                        let roots = levels.last().map_or(&[][..], |r| &r[..]);
+                        match roots
+                            .iter()
+                            .find(|(r, _)| e.selector.matches(doc, el, Some(*r)))
+                        {
+                            Some((_, hops)) => u32::MAX - hops,
+                            None => continue,
+                        }
+                    }
+                };
                 let key = Key {
                     origin: e.origin as u8,
                     attached: false,
                     layer: ranks[e.layer],
                     specificity: e.specificity,
+                    proximity,
                     order: e.order,
                 };
                 for (name, value, important) in &e.declarations {
@@ -328,6 +582,7 @@ impl Styler {
                             attached: true,
                             layer: ranks[0],
                             specificity: (0, 0, 0),
+                            proximity: 0,
                             order: u32::MAX,
                         };
                         add(
@@ -360,6 +615,7 @@ impl Styler {
                 root: root_style,
                 is_root: Some(el) == root,
                 env: &self.env,
+                registered: &registered,
             });
             styles.insert(el, computed);
         }
@@ -455,16 +711,161 @@ fn ua_entries() -> &'static (Vec<Entry<'static>>, u32) {
         let mut layers = Layers::default();
         let mut entries = Vec::new();
         let mut order = 0;
+        let mut at = Collected::default();
         let mut cx = Collect {
             env: &env,
             origin: Origin::UserAgent,
             layers: &mut layers,
             entries: &mut entries,
             order: &mut order,
+            owner: None,
+            scope: None,
+            containers: Vec::new(),
+            at: &mut at,
         };
         cx.rules(&sheet.rules, &[], &[]);
         (entries, order)
     })
+}
+
+impl Styler {
+    /// Whether one of an `@container`'s queries holds for `el`: its
+    /// nearest container of the name with the axes the query needs, of
+    /// the size [`Styler::container_sizes`] gives.
+    fn container_holds(
+        &self,
+        queries: &[ContainerQuery],
+        doc: &Document,
+        el: NodeId,
+        styles: &HashMap<NodeId, Computed>,
+    ) -> bool {
+        queries.iter().any(|q| {
+            let axes = q.axes();
+            let sized = axes.inline || axes.block;
+            let mut at = doc.parent(el);
+            while let Some(a) = at {
+                at = doc.parent(a);
+                let Some(c) = styles.get(&a) else { continue };
+                let ty = c.get("container-type").unwrap_or_default();
+                let size = ty.split_ascii_whitespace().any(|w| w == "size");
+                let inline = size || ty.split_ascii_whitespace().any(|w| w == "inline-size");
+                // Every element is a style container; a size container
+                // needs the type for the axes asked of it, and a box.
+                let boxed = !matches!(c.get("display").as_deref(), Some("none" | "contents"));
+                let eligible = if axes.block {
+                    size && boxed
+                } else if axes.inline {
+                    inline && boxed
+                } else {
+                    true
+                };
+                let named = q.name.as_ref().is_none_or(|n| {
+                    c.get("container-name")
+                        .is_some_and(|names| names.split_ascii_whitespace().any(|x| x == n))
+                });
+                if !eligible || !named {
+                    continue;
+                }
+                let size = match sized {
+                    true => match self.container_size.as_ref().and_then(|f| f(a, c)) {
+                        Some(s) => Some(s),
+                        None => return false,
+                    },
+                    false => None,
+                };
+                let get = |name: &str| c.get(name);
+                return q.evaluate(size, c.font_size, &get) == Some(true);
+            }
+            false
+        })
+    }
+}
+
+/// Each nesting level's scoping roots, outermost first, each root with
+/// how many generations up it is.
+type Levels = Vec<Vec<(NodeId, u32)>>;
+
+/// Each element's scoping roots for each `@scope`, worked out once: an
+/// element's are its parent's, a generation farther, less those it limits,
+/// and itself if it's a root.
+#[derive(Default)]
+struct ScopeCache {
+    /// By the scope's address and the node: the roots at each level of
+    /// nesting, outermost first.
+    roots: HashMap<(usize, NodeId), Arc<Levels>>,
+}
+
+/// The scoping roots `el` is in scope of for `scope`, nearest first, each
+/// with how many generations up it is.
+fn scope_roots(scope: &Scope, doc: &Document, el: NodeId, cache: &mut ScopeCache) -> Arc<Levels> {
+    let key = |n: NodeId| (scope as *const Scope as usize, n);
+    // Up to the nearest element already done, then down from there, so
+    // nothing recurses on the document's depth.
+    let mut chain = vec![el];
+    let mut start = None;
+    let mut at = el;
+    if let Some(r) = cache.roots.get(&key(el)) {
+        return r.clone();
+    }
+    while let Some(p) = doc.parent(at) {
+        if let Some(r) = cache.roots.get(&key(p)) {
+            start = Some(r.clone());
+            break;
+        }
+        chain.push(p);
+        at = p;
+    }
+    let mut levels: Vec<&Scope> = Vec::new();
+    let mut s = Some(scope);
+    while let Some(x) = s {
+        levels.push(x);
+        s = x.outer.as_deref();
+    }
+    levels.reverse();
+    let owner_root = |o: &Option<NodeId>| o.and_then(|o| doc.parent(o)).unwrap_or(doc.root());
+    let mut roots: Levels = match start {
+        Some(r) => (*r).clone(),
+        None => vec![Vec::new(); levels.len()],
+    };
+    for &n in chain.iter().rev() {
+        let element = matches!(doc.kind(n), Kind::Element { .. });
+        for i in 0..levels.len() {
+            let sc = levels[i];
+            for r in &mut roots[i] {
+                r.1 += 1;
+            }
+            // A limit, and what's under it, is out of its root's scope.
+            if let Some(end) = &sc.end
+                && element
+            {
+                roots[i].retain(|(r, _)| !end.matches(doc, n, Some(*r)));
+            }
+            let is_root = match &sc.start {
+                ScopeStart::Owner(o) => n == owner_root(o),
+                ScopeStart::Selector(sel) => {
+                    element
+                        && if i == 0 {
+                            sel.matches(doc, n, None)
+                        } else {
+                            roots[i - 1]
+                                .iter()
+                                .any(|(r, _)| sel.matches(doc, n, Some(*r)))
+                        }
+                }
+            };
+            // A root that's its own limit, `to (:scope)`, scopes nothing.
+            let own_limit = is_root
+                && sc
+                    .end
+                    .as_ref()
+                    .is_some_and(|end| end.matches(doc, n, Some(n)));
+            if is_root && !own_limit {
+                roots[i].insert(0, (n, 0));
+            }
+        }
+        cache.roots.insert(key(n), Arc::new(roots.clone()));
+    }
+    cache.roots[&key(el)].clone()
 }
 
 /// Origin and importance as one rank: normal user agent, user, author,
@@ -664,7 +1065,91 @@ struct Collect<'c, 's> {
     layers: &'c mut Layers,
     entries: &'c mut Vec<Entry<'s>>,
     order: &'c mut u32,
+    owner: Option<NodeId>,
+    scope: Option<Arc<Scope>>,
+    containers: Vec<Arc<Vec<ContainerQuery>>>,
+    at: &'c mut Collected,
 }
+
+/// One stylesheet to collect: its text, where it's from, and the layer
+/// an `@import` put it in; or, with no text, layers to name first.
+struct Unit {
+    css: String,
+    origin: Origin,
+    owner: Option<NodeId>,
+    layer: Vec<String>,
+    declare: Vec<Vec<String>>,
+    /// The `scope()`s `@import`s put its rules in, outermost first.
+    scopes: Vec<ScopeBounds>,
+}
+
+impl Unit {
+    fn layers(declare: Vec<Vec<String>>) -> Unit {
+        Unit {
+            css: String::new(),
+            origin: Origin::Author,
+            owner: None,
+            layer: Vec::new(),
+            declare,
+            scopes: Vec::new(),
+        }
+    }
+}
+
+/// `@layer a.b, c`'s names, each as its parts.
+fn layer_names(prelude: &[ComponentValue<'_>]) -> Vec<Vec<String>> {
+    prelude
+        .split(|v| matches!(v, ComponentValue::Token(Token::Comma, _)))
+        .map(|n| {
+            crate::to_css(n)
+                .trim()
+                .split('.')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect()
+        })
+        .collect()
+}
+
+/// The named at-rules as collected, each with its layer and order.
+#[derive(Default)]
+struct Collected {
+    keyframes: Vec<(usize, u32, Keyframes)>,
+    counter_styles: Vec<(usize, u32, CounterStyle)>,
+    properties: Vec<(usize, u32, PropertyRule)>,
+}
+
+impl Collected {
+    /// For each name, the rule that's last in the cascade's order.
+    fn resolved(&self, ranks: &[u32]) -> AtRules {
+        fn last<T: Clone>(
+            items: &[(usize, u32, T)],
+            ranks: &[u32],
+            name: impl Fn(&T) -> &str,
+        ) -> Vec<T> {
+            let mut sorted: Vec<&(usize, u32, T)> = items.iter().collect();
+            sorted.sort_by_key(|(l, o, _)| (ranks.get(*l).copied().unwrap_or(0), *o));
+            let mut out: Vec<T> = Vec::new();
+            for (_, _, t) in sorted {
+                out.retain(|x| name(x) != name(t));
+                out.push(t.clone());
+            }
+            out
+        }
+        AtRules {
+            keyframes: last(&self.keyframes, ranks, |k| &k.name),
+            counter_styles: last(&self.counter_styles, ranks, |c| &c.name),
+            properties: last(&self.properties, ranks, |p| &p.name),
+        }
+    }
+}
+
+/// The parent "selector" of the rules straight inside an `@scope`.
+const IN_SCOPE: &str = "\u{1}scope";
+
+/// How deep `@scope`s may nest; deeper ones are ignored, since each level
+/// multiplies the work of finding roots.
+const MAX_SCOPE_DEPTH: usize = 8;
 
 /// A prelude's complex selectors, each as text.
 fn complex_selectors(prelude: &[ComponentValue<'_>]) -> Vec<String> {
@@ -680,6 +1165,18 @@ fn nest(selector: &str, parents: &[String]) -> String {
     if parents.is_empty() {
         return selector.to_string();
     }
+    // In `@scope`, CSS Cascade 6 §3.5.1: `&` is `:where(:scope)`, and a
+    // selector without `:scope` or `&` is under the root.
+    if parents == [IN_SCOPE] {
+        let scope = ":where(:scope)";
+        if selector.contains('&') {
+            return selector.replace('&', scope);
+        }
+        if selector.contains(":scope") {
+            return selector.to_string();
+        }
+        return format!("{scope} {selector}");
+    }
     let parent = format!(":is({})", parents.join(", "));
     if selector.contains('&') {
         return selector.replace('&', &parent);
@@ -688,6 +1185,47 @@ fn nest(selector: &str, parents: &[String]) -> String {
 }
 
 impl<'s> Collect<'_, 's> {
+    /// Makes `bounds` the scope rules are collected in, inside the one
+    /// they're in now; `false` if its selectors don't parse or scopes
+    /// nest too deep.
+    fn enter_scope(&mut self, bounds: &ScopeBounds, parents: &[String]) -> bool {
+        let mut depth = 0;
+        let mut s = self.scope.as_deref();
+        while let Some(x) = s {
+            depth += 1;
+            s = x.outer.as_deref();
+        }
+        if depth >= MAX_SCOPE_DEPTH {
+            return false;
+        }
+        // Real parents: a style rule's selectors.
+        let parents: Vec<String> = parents.iter().filter(|p| *p != IN_SCOPE).cloned().collect();
+        let start = match &bounds.start {
+            Some(sel) => match SelectorList::parse(&nest(sel, &parents)) {
+                Ok(l) => ScopeStart::Selector(l),
+                Err(_) => return false,
+            },
+            None if !parents.is_empty() => match SelectorList::parse(&parents.join(", ")) {
+                Ok(l) => ScopeStart::Selector(l),
+                Err(_) => return false,
+            },
+            None => ScopeStart::Owner(self.owner),
+        };
+        let end = match &bounds.end {
+            Some(sel) => match SelectorList::parse(sel) {
+                Ok(l) => Some(l),
+                Err(_) => return false,
+            },
+            None => None,
+        };
+        self.scope = Some(Arc::new(Scope {
+            start,
+            end,
+            outer: self.scope.take(),
+        }));
+        true
+    }
+
     fn rules(&mut self, rules: &'s [Rule<'s, Block<'s>>], parents: &[String], layer: &[String]) {
         for r in rules {
             self.rule(r, parents, layer);
@@ -722,6 +1260,11 @@ impl<'s> Collect<'_, 's> {
     ) {
         let layer = self.layers.id(layer);
         for s in selectors {
+            let s = if s == IN_SCOPE {
+                ":where(:scope)"
+            } else {
+                s.as_str()
+            };
             let Ok(list) = SelectorList::parse(s) else {
                 continue;
             };
@@ -734,6 +1277,8 @@ impl<'s> Collect<'_, 's> {
                 layer,
                 order: *self.order,
                 declarations: declarations.clone(),
+                scope: self.scope.clone(),
+                containers: self.containers.clone(),
             });
         }
     }
@@ -782,19 +1327,40 @@ impl<'s> Collect<'_, 's> {
                             self.items(&b.items, parents, layer);
                         }
                     }
+                    "container" => {
+                        if let (Some(queries), Some(b)) =
+                            (ContainerQuery::parse_list(&a.prelude), &a.block)
+                        {
+                            self.containers.push(Arc::new(queries));
+                            self.items(&b.items, parents, layer);
+                            self.containers.pop();
+                        }
+                    }
+                    "scope" => {
+                        let (Some(bounds), Some(b)) = (ScopeBounds::parse(&a.prelude), &a.block)
+                        else {
+                            return;
+                        };
+                        let outer = self.scope.clone();
+                        if self.enter_scope(&bounds, parents) {
+                            self.items(&b.items, &[IN_SCOPE.to_string()], layer);
+                        }
+                        self.scope = outer;
+                    }
+                    "keyframes" | "-webkit-keyframes" | "counter-style" | "property" => {
+                        let l = self.layers.id(layer);
+                        *self.order += 1;
+                        let o = *self.order;
+                        if let Some(k) = Keyframes::parse(a) {
+                            self.at.keyframes.push((l, o, k));
+                        } else if let Some(c) = CounterStyle::parse(a) {
+                            self.at.counter_styles.push((l, o, c));
+                        } else if let Some(p) = PropertyRule::parse(a) {
+                            self.at.properties.push((l, o, p));
+                        }
+                    }
                     "layer" => {
-                        let names: Vec<Vec<String>> = a
-                            .prelude
-                            .split(|v| matches!(v, ComponentValue::Token(Token::Comma, _)))
-                            .map(|n| {
-                                crate::to_css(n)
-                                    .trim()
-                                    .split('.')
-                                    .map(|p| p.trim().to_string())
-                                    .filter(|p| !p.is_empty())
-                                    .collect()
-                            })
-                            .collect();
+                        let names = layer_names(&a.prelude);
                         match &a.block {
                             // `@layer a, b;` names them, in that order.
                             None => {
@@ -951,6 +1517,92 @@ mod tests {
         assert_eq!(style(&html, "p", "margin-top"), "1px");
         let html = "<style media='print'>p { color: red }</style><p>";
         assert_eq!(style(html, "p", "color"), "rgb(0, 0, 0)");
+    }
+
+    #[test]
+    fn scope_and_proximity() {
+        let html = "<style>@scope (.a) { p { color: green } } @scope (.b) to (.c) { p { color: blue } }</style>\
+                    <div class=a><p id=one></p><div class=b><p id=two></p><div class=c><p id=three></p></div></div></div><p id=four>";
+        assert_eq!(style(html, "#one", "color"), "rgb(0, 128, 0)");
+        // .b is nearer than .a, so its rule wins though it's not later.
+        let html2 = html
+            .replace("@scope (.b) to (.c) { p { color: blue } }", "")
+            .replace(
+                "<style>",
+                "<style>@scope (.b) to (.c) { p { color: blue } }",
+            );
+        assert_eq!(style(&html2, "#two", "color"), "rgb(0, 0, 255)");
+        // Past the limit only .a's applies.
+        assert_eq!(style(html, "#three", "color"), "rgb(0, 128, 0)");
+        assert_eq!(style(html, "#four", "color"), "rgb(0, 0, 0)");
+        // `:scope` itself, and declarations straight in the rule.
+        let html = "<style>@scope (.a) { :scope { color: green } } @scope (.b) { color: blue }</style><div class=a></div><div class=b>";
+        assert_eq!(style(html, ".a", "color"), "rgb(0, 128, 0)");
+        assert_eq!(style(html, ".b", "color"), "rgb(0, 0, 255)");
+        // With no root: the <style>'s parent.
+        let html = "<div id=x><style>@scope { p { color: green } }</style><p></p></div><p id=y>";
+        assert_eq!(style(html, "#x p", "color"), "rgb(0, 128, 0)");
+        assert_eq!(style(html, "#y", "color"), "rgb(0, 0, 0)");
+    }
+
+    #[test]
+    fn containers_imports_and_registrations() {
+        let doc = parsec::parse(
+            "<style>.c { container: card / inline-size } @container card (width > 400px) { p { color: green } }</style><div class=c><p>",
+            false,
+        );
+        let p = SelectorList::parse("p")
+            .unwrap()
+            .select_first(&doc, doc.root())
+            .unwrap();
+        let wide = Styler::new(Environment::default())
+            .with_document_styles(&doc)
+            .container_sizes(|_, _| Some((500.0, 100.0)))
+            .style(&doc);
+        assert_eq!(wide.get(p, "color").as_deref(), Some("rgb(0, 128, 0)"));
+        let narrow = Styler::new(Environment::default())
+            .with_document_styles(&doc)
+            .container_sizes(|_, _| Some((300.0, 100.0)))
+            .style(&doc);
+        assert_eq!(narrow.get(p, "color").as_deref(), Some("rgb(0, 0, 0)"));
+
+        let doc = parsec::parse(
+            "<style>@import 'a.css' layer(x); p { color: red } @layer x { p { color: blue } }</style><p>",
+            false,
+        );
+        let p = SelectorList::parse("p")
+            .unwrap()
+            .select_first(&doc, doc.root())
+            .unwrap();
+        let styled = Styler::new(Environment::default())
+            .with_document_styles(&doc)
+            .fetch(|url| {
+                (url == "a.css").then(|| "p { margin-top: 3px; color: green }".to_string())
+            })
+            .style(&doc);
+        assert_eq!(styled.get(p, "margin-top").as_deref(), Some("3px"));
+        // Unlayered beats layer x, imports included.
+        assert_eq!(styled.get(p, "color").as_deref(), Some("rgb(255, 0, 0)"));
+
+        let html = "<style>@property --w { syntax: '<length>'; inherits: false; initial-value: 2px } \
+                    div { --w: 2em; font-size: 10px } p { --w: oops }</style><div><p></p></div>";
+        assert_eq!(style(html, "div", "--w"), "20px");
+        // Not inherited, and an invalid value is the initial one.
+        assert_eq!(style(html, "p", "--w"), "2px");
+    }
+
+    #[test]
+    fn at_rules() {
+        let mut s = Styler::bare(Environment::default());
+        s.add(
+            "@keyframes a { to { opacity: 0 } } @layer l { @keyframes a { to { opacity: 1 } } } \
+             @counter-style c { system: cyclic; symbols: x } @media (min-width: 9999px) { @keyframes b {} }",
+            Origin::Author,
+        );
+        let r = s.at_rules();
+        assert_eq!(r.keyframes.len(), 1);
+        assert_eq!(r.keyframes[0].frames[0].declarations[0].1, "0");
+        assert_eq!(r.counter_styles[0].name, "c");
     }
 
     #[test]

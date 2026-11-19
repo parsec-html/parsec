@@ -27,3 +27,4 @@ pub use value::{
     Component, CssWide, InvalidValue, Specified, expand, parse_declaration_value, parse_value,
     write_components,
 };
+pub(crate) use value::{has_substitution, match_grammar};

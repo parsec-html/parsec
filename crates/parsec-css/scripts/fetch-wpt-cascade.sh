@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 James Conway
 #
-# Fetches web-platform-tests' media query, computed-value and cascade
-# tests at a pinned commit and turns their static cases into
+# Fetches web-platform-tests' media query, computed-value, cascade and
+# at-rule tests at a pinned commit and turns their static cases into
 # tests/wpt-media, tests/wpt-computed and tests/wpt-cascade, with
 # scripts/wpt-media-cases.js, wpt-computed-cases.js and
 # wpt-cascade-cases.js (needs node and git). Run from crates/parsec-css,
@@ -20,7 +20,9 @@ git -C "$tmp" init -q wpt
 cd "$tmp/wpt"
 git remote add origin https://github.com/web-platform-tests/wpt.git
 git sparse-checkout set --no-cone '/css/*/parsing/' '/css/*/inheritance*.html' \
-  '/css/mediaqueries/' '/css/css-cascade/' '/css/support/' '/LICENSE.md'
+  '/css/mediaqueries/' '/css/css-cascade/' '/css/support/' '/LICENSE.md' \
+  '/css/css-conditional/container-queries/' '/css/css-properties-values-api/' \
+  '/css/css-counter-styles/counter-style-at-rule/'
 git fetch -q --depth 1 --filter=blob:none origin "$commit"
 git checkout -q FETCH_HEAD
 git rev-parse HEAD > COMMIT

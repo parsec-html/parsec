@@ -289,7 +289,7 @@ pub struct MediaQueryList {
 /// How deep conditions may nest in parentheses.
 const MAX_DEPTH: usize = 64;
 
-fn solid<'v, 'a>(values: &'v [ComponentValue<'a>]) -> Vec<&'v ComponentValue<'a>> {
+pub(crate) fn solid<'v, 'a>(values: &'v [ComponentValue<'a>]) -> Vec<&'v ComponentValue<'a>> {
     values.iter().filter(|v| !v.is_whitespace()).collect()
 }
 
@@ -379,7 +379,11 @@ fn parse_query(values: &[ComponentValue<'_>]) -> Option<MediaQuery> {
 }
 
 /// A condition: `not X`, or `X [and X]*`, or (if `or_ok`) `X [or X]*`.
-fn parse_condition(v: &[&ComponentValue<'_>], or_ok: bool, depth: usize) -> Option<Condition> {
+pub(crate) fn parse_condition(
+    v: &[&ComponentValue<'_>],
+    or_ok: bool,
+    depth: usize,
+) -> Option<Condition> {
     if depth > MAX_DEPTH || v.is_empty() {
         return None;
     }

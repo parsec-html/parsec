@@ -146,10 +146,33 @@ fuzz_target!(|data: &[u8]| {
     let _ = list.to_string();
     let _ = list.matches(&media::Environment::default());
     let _ = supports::supports(&values);
-    let page = parsec::parse("<div id=a class=b><p style='color: red'>x</p><span></span></div>", false);
-    let mut styler = cascade::Styler::new(media::Environment::default());
+    let page = parsec::parse("<div id=a class=b><style>@scope { p { color: blue } }</style><p style='color: red'>x</p><span></span></div>", false);
+    // Every at-rule as each kind it could be, written back.
+    for rule in &deep.rules {
+        if let Rule::At(a) = rule {
+            let _ = rules::Keyframes::parse(a).map(|k| k.to_string());
+            let _ = rules::CounterStyle::parse(a).map(|c| (c.to_string(), c.usable()));
+            let _ = rules::PropertyRule::parse(a).map(|p| (p.to_string(), p.registers()));
+            let _ = rules::Import::parse(a);
+            let _ = rules::ScopeBounds::parse(&a.prelude).map(|s| s.to_string());
+            if let Some(q) = rules::ContainerQuery::parse_list(&a.prelude) {
+                for q in q {
+                    let _ = q.to_string();
+                    let _ = q.evaluate(Some((100.0, 50.0)), 16.0, &|_| Some("1".into()));
+                }
+            }
+        }
+    }
+    // Every `@import` fetches the sheet itself again, and every container
+    // has a size: imports nest as deep as they're allowed to.
+    let me = css.to_string();
+    let mut styler = cascade::Styler::new(media::Environment::default())
+        .with_document_styles(&page)
+        .fetch(move |_| Some(me.clone()))
+        .container_sizes(|_, _| Some((300.0, 200.0)));
     styler.add(css, cascade::Origin::Author);
     let styled = styler.style(&page);
+    let _ = styler.at_rules();
     for p in ["color", "display", "margin", "font-size", "--x", "background"] {
         if let Some(root) = page.children(page.root()).next() {
             let _ = styled.get(root, p);

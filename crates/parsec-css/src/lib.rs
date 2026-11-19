@@ -37,6 +37,7 @@ pub mod media;
 mod microsyntax;
 mod parser;
 mod position;
+pub mod rules;
 mod serialize;
 pub mod supports;
 mod tokenizer;

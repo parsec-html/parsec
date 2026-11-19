@@ -453,6 +453,23 @@ pub(crate) fn match_function<'a>(
     Some(components(canonical(m.out)))
 }
 
+/// Matches all of `values` against a grammar of the caller's: an
+/// at-rule's descriptor, a registered property's syntax.
+pub(crate) fn match_grammar<'a>(
+    g: &'static Grammar,
+    values: &[ComponentValue<'a>],
+) -> Option<Vec<Component<'a>>> {
+    let values = trim(values);
+    if values.is_empty() {
+        return None;
+    }
+    let mut m = Matcher::new(values);
+    if !m.whole(g) {
+        return None;
+    }
+    Some(components(canonical(m.out)))
+}
+
 /// Parses a declaration's value for its property.
 pub fn parse_declaration_value<'a>(d: &Declaration<'a>) -> Result<Specified<'a>, InvalidValue> {
     parse_value(&d.name, &d.value)

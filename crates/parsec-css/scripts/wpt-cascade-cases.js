@@ -2,20 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 //
-// Turns web-platform-tests' cascade tests (css/css-cascade) into data for
+// Turns web-platform-tests' cascade and at-rule tests into data for
 // tests/wpt_cascade.rs, copying each test file that gives any beside its
-// cases. Run by scripts/fetch-wpt-cascade.sh:
+// cases, with the stylesheets it imports. Run by
+// scripts/fetch-wpt-cascade.sh:
 //
 //   node scripts/wpt-cascade-cases.js WPT_CHECKOUT tests/wpt-cascade
 //
+// The files are css/css-cascade (layers, `@scope`, `@import`),
+// css/css-conditional/container-queries, css/css-properties-values-api
+// (`@property`) and css/css-counter-styles/counter-style-at-rule.
+//
 // Most of these tests add a <style> from script, read an element's
-// computed style, and remove the <style> again. In a sandbox with no
-// DOM, adding and removing <style> elements is recorded, an element is
-// remembered by the selector the test found it with and its place in the
-// matches, and `getComputedStyle(element)[property]` gives a probe; an
-// assert_equals on a probe is a case: these sheets on top of the file's
-// own, this element, this property, this value. Anything else a test
-// does throws, and the test is counted as skipped with why.
+// computed style or a rule of a sheet through CSSOM, and remove the
+// <style> again. In a sandbox with no DOM, adding and removing <style>
+// elements is recorded, a <template>'s contents put into an element is
+// recorded, an element is remembered by the selector the test found it
+// with (and the element it was looked for under) and its place in the
+// matches, and `getComputedStyle(element)[property]`, a sheet's
+// `cssRules.length` and a rule's attributes give probes; an assertion on
+// a probe is a case. Anything else a test does throws, and the test is
+// counted as skipped with why. The tests' own helper scripts run in the
+// sandbox, as they would in a browser.
 'use strict';
 
 const fs = require('fs');
@@ -33,20 +41,115 @@ const unsupported = (what) => {
   throw new Unsupported(what);
 };
 
-function sandboxFor(file) {
-  const state = { cases: [], skipped: {}, test: null, probes: new Map(), styles: [] };
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+// A test given up on can still fail later; it's been counted as skipped.
+process.on('unhandledRejection', () => {});
+
+function sandboxFor(file, html) {
+  const state = {
+    cases: [],
+    skipped: {},
+    test: null,
+    probes: new Map(),
+    styles: [],
+    inserts: [],
+    asyncTests: [],
+    script: null,
+  };
   const skip = (why) => {
     state.skipped[why] = (state.skipped[why] || 0) + 1;
   };
   let nextProbe = 0;
-  const element = (selector, index) =>
+  const probe = (what) => {
+    const token = `\u0000probe${nextProbe++}`;
+    state.probes.set(token, what);
+    return token;
+  };
+  // Each <template>'s place, for `script.previousElementSibling`.
+  const templates = [];
+  for (const m of html.matchAll(/<template\b[^>]*>[\s\S]*?<\/template\s*>/gi)) {
+    templates.push({ start: m.index, end: m.index + m[0].length });
+  }
+  const rule = (sheet, index) =>
     new Proxy(
-      { __el: { selector, index } },
+      {},
+      {
+        get(_, p) {
+          if (typeof p !== 'string') return undefined;
+          if (p === 'constructor') return { name: probe({ kind: 'rule', sheet, index, attr: 'constructor.name' }) };
+          if (p === 'cssText') {
+            return {
+              indexOf: (text) => probe({ kind: 'contains', sheet, index, text }),
+              toString: () => unsupported('rule.cssText as text'),
+            };
+          }
+          if (p === 'cssRules') unsupported('a rule\'s rules');
+          return probe({ kind: 'rule', sheet, index, attr: p });
+        },
+      }
+    );
+  const sheetOf = (el) => {
+    const rules = () => {
+      const text = el.__text;
+      return new Proxy([], {
+        get(_, p) {
+          if (p === 'length') return probe({ kind: 'rules', sheet: text });
+          if (typeof p === 'string' && /^\d+$/.test(p)) return rule(text, Number(p));
+          if (p === 'item') return (i) => rule(text, i);
+          unsupported(`sheet.cssRules.${String(p)}`);
+        },
+      });
+    };
+    return {
+      get cssRules() { return rules(); },
+      get rules() { return rules(); },
+      insertRule: () => unsupported('insertRule'),
+    };
+  };
+  const addStyle = (el) => {
+    state.styles.push(el);
+    if (typeof el.onload === 'function') Promise.resolve().then(() => el.onload());
+  };
+  const insertedInto = (desc) => state.inserts.filter((i) => same(i.into, desc));
+  const element = (desc) =>
+    new Proxy(
+      { __el: desc },
       {
         get(t, p) {
           if (p === '__el') return t.__el;
           if (p === 'classList') return [];
           if (p === 'id') return '';
+          if (p === 'querySelector') return (s) => element({ selector: s, index: 0, within: desc });
+          if (p === 'querySelectorAll') {
+            return (s) => {
+              const list = [];
+              for (let i = 0; i < 8; i++) list.push(element({ selector: s, index: i, within: desc }));
+              return list;
+            };
+          }
+          if (p === 'append' || p === 'appendChild') {
+            return (...nodes) => {
+              for (const n of nodes) {
+                if (n && n.__fragment !== undefined) state.inserts.push({ into: desc, template: n.__fragment });
+                else if (n && n.__style) {
+                  n.__parent = desc;
+                  addStyle(n);
+                }
+                else unsupported('appending something other than a <template>\'s contents or a <style>');
+              }
+              return nodes[0];
+            };
+          }
+          const clear = () => {
+            state.inserts = state.inserts.filter((i) => !same(i.into, desc));
+            state.styles = state.styles.filter((s) => !same(s.__parent, desc));
+          };
+          if (p === 'replaceChildren') return clear;
+          if (p === 'firstChild') {
+            const any = insertedInto(desc).length || state.styles.some((s) => same(s.__parent, desc));
+            return any ? { remove: clear } : null;
+          }
           unsupported(`element.${String(p)}`);
         },
         set(_, p) {
@@ -56,43 +159,54 @@ function sandboxFor(file) {
     );
   const styleElement = () => {
     const el = {
+      __style: true,
       __text: '',
+      onload: null,
+      onerror: null,
       set textContent(v) { el.__text = String(v); },
+      get textContent() { return el.__text; },
       set innerText(v) { el.__text = String(v); },
       set innerHTML(v) { el.__text = String(v); },
       appendChild(n) { el.__text += n.__text || ''; },
       remove() { state.styles = state.styles.filter((s) => s !== el); },
+      get sheet() { return sheetOf(el); },
+      addEventListener(type, f) {
+        if (type === 'load') el.onload = f;
+      },
       setAttribute(n) { unsupported(`style.setAttribute(${n})`); },
     };
     return el;
   };
-  const head = {
-    append(el) { state.styles.push(el); },
-    appendChild(el) { state.styles.push(el); return el; },
-  };
   const document = {
-    head,
+    head: element({ selector: 'head', index: 0 }),
     createElement: (t) => (t === 'style' ? styleElement() : unsupported(`a <${t}>`)),
     createTextNode: (t) => ({ __text: String(t) }),
     querySelectorAll: (s) => {
       // As many as the runner finds; the test only iterates them.
       const list = [];
-      for (let i = 0; i < 8; i++) list.push(element(s, i));
+      for (let i = 0; i < 8; i++) list.push(element({ selector: s, index: i }));
       list.__selector = s;
       return list;
     },
-    querySelector: (s) => element(s, 0),
-    getElementById: (id) => element(`[id="${id}"]`, 0),
-    get body() { return element('body', 0); },
-    get documentElement() { return element('html', 0); },
+    querySelector: (s) => element({ selector: s, index: 0 }),
+    getElementById: (id) => element({ selector: `[id="${id}"]`, index: 0 }),
+    get body() { return element({ selector: 'body', index: 0 }); },
+    get documentElement() { return element({ selector: 'html', index: 0 }); },
+    get currentScript() {
+      const at = state.script;
+      // The <template> right before this <script>, if there is one.
+      const t = templates.findIndex((x) => x.end <= at && /^\s*$/.test(html.slice(x.end, at)));
+      return {
+        get previousElementSibling() {
+          if (t < 0) unsupported('a script\'s sibling that isn\'t a <template>');
+          return { tagName: 'TEMPLATE', content: { cloneNode: () => ({ __fragment: t }) } };
+        },
+      };
+    },
   };
   const computed = (el) => {
     if (!el || !el.__el) unsupported('getComputedStyle of something not found by a selector');
-    const read = (prop) => {
-      const token = `\u0000probe${nextProbe++}`;
-      state.probes.set(token, { element: el.__el, property: prop });
-      return token;
-    };
+    const read = (prop) => probe({ kind: 'computed', element: el.__el, property: prop });
     return new Proxy(
       {},
       {
@@ -104,63 +218,109 @@ function sandboxFor(file) {
       }
     );
   };
+  const record = (pr, expect) => {
+    const base = { file, sheets: state.styles.map((s) => s.__text) };
+    if (state.inserts.length) base.inserts = state.inserts.slice();
+    if (pr.kind === 'computed') {
+      state.cases.push(Object.assign(base, { element: pr.element, property: pr.property, expect }));
+    } else {
+      state.cases.push(Object.assign(base, pr, { expect }));
+    }
+  };
+  const harness = (cleanups) => ({
+    add_cleanup(f) { cleanups.push(f); },
+    step_func: (f) => f,
+    step_func_done: (f) => f,
+  });
+  const runCleanups = (cleanups) => {
+    for (const f of cleanups.reverse()) {
+      try { f(); } catch (e) { /* as a browser would, carry on */ }
+    }
+  };
   const sandbox = {
     document,
     getComputedStyle: computed,
+    CSS: {
+      supports: () => true,
+      escape: (s) => s,
+      registerProperty: () => unsupported('CSS.registerProperty'),
+    },
+    setTimeout: (f) => Promise.resolve().then(f),
+    requestAnimationFrame: (f) => Promise.resolve().then(f),
     test(fn, name) {
       state.test = name;
       const before = state.cases.length;
+      const cleanups = [];
       try {
-        fn({ add_cleanup() {} });
-        if (state.cases.length === before) skip('asserts nothing about a computed style');
+        fn(harness(cleanups));
+        if (state.cases.length === before) skip('asserts nothing about a computed style or a rule');
       } catch (e) {
         state.cases.length = before;
         skip(e instanceof Unsupported ? `needs ${e.message}` : `${e.constructor.name}: ${e.message}`);
       }
+      runCleanups(cleanups);
       state.test = null;
     },
-    promise_test: () => skip('runs asynchronously'),
-    async_test: () => skip('runs asynchronously'),
+    promise_test(fn, name) {
+      state.asyncTests.push({ fn, name });
+    },
+    async_test: () => skip('runs asynchronously, step by step'),
     setup() {},
     done() {},
+    assert_implements() {},
     assert_equals(actual, expected) {
-      const probe = state.probes.get(actual);
-      if (!probe) unsupported('an assertion on something other than a computed style');
-      if (state.probes.has(expected)) unsupported('comparing two computed styles');
-      // Only elements found by a selector of the markup: the runner
-      // takes the nth match.
-      state.cases.push({
-        file,
-        sheets: state.styles.map((s) => s.__text),
-        element: probe.element,
-        property: probe.property,
-        expect: expected,
-      });
+      const a = state.probes.get(actual);
+      if (!a) {
+        if (state.probes.has(expected)) unsupported('a probe on the right');
+        if (!same(actual, expected)) throw new Error(`${actual} != ${expected}`);
+        return;
+      }
+      if (state.probes.has(expected)) unsupported('comparing two probes');
+      if (a.kind === 'contains') {
+        if (expected !== -1) unsupported('where in a rule\'s text something is');
+        return record(a, false);
+      }
+      record(a, expected);
     },
-    assert_not_equals: () => unsupported('assert_not_equals'),
+    assert_not_equals(actual, expected) {
+      const a = state.probes.get(actual);
+      if (a && a.kind === 'contains' && expected === -1) return record(a, true);
+      unsupported('assert_not_equals');
+    },
     assert_true: () => unsupported('assert_true'),
     assert_false: () => unsupported('assert_false'),
     console: { log() {} },
   };
   sandbox.window = sandbox;
-  return { sandbox, state };
+  return { sandbox, state, skip, runCleanups, harness };
 }
 
-function extract(rel) {
+async function extract(rel) {
   const html = fs.readFileSync(path.join(src, rel), 'utf8');
   const entry = { file: rel };
   if (!/testharness\.js/.test(html)) return Object.assign(entry, { skipped_because: 'not a testharness test' });
-  const { sandbox, state } = sandboxFor(rel);
+  const { sandbox, state, skip, runCleanups, harness } = sandboxFor(rel, html);
   // Elements with ids are globals, as in a browser.
   for (const [, id] of html.matchAll(/\sid\s*=\s*["']?([A-Za-z_$][\w$-]*)/g)) {
     if (/^[A-Za-z_$][\w$]*$/.test(id) && !(id in sandbox)) sandbox[id] = sandbox.document.getElementById(id);
   }
   const context = vm.createContext(sandbox);
   let error = null;
-  for (const [, attrs, code] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script[^>]*>/gi)) {
+  for (const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script[^>]*>/gi)) {
+    const [, attrs, code] = m;
     if (/\bsrc\s*=/.test(attrs)) {
-      if (!/testharness/.test(attrs)) {
-        error = `needs ${/src\s*=\s*["']?([^"'\s>]+)/.exec(attrs)[1]}`;
+      if (/testharness/.test(attrs)) continue;
+      // The test's own helpers, from the checkout.
+      const ref = /src\s*=\s*["']?([^"'\s>]+)/.exec(attrs)[1];
+      const file = ref.startsWith('/') ? path.join(src, ref) : path.join(src, path.dirname(rel), ref);
+      if (!fs.existsSync(file)) {
+        error = `needs ${ref}`;
+        break;
+      }
+      try {
+        vm.runInContext(fs.readFileSync(file, 'utf8'), context, { timeout: 5000, filename: ref });
+      } catch (e) {
+        error = `needs ${ref} to run: ${e.message}`;
         break;
       }
       continue;
@@ -169,12 +329,32 @@ function extract(rel) {
       error = 'needs a module script';
       break;
     }
+    state.script = m.index;
     try {
       vm.runInContext(code, context, { timeout: 5000, filename: rel });
     } catch (e) {
       error = e instanceof Unsupported ? `needs ${e.message}` : `${e.constructor.name}: ${e.message}`;
       break;
     }
+  }
+  // Asynchronous tests, one after another, each given a second.
+  for (const { fn, name } of state.asyncTests) {
+    state.test = name;
+    const before = state.cases.length;
+    const cleanups = [];
+    try {
+      const run = Promise.resolve().then(() => fn(harness(cleanups)));
+      let timer;
+      const late = new Promise((_, no) => {
+        timer = setTimeout(() => no(new Unsupported('waiting on more than a load')), 1000);
+      });
+      await Promise.race([run, late]).finally(() => clearTimeout(timer));
+      if (state.cases.length === before) skip('asserts nothing about a computed style or a rule');
+    } catch (e) {
+      state.cases.length = before;
+      skip(e instanceof Unsupported ? `needs ${e.message}` : `${e.constructor.name}: ${e.message}`);
+    }
+    runCleanups(cleanups);
   }
   if (state.cases.length === 0) {
     return Object.assign(entry, { skipped_because: error || Object.keys(state.skipped)[0] || 'no static cases' });
@@ -183,22 +363,44 @@ function extract(rel) {
   return Object.assign(entry, { cases: state.cases, skipped: state.skipped });
 }
 
-const dir = path.join(src, 'css/css-cascade');
-const files = fs
-  .readdirSync(dir)
-  .filter((f) => f.endsWith('.html') && !/-ref\.html$/.test(f))
-  .sort()
-  .map((f) => path.join('css/css-cascade', f));
-const results = files.map(extract);
-fs.mkdirSync(out, { recursive: true });
-for (const r of results) {
-  if (!r.cases) continue;
-  fs.mkdirSync(path.join(out, path.dirname(r.file)), { recursive: true });
-  fs.copyFileSync(path.join(src, r.file), path.join(out, r.file));
-}
-fs.writeFileSync(
-  path.join(out, 'cases.json'),
-  JSON.stringify({ commit: fs.readFileSync(path.join(src, 'COMMIT'), 'utf8').trim(), files: results }, null, 1) + '\n'
-);
-const ran = results.filter((f) => f.cases);
-console.error(`${ran.length} files with ${ran.reduce((n, f) => n + f.cases.length, 0)} cases, ${results.length - ran.length} files with none`);
+const dirs = [
+  'css/css-cascade',
+  'css/css-conditional/container-queries',
+  'css/css-properties-values-api',
+  'css/css-counter-styles/counter-style-at-rule',
+];
+
+(async () => {
+  const files = [];
+  for (const d of dirs) {
+    for (const f of fs.readdirSync(path.join(src, d)).sort()) {
+      if (f.endsWith('.html') && !/-(not)?ref\.html$/.test(f)) files.push(path.join(d, f));
+    }
+  }
+  const results = [];
+  for (const f of files) results.push(await extract(f));
+  fs.mkdirSync(out, { recursive: true });
+  const copy = (rel) => {
+    fs.mkdirSync(path.join(out, path.dirname(rel)), { recursive: true });
+    fs.copyFileSync(path.join(src, rel), path.join(out, rel));
+  };
+  for (const r of results) {
+    if (!r.cases) continue;
+    copy(r.file);
+    // What its sheets import, beside it.
+    const texts = [fs.readFileSync(path.join(src, r.file), 'utf8'), ...r.cases.flatMap((c) => c.sheets || [])];
+    for (const text of texts) {
+      for (const [, url] of text.matchAll(/@import\s+(?:url\(\s*)?["']?([^"')\s;]+)/g)) {
+        if (/^(data:|https?:)/.test(url)) continue;
+        const rel = path.join(path.dirname(r.file), url);
+        if (fs.existsSync(path.join(src, rel))) copy(rel);
+      }
+    }
+  }
+  fs.writeFileSync(
+    path.join(out, 'cases.json'),
+    JSON.stringify({ commit: fs.readFileSync(path.join(src, 'COMMIT'), 'utf8').trim(), files: results }, null, 1) + '\n'
+  );
+  const ran = results.filter((f) => f.cases);
+  console.error(`${ran.length} files with ${ran.reduce((n, f) => n + f.cases.length, 0)} cases, ${results.length - ran.length} files with none`);
+})();
