@@ -80,6 +80,34 @@ fn parsec_parse(css: &str) -> parsec_css::Stylesheet<'_, parsec_css::Block<'_>> 
     parsec_css::parse_stylesheet_deep(css)
 }
 
+/// Parsec with typed values: the stylesheet in one pass, then every
+/// declaration's value parsed for its property, as Lexbor's parse does for
+/// the properties it knows. Returns how many values parsed.
+fn parsec_typed(css: &str) -> (parsec_css::Stylesheet<'_, parsec_css::Block<'_>>, usize) {
+    use parsec_css::{Item, Rule};
+    let sheet = parsec_css::parse_stylesheet_deep(css);
+    let mut typed = 0;
+    let mut blocks: Vec<&parsec_css::Block<'_>> = Vec::new();
+    for rule in &sheet.rules {
+        match rule {
+            Rule::Qualified(r) => blocks.push(&r.block),
+            Rule::At(r) => blocks.extend(&r.block),
+        }
+    }
+    while let Some(block) = blocks.pop() {
+        for item in &block.items {
+            match item {
+                Item::Declaration(d) => {
+                    typed += black_box(parsec_css::values::parse_declaration_value(d)).is_ok() as usize;
+                }
+                Item::Rule(Rule::Qualified(r)) => blocks.push(&r.block),
+                Item::Rule(Rule::At(r)) => blocks.extend(&r.block),
+            }
+        }
+    }
+    (sheet, typed)
+}
+
 /// Every token, into nested blocks too.
 fn cssparser_tokens(input: &mut Parser<'_>) -> usize {
     let mut n = 0;
@@ -294,6 +322,7 @@ pub fn run(pages: &[Page]) {
     );
     println!("{:<42}{:^44}  {:^44}", "", "tokenize", "parse");
     let mut sums = [0.0f64; 6];
+    let mut typed = Vec::new();
     for (name, css) in &sheets {
         let times = [
             median(30, || parsec_css::Tokenizer::new(css).count()),
@@ -307,8 +336,38 @@ pub fn run(pages: &[Page]) {
             *sum += t;
         }
         row(name, css.len(), &times);
+        typed.push((name, css.len(), median(30, || parsec_typed(css)), times[4]));
     }
     row("all stylesheets", total, &sums);
+
+    // Typed values: Parsec's parse plus every declaration's value parsed
+    // for its property, against Lexbor's parse, which types the values
+    // of the 105 properties it knows.
+    println!(
+        "\nCSS with typed values, MB/s (median of 30)\n{:<32} {:>8}  {:>8} {:>8} {:>6}",
+        "", "KB", "Parsec", "Lexbor", "vs L"
+    );
+    let (mut tp, mut tl) = (0.0, 0.0);
+    for (name, bytes, p, l) in &typed {
+        tp += p;
+        tl += l;
+        typed_row(name, *bytes, *p, *l);
+    }
+    typed_row("all stylesheets", total, tp, tl);
+    let declared: usize = sheets.iter().map(|(_, c)| parsec_typed(c).1).sum();
+    println!("  ({declared} declaration values parsed and typed by Parsec)");
+}
+
+fn typed_row(name: &str, bytes: usize, parsec: f64, lexbor: f64) {
+    let mbs = |s: f64| bytes as f64 / 1e6 / s;
+    println!(
+        "  {:<30} {:>8.0}  {:>8.0} {:>8.0} {:>5.2}x",
+        name,
+        bytes as f64 / 1e3,
+        mbs(parsec),
+        mbs(lexbor),
+        lexbor / parsec,
+    );
 }
 
 fn row(name: &str, bytes: usize, t: &[f64; 6]) {
