@@ -66,8 +66,9 @@ Every CI run publishes the conformance counts in its summary.
   HTML table model (`colspan`, `rowspan`, `colgroup`), linear on hostile
   tables.
 - Namespace prefixes.
-- Specificity, lazy queries that stop at the first match, and the
-  web-platform-tests selector cases that don't need layout.
+- Done: specificity, lazy queries that stop at the first match, and the
+  web-platform-tests selector cases that don't need layout (every case
+  that runs without a browser passes).
 
 ## M4. Every way in
 

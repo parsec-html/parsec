@@ -5,9 +5,10 @@
 //! them in a static page: parsed once, matched right to left.
 //!
 //! What browsers do on a page nobody is looking at decides the rest:
-//! `:hover`, `:focus` and the like parse but never match, `:scope` is the
-//! element a query runs from, and ids and classes compare exactly except
-//! in a quirks-mode document.
+//! `:hover`, `:focus` and the like parse but never match, as does a
+//! pseudo-element (`::before`), since no element in a tree is one;
+//! `:scope` is the element a query runs from, and ids and classes compare
+//! exactly except in a quirks-mode document.
 
 use std::cell::{Cell, RefCell};
 use std::cmp::Reverse;
@@ -164,6 +165,11 @@ enum Pseudo {
     Invalid,
     /// A state no static page is in: `:hover`, `:focus`, `:visited`...
     Never,
+    /// A pseudo-element, `::before` or `::part(x)`: valid in a selector, as
+    /// a browser's querySelector has it, and never an element in the tree.
+    Element,
+    /// `:heading` (empty) or `:heading(1, 3)`: an h1-h6 of a listed level.
+    Heading(Vec<i64>),
     /// `:nth-col()` and `:nth-last-col()`: a table cell in a column at
     /// that position.
     NthCol {
@@ -340,10 +346,16 @@ impl<'a> Parser<'a> {
             match self.complex(false) {
                 Ok(c) => out.push(c),
                 Err(e) if !forgiving => return Err(e),
-                Err(_) => {
-                    // Forgiving: skip to the next comma at this level.
+                Err(e) => {
+                    // Forgiving: skip to the next comma at this level. A
+                    // block the bad argument opens and never closes swallows
+                    // the rest of the input, the function's own `)` with
+                    // it, so nothing is left to forgive: browsers refuse
+                    // `:is(#[x)` while taking `:is(#, .a)`.
                     self.pos = start;
-                    self.skip_to_comma();
+                    if self.skip_to_comma() {
+                        return Err(e);
+                    }
                 }
             }
             self.skip_space();
@@ -357,14 +369,20 @@ impl<'a> Parser<'a> {
         Ok(SelectorList(out))
     }
 
-    fn skip_to_comma(&mut self) {
-        let mut depth = 0;
+    /// Skips to the next `,` or closing bracket at this level. True when
+    /// the input ended inside a block opened on the way.
+    fn skip_to_comma(&mut self) -> bool {
+        // The closers of the blocks open so far: a `)` inside `[` is just
+        // a token.
+        let mut open: Vec<char> = Vec::new();
         while let Some(c) = self.peek() {
             match c {
-                '(' | '[' => depth += 1,
-                ')' | ']' if depth == 0 => return,
-                ')' | ']' => depth -= 1,
-                ',' if depth == 0 => return,
+                '(' => open.push(')'),
+                '[' => open.push(']'),
+                ')' | ']' | ',' if open.is_empty() => return false,
+                ')' | ']' if open.last() == Some(&c) => {
+                    open.pop();
+                }
                 '"' | '\'' => {
                     self.pos += 1;
                     let _ = self.string(c);
@@ -375,6 +393,7 @@ impl<'a> Parser<'a> {
             }
             self.bump();
         }
+        !open.is_empty()
     }
 
     /// A complex selector; `relative` for `:has()`, where it may start with
@@ -390,6 +409,10 @@ impl<'a> Parser<'a> {
         }
         loop {
             let compound = self.compound()?;
+            let has_element = compound
+                .0
+                .iter()
+                .any(|s| matches!(s, Simple::Pseudo(Pseudo::Element)));
             if let Some(last) = parts.last_mut() {
                 last.1 = pending;
             }
@@ -397,6 +420,9 @@ impl<'a> Parser<'a> {
             let space = self.skip_space();
             if self.at_end() || matches!(self.peek(), Some(',' | ')')) {
                 break;
+            }
+            if has_element {
+                return error("a pseudo-element must end the selector");
             }
             pending = match self.combinator() {
                 Some(c) => {
@@ -476,8 +502,16 @@ impl<'a> Parser<'a> {
                 simple.push(type_selector(name));
             }
         }
+        // After a pseudo-element only pseudo-classes that don't read the
+        // tree, and more pseudo-elements, may follow: `::before:hover`, not
+        // `::before.x` or `::part(x):has(li)`; after `::slotted()` only
+        // pseudo-elements. Some(true) is after `::slotted()`.
+        let mut after_element: Option<bool> = None;
         loop {
             while self.skip_comment() {}
+            if after_element.is_some() && matches!(self.peek(), Some('#' | '.' | '[')) {
+                return error("only a pseudo-class can follow a pseudo-element");
+            }
             match self.peek() {
                 Some('#') => {
                     self.pos += 1;
@@ -502,11 +536,32 @@ impl<'a> Parser<'a> {
                     simple.push(Simple::Attr(self.attr()?));
                 }
                 Some(':') if self.peek_at(1) == Some(':') => {
-                    return error("pseudo-elements can't be selected");
+                    if self.depth > 0 {
+                        return error("a pseudo-element can't go inside a pseudo-class");
+                    }
+                    self.pos += 2;
+                    after_element = Some(self.pseudo_element()?);
+                    simple.push(Simple::Pseudo(Pseudo::Element));
                 }
                 Some(':') => {
                     self.pos += 1;
-                    simple.push(Simple::Pseudo(self.pseudo()?));
+                    let pseudo = self.pseudo()?;
+                    let element = matches!(pseudo, Pseudo::Element);
+                    match after_element {
+                        Some(true) if !element => {
+                            return error("only a pseudo-element can follow ::slotted()");
+                        }
+                        Some(_) if pseudo.reads_the_tree() => {
+                            return error(
+                                "a tree-structural pseudo-class can't follow a pseudo-element",
+                            );
+                        }
+                        _ => {}
+                    }
+                    if element {
+                        after_element = Some(false);
+                    }
+                    simple.push(Simple::Pseudo(pseudo));
                 }
                 _ => break,
             }
@@ -534,9 +589,11 @@ impl<'a> Parser<'a> {
             return error(format!("namespace prefix {name:?} isn't declared"));
         }
         self.skip_space();
+        // The end of the input closes every open block, as CSS reads it, so
+        // `[class` and `[class="x"` are whole.
         let op = match self.peek() {
-            Some(']') => {
-                self.pos += 1;
+            Some(']') | None => {
+                self.eat(']');
                 return Ok(AttrSelector {
                     lower: name.to_ascii_lowercase(),
                     exact: name,
@@ -583,7 +640,7 @@ impl<'a> Parser<'a> {
             };
             self.skip_space();
         }
-        if !self.eat(']') {
+        if !self.eat(']') && !self.at_end() {
             return error("an attribute selector without its ]");
         }
         Ok(AttrSelector {
@@ -596,12 +653,71 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// A pseudo-element, after its `::`: the ones CSS defines, with
+    /// `::part()`, `::slotted()` and `::highlight()` taking their argument.
+    /// Anything else, `::text` included, is an error. True for `::slotted()`,
+    /// which nothing but another pseudo-element may follow.
+    fn pseudo_element(&mut self) -> Result<bool, SelectorError> {
+        let name = self.ident()?.to_ascii_lowercase();
+        if self.eat('(') {
+            self.skip_space();
+            match name.as_str() {
+                "part" => {
+                    self.ident()?;
+                    while self.skip_space() && self.starts_name() {
+                        self.ident()?;
+                    }
+                }
+                "slotted" => {
+                    // Its compound can't hold a pseudo-element either.
+                    self.depth += 1;
+                    let compound = self.compound();
+                    self.depth -= 1;
+                    compound?;
+                }
+                "highlight" => {
+                    self.ident()?;
+                }
+                _ => return error(format!("::{name}() isn't a pseudo-element")),
+            }
+            self.skip_space();
+            if !self.eat(')') && !self.at_end() {
+                return error(format!("::{name}() without its )"));
+            }
+            return Ok(name == "slotted");
+        }
+        match name.as_str() {
+            "before"
+            | "after"
+            | "marker"
+            | "placeholder"
+            | "selection"
+            | "first-line"
+            | "first-letter"
+            | "backdrop"
+            | "file-selector-button"
+            | "cue"
+            | "spelling-error"
+            | "grammar-error"
+            | "target-text"
+            | "details-content"
+            | "checkmark"
+            | "picker-icon"
+            | "scroll-marker"
+            | "scroll-marker-group"
+            | "scroll-button"
+            | "column"
+            | "view-transition" => Ok(false),
+            _ => error(format!("::{name} isn't a pseudo-element")),
+        }
+    }
+
     fn pseudo(&mut self) -> Result<Pseudo, SelectorError> {
         let name = self.ident()?.to_ascii_lowercase();
         if self.eat('(') {
             let p = self.pseudo_function(&name)?;
             self.skip_space();
-            if !self.eat(')') {
+            if !self.eat(')') && !self.at_end() {
                 return error(format!(":{name}() without its )"));
             }
             return Ok(p);
@@ -614,6 +730,7 @@ impl<'a> Parser<'a> {
             "last-of-type" => nth(0, 1, true, true),
             "only-of-type" => Pseudo::Only { of_type: true },
             "empty" => Pseudo::Empty,
+            "heading" => Pseudo::Heading(Vec::new()),
             "root" => Pseudo::Root,
             "scope" => Pseudo::Scope,
             "link" | "any-link" => Pseudo::AnyLink,
@@ -638,6 +755,8 @@ impl<'a> Parser<'a> {
             "invalid" => Pseudo::Invalid,
             "hover" | "active" | "focus" | "focus-visible" | "focus-within" | "visited"
             | "user-invalid" | "user-valid" => Pseudo::Never,
+            // CSS 2's pseudo-elements, still allowed with one colon.
+            "before" | "after" | "first-line" | "first-letter" => Pseudo::Element,
             _ => return error(format!(":{name} isn't supported")),
         })
     }
@@ -719,14 +838,39 @@ impl<'a> Parser<'a> {
                 }
                 Pseudo::Lang(ranges)
             }
+            // Selectors 5's draft: a list of integers, not An+B.
+            "heading" => {
+                let mut levels = Vec::new();
+                loop {
+                    self.skip_space();
+                    let start = self.pos;
+                    if matches!(self.peek(), Some('+' | '-')) {
+                        self.pos += 1;
+                    }
+                    while self.peek().is_some_and(|c| c.is_ascii_digit()) {
+                        self.pos += 1;
+                    }
+                    let whole = !self.peek().is_some_and(|c| is_name(c) || c == '.');
+                    match self.s[start..self.pos].parse() {
+                        Ok(level) if whole => levels.push(level),
+                        _ => return error(":heading() takes integers, like :heading(1, 3)"),
+                    }
+                    self.skip_space();
+                    if !self.eat(',') {
+                        break;
+                    }
+                }
+                Pseudo::Heading(levels)
+            }
             "dir" => {
                 self.skip_space();
                 let dir = self.ident()?.to_ascii_lowercase();
                 self.skip_space();
+                // Any identifier is allowed; only ltr and rtl ever match.
                 match dir.as_str() {
                     "ltr" => Pseudo::Dir(false),
                     "rtl" => Pseudo::Dir(true),
-                    _ => return error(format!(":dir() takes ltr or rtl, not {dir}")),
+                    _ => Pseudo::Never,
                 }
             }
             _ => return error(format!(":{name}() isn't supported")),
@@ -799,6 +943,13 @@ fn lang_matches(range: &str, tag: &str) -> bool {
     }
     let r: Vec<&str> = range.split('-').collect();
     let t: Vec<&str> = tag.split('-').collect();
+    // A tag that isn't well-formed (BCP 47: subtags of 1 to 8 letters or
+    // digits) is no language, so it matches no range.
+    if t.iter()
+        .any(|s| s.is_empty() || s.len() > 8 || !s.bytes().all(|b| b.is_ascii_alphanumeric()))
+    {
+        return false;
+    }
     if r[0] != "*" && r[0] != t[0] {
         return false;
     }
@@ -1375,6 +1526,23 @@ impl Complex {
     }
 }
 
+impl Pseudo {
+    /// Whether matching reads the tree around the element, which a
+    /// pseudo-element has none of.
+    fn reads_the_tree(&self) -> bool {
+        matches!(
+            self,
+            Pseudo::Nth { .. }
+                | Pseudo::Only { .. }
+                | Pseudo::Empty
+                | Pseudo::Root
+                | Pseudo::Scope
+                | Pseudo::Has(_)
+                | Pseudo::Heading(_)
+        )
+    }
+}
+
 impl Simple {
     fn specificity(&self) -> (u32, u32, u32) {
         match self {
@@ -1389,6 +1557,7 @@ impl Simple {
                     let (a, b, c) = list.specificity();
                     (a, b + 1, c)
                 }
+                Pseudo::Element => (0, 0, 1),
                 _ => (0, 1, 0),
             },
         }
@@ -3098,7 +3267,19 @@ impl<'a> Cx<'a> {
                 ranges.iter().any(|range| lang_matches(range, &tag))
             }),
             Pseudo::Dir(rtl) => self.is_rtl(el) == *rtl,
-            Pseudo::Never => false,
+            Pseudo::Heading(levels) => {
+                let level = match tag {
+                    Tag::H1 => 1,
+                    Tag::H2 => 2,
+                    Tag::H3 => 3,
+                    Tag::H4 => 4,
+                    Tag::H5 => 5,
+                    Tag::H6 => 6,
+                    _ => return false,
+                };
+                levels.is_empty() || levels.contains(&level)
+            }
+            Pseudo::Never | Pseudo::Element => false,
             // A cell's columns are a run of positions, so one sum says
             // whether any of them fits, however many it spans.
             Pseudo::NthCol { a, b, last } => self.cell_columns(el).is_some_and(|(t, x, n)| {

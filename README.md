@@ -270,6 +270,7 @@ every module Lexbor has, and then go past it:
 | `:valid`, `:invalid`, `:in-range`, `:out-of-range`, `:default`, `:indeterminate` | parsed, never match | yes |
 | `:blank`, `:defined` | parsed, never match | yes |
 | Queries that stop at the first match | no ([#32](https://github.com/lexbor/lexbor/issues/32)) | yes, `select_first` and `select_iter` |
+| web-platform-tests selector cases | not run | yes, every one that runs without a browser: 1,719 DOM and 461 CSS cases |
 | A tree depth limit | no | yes |
 | XPath | no | yes, XPath 1.0, all of libxml2's expression tests but its own extensions |
 | WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |

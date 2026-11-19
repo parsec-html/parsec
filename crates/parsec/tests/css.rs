@@ -357,7 +357,13 @@ fn bad_selectors_are_errors() {
         "a,",
         ", a",
         "a,,b",
-        "a::before",
+        "a::nope",
+        "a::text",
+        "a::attr(href)",
+        "a::before.x",
+        "a::before#x",
+        "a::part()",
+        "a::slotted()",
         "svg|rect",
         "[xlink|href]",
         ":nth-child(x)",
@@ -371,6 +377,96 @@ fn bad_selectors_are_errors() {
     ] {
         assert!(SelectorList::parse(bad).is_err(), "{bad:?} parsed");
     }
+}
+
+/// Selectors 5's `:heading` is an h1-h6, and `:heading(1, 3)` one of the
+/// listed levels; aria-level and role=heading don't count.
+#[test]
+fn heading_is_an_h1_to_h6_of_a_listed_level() {
+    let html = r#"<h1 id="a"></h1><h2 id="b" aria-level="3"></h2><h6 id="f"></h6><h7 id="g"></h7>
+<p id="p" role="heading" aria-level="1"></p>"#;
+    assert_eq!(select(html, ":heading"), ["h1#a", "h2#b", "h6#f"]);
+    assert_eq!(select(html, ":heading(2, 7)"), ["h2#b"]);
+    assert_eq!(select(html, ":heading( +6 , 0)"), ["h6#f"]);
+    assert_eq!(
+        select(html, ":heading(0), :heading(-1), :heading(99999)"),
+        Vec::<String>::new()
+    );
+    for bad in [
+        ":heading()",
+        ":heading(1.0)",
+        ":heading(n)",
+        ":heading(odd)",
+        ":heading(2n+1)",
+        ":heading(2n, 3n)",
+        ":heading(1,)",
+    ] {
+        assert!(SelectorList::parse(bad).is_err(), "{bad:?} parsed");
+    }
+}
+
+/// A browser's querySelector takes a pseudo-element and finds nothing, since
+/// no element in the tree is one; so does this, where it refused them.
+#[test]
+fn pseudo_elements_are_valid_and_match_nothing() {
+    for css in [
+        "li::before",
+        "p::first-line",
+        "a:after",
+        "a:FIRST-LETTER",
+        "::marker",
+        "::placeholder, ::selection",
+        "::part(label icon)",
+        "::slotted(span.x)",
+        "::highlight(found)",
+        "li::before:hover",
+        ":is(li)::after",
+        "::part(x):is(:hover)",
+        "::part(x)::before",
+        "::slotted(li)::before",
+        // Forgiving: the argument is dropped.
+        ":is(::before)",
+    ] {
+        assert_eq!(page(css), Vec::<String>::new(), "{css}");
+    }
+    // One must end the selector, can't go inside a pseudo-class, and only
+    // pseudo-classes that don't read the tree may follow; after
+    // ::slotted(), only another pseudo-element.
+    for bad in [
+        "li::before > a",
+        "::part(x) + ::part(y)",
+        ":not(::before)",
+        "::slotted(::before)",
+        "::part(x):has(li)",
+        "::before:first-child",
+        "li:after:empty",
+        "::slotted(li):hover",
+        "::slotted(li):lang(en)",
+    ] {
+        assert!(SelectorList::parse(bad).is_err(), "{bad:?} parsed");
+    }
+    assert_eq!(page("li::before, li.first"), ["li#17"]);
+    let list = SelectorList::parse("li::before").unwrap();
+    assert_eq!(list.specificity(), (0, 0, 2));
+}
+
+/// CSS closes every open block at the end of the input, so a selector
+/// missing its final `]` or `)` is whole, as `querySelector` reads it.
+#[test]
+fn the_end_of_the_input_closes_open_brackets() {
+    assert_eq!(page("li[data-id"), ["li#17", "li#27", "li#30"]);
+    assert_eq!(page("[data-id=\"17\""), ["li#17"]);
+    assert_eq!(page("[data-id=\"17"), ["li#17"]);
+    assert_eq!(page("li:not(.item"), Vec::<String>::new());
+    assert_eq!(page("li:not([class"), Vec::<String>::new());
+    assert_eq!(page("ul > li:nth-child(2n+1"), ["li#17", "li#30"]);
+    assert_eq!(page(":is(#, li.first"), ["li#17"]);
+    assert!(SelectorList::parse("li[data-id=").is_err());
+    assert!(SelectorList::parse("li:nth-child(").is_err());
+    // A bad forgiving argument whose open block runs to the end swallows the
+    // function's own ) and nothing is left to forgive.
+    assert!(SelectorList::parse(":is(# %=[x)").is_err());
+    assert!(SelectorList::parse(":where(.a, #(x").is_err());
 }
 
 /// Each nesting recursed in the parser, so a deep enough selector
@@ -675,7 +771,10 @@ fn lang_matches_the_nearest_language_by_extended_filtering() {
 <p id="latn" lang="de-Latn-CH">a</p><p id="en" lang="EN-gb">b</p><p id="fr" lang="fr">c</p>
 <p id="none">d</p><p id="private" lang="de-x-CH">e</p>
 <div id="outer" lang="de"><p id="inner" lang="en">f</p></div>
-<svg id="svg" xml:lang="fr" lang="de"></svg>"#;
+<svg id="svg" xml:lang="fr" lang="de"></svg>
+<p id="long" lang="de-ninecharacters">g</p><p id="dash" lang="de-">h</p><p id="odd" lang="de_CH">i</p>"#;
+    // A tag that isn't well-formed (a subtag over 8 characters, empty, or
+    // with a character that isn't a letter or digit) is no language.
     assert_eq!(
         select(html, ":lang(de)"),
         ["div#ch", "p#in", "p#latn", "p#private", "div#outer"]
@@ -728,7 +827,11 @@ fn dir_follows_the_dir_attribute_and_the_text_for_auto() {
             "i#i"
         ]
     );
-    assert!(SelectorList::parse(":dir(up)").is_err());
+    // Any identifier parses; only ltr and rtl match anything.
+    assert_eq!(select(html, ":dir(up), :dir(auto)"), Vec::<String>::new());
+    assert!(SelectorList::parse(":dir()").is_err());
+    assert!(SelectorList::parse(":dir('ltr')").is_err());
+    assert!(SelectorList::parse(":dir(ltr, rtl)").is_err());
 }
 
 #[test]

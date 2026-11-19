@@ -1009,8 +1009,15 @@ impl ScopeBounds {
     /// `[ ( <scope-start> ) ]? [ to ( <scope-end> ) ]?`.
     pub fn parse(prelude: &[ComponentValue<'_>]) -> Option<ScopeBounds> {
         let v = crate::media::solid(prelude);
+        // A scoping root or limit is an element, so a selector that ends in
+        // a pseudo-element makes the rule invalid. Parsec's selector parser
+        // accepts one, as querySelector does, so it's ruled out here.
         let parens = |c: &ComponentValue<'_>| match c {
-            ComponentValue::Block(b) if b.bracket == Bracket::Paren => Some(text(&b.contents)),
+            ComponentValue::Block(b)
+                if b.bracket == Bracket::Paren && !has_pseudo_element(&b.contents) =>
+            {
+                Some(text(&b.contents))
+            }
             _ => None,
         };
         let mut i = 0;
@@ -1030,6 +1037,25 @@ impl ScopeBounds {
         }
         Some(out)
     }
+}
+
+/// Whether a selector's top level names a pseudo-element: `::name`, or one
+/// of the four the single colon still reaches. Inside a functional
+/// pseudo-class one is either an error already or dropped.
+fn has_pseudo_element(selector: &[ComponentValue<'_>]) -> bool {
+    selector.windows(2).any(|w| match w {
+        [
+            ComponentValue::Token(Token::Colon, _),
+            ComponentValue::Token(Token::Colon, _),
+        ] => true,
+        [
+            ComponentValue::Token(Token::Colon, _),
+            ComponentValue::Token(Token::Ident(name), _),
+        ] => ["before", "after", "first-line", "first-letter"]
+            .iter()
+            .any(|legacy| name.eq_ignore_ascii_case(legacy)),
+        _ => false,
+    })
 }
 
 impl fmt::Display for ScopeBounds {
@@ -1266,6 +1292,15 @@ mod tests {
         let get = |n: &str| (n == "--a").then(|| " 1".to_string());
         assert_eq!(q.evaluate(None, 16.0, &get), Some(true));
         assert!(ContainerQuery::parse(&crate::parse_component_values("name screen")).is_none());
+    }
+
+    #[test]
+    fn a_scope_bound_cant_be_a_pseudo_element() {
+        let bounds = |s: &str| ScopeBounds::parse(&crate::parse_component_values(s));
+        assert!(bounds("(div::before)").is_none());
+        assert!(bounds("(.a) to (div:after)").is_none());
+        assert!(bounds("(div:hover) to (.b)").is_some());
+        assert!(bounds("(a:is(.x, .y))").is_some());
     }
 
     #[test]
