@@ -21,7 +21,8 @@ the order can change when users show us something more urgent.
 | M2. HTML, past Lexbor | early 2027 |
 | M3. Selectors | early 2027, alongside M2 |
 | M4. Every way in, then 0.1.0 | spring 2027 |
-| M5. Encoding and M6. URL | summer 2027 |
+| M5. Encoding | done, November 2026 |
+| M6. URL | summer 2027 |
 | M8. XPath | summer 2027 |
 | M7. CSS | late 2027 into 2028, in parts |
 
@@ -42,8 +43,10 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M2. HTML, past Lexbor
 
-- Bytes in, with the encoding sniffed from the BOM and `<meta>`, as browsers
-  do, and the html5lib encoding tests passing.
+- Done: bytes in, with the encoding sniffed from the BOM and `<meta>`, as
+  browsers do, and the html5lib encoding tests passing
+  (`parsec_encoding::parse_bytes`, all 82 cases that don't need
+  JavaScript).
 - Chunked input that builds exactly the tree whole input does.
 - Parse errors with their spec names, line and column.
 - Source positions on every node and attribute.
@@ -69,20 +72,33 @@ Every CI run publishes the conformance counts in its summary.
   prebuilt libraries for Linux, macOS and Windows on x86-64 and ARM,
   attached to each release.
 - Done: a guide for moving from Lexbor, call by call, on the wiki.
-- Python wheels, including free-threaded builds.
+- Python wheels, including free-threaded builds. The package is done, in
+  `bindings/python`; its wheels go to PyPI with 0.1.0.
 - WebAssembly for npm.
 
 ## M5. Encoding
 
-The WHATWG Encoding Standard's 40 encodings, decoding and encoding,
-streaming into the parser, with the web-platform-tests encoding cases in
-CI.
+Done. The WHATWG Encoding Standard's 40 encodings, decoding and
+encoding, in `crates/parsec-encoding` on top of encoding_rs, with the
+web-platform-tests encoding data in CI: every label, every single-byte
+table, and 62,352 multi-byte characters, all passing. Decoding a stream
+works now, through encoding_rs's `Decoder`; feeding it into the parser
+chunk by chunk arrives with chunked input in M2.
 
 ## M6. URL
 
 WHATWG URL, `URLSearchParams`, IDNA, Punycode and Unicode normalization,
 with the web-platform-tests URL pass counts published. Then a benchmark
 against Lexbor's URL parser and Ada.
+
+- Done: `crates/parsec-url`, with URL, `URLSearchParams`, IDNA and
+  Punycode on Servo's `url` crate, and the WPT URL suite in `cargo test`
+  with its counts in every CI run's summary.
+- Done: the benchmark against Lexbor's URL parser and Ada, in `bench/`.
+- Still to come: Unicode normalization, and a URL parser of Parsec's own
+  behind the same API. The `url` crate trails the standard (795 of its
+  875 WPT failures are one IDNA rule from June 2026) and trails Ada on
+  speed, so this one is needed to win.
 
 ## M7. CSS
 

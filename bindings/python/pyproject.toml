@@ -1,0 +1,27 @@
+[build-system]
+requires = ["maturin>=1.14,<2"]
+build-backend = "maturin"
+
+[project]
+name = "parsec-html"
+description = "A fast, spec-following HTML parser with CSS selectors and an editable tree, with a selectolax-style API."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+keywords = ["html", "parser", "html5", "css-selectors", "selectolax"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    "Programming Language :: Rust",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/parsec-html/parsec"
+Documentation = "https://github.com/parsec-html/parsec/wiki/Python"
+Issues = "https://github.com/parsec-html/parsec/issues"
+
+[tool.maturin]
+module-name = "parsec_html"
