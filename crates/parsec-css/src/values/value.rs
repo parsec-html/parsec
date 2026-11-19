@@ -799,3 +799,95 @@ impl fmt::Display for Specified<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn written(property: &str, css: &str) -> Option<String> {
+        let v = crate::parse_component_values(css);
+        parse_value(property, &v).ok().map(|s| s.to_string())
+    }
+
+    #[test]
+    fn shortest_forms() {
+        let cases = [
+            ("display", "inline flex", "inline-flex"),
+            ("display", "block flow list-item", "list-item"),
+            ("white-space", "preserve nowrap", "pre"),
+            ("flex", "1", "1 1 0%"),
+            ("flex", "none", "0 0 auto"),
+            ("place-items", "center center", "center"),
+            ("margin", "1px 2px 1px 2px", "1px 2px"),
+            ("font", "normal bold 12px/normal serif", "bold 12px serif"),
+            ("text-decoration-line", "blink underline", "underline blink"),
+            (
+                "background-image",
+                "linear-gradient(in srgb, red, blue)",
+                "linear-gradient(red, blue)",
+            ),
+            (
+                "color",
+                "color-mix(in oklab, 25% red, blue)",
+                "color-mix(red 25%, blue 75%)",
+            ),
+            ("font-family", "Monospace", "monospace"),
+            ("grid-column-start", "span 2", "span 2"),
+        ];
+        for (p, css, want) in cases {
+            assert_eq!(written(p, css).as_deref(), Some(want), "{p}: {css}");
+        }
+    }
+
+    #[test]
+    fn what_every_property_takes() {
+        assert_eq!(written("color", "INHERIT").as_deref(), Some("inherit"));
+        assert_eq!(
+            written("width", " var(--w,  10px) ").as_deref(),
+            Some("var(--w, 10px)")
+        );
+        assert_eq!(written("--x", " { a } ").as_deref(), Some("{ a }"));
+        assert_eq!(written("not-a-property", "1px"), None);
+        assert_eq!(written("width", ""), None);
+    }
+
+    #[test]
+    fn shorthands_split() {
+        let split = |p: &str, css: &str| -> Vec<String> {
+            let v = crate::parse_component_values(css);
+            expand(p, &v)
+                .unwrap()
+                .into_iter()
+                .map(|(n, v)| format!("{n}: {v}"))
+                .collect()
+        };
+        assert_eq!(
+            split("border-color", "red blue"),
+            [
+                "border-top-color: red",
+                "border-right-color: blue",
+                "border-bottom-color: red",
+                "border-left-color: blue"
+            ]
+        );
+        assert_eq!(
+            split("grid-column", "a"),
+            ["grid-column-start: a", "grid-column-end: a"]
+        );
+        assert_eq!(split("gap", "1px"), ["row-gap: 1px", "column-gap: 1px"]);
+        let border = split("border-top", "1px solid");
+        assert_eq!(
+            border,
+            [
+                "border-top-width: 1px",
+                "border-top-style: solid",
+                "border-top-color: currentcolor"
+            ]
+        );
+        assert!(
+            split("margin", "inherit")
+                .iter()
+                .all(|l| l.ends_with(": inherit"))
+        );
+    }
+}
