@@ -98,7 +98,8 @@ fn parsec_typed(css: &str) -> (parsec_css::Stylesheet<'_, parsec_css::Block<'_>>
         for item in &block.items {
             match item {
                 Item::Declaration(d) => {
-                    typed += black_box(parsec_css::values::parse_declaration_value(d)).is_ok() as usize;
+                    typed +=
+                        black_box(parsec_css::values::parse_declaration_value(d)).is_ok() as usize;
                 }
                 Item::Rule(Rule::Qualified(r)) => blocks.push(&r.block),
                 Item::Rule(Rule::At(r)) => blocks.extend(&r.block),
