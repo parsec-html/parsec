@@ -9,7 +9,7 @@
 //! Two jobs. Tokenizing is every token in the sheet, comments skipped.
 //! Parsing is the whole sheet into rules, with every block's contents
 //! parsed into declarations and nested rules, all of it kept until the
-//! clock stops. Lexbor's parser does more than that: it also parses each
+//! clock stops: for Parsec, `parse_stylesheet_deep`. Lexbor's parser does more than that: it also parses each
 //! selector and the values of the properties it knows, which a syntax
 //! parser leaves for later. `cssparser` builds nothing of its own, so here
 //! it's given the least a caller would: each prelude and value kept as its
@@ -75,39 +75,9 @@ impl Drop for LexborSheet {
     }
 }
 
-/// What Parsec's parse keeps: every prelude and every declaration.
-type Parsed<'a> = (
-    Vec<Vec<parsec_css::ComponentValue<'a>>>,
-    Vec<parsec_css::Declaration<'a>>,
-);
-
-/// Parsec: the stylesheet, then every block's contents, depth first.
-fn parsec_parse<'a>(css: &'a str) -> Parsed<'a> {
-    use parsec_css::{Item, Rule};
-    let (mut preludes, mut declarations) = (Vec::new(), Vec::new());
-    let mut blocks = Vec::new();
-    let take = |rule: Rule<'a>, preludes: &mut Vec<_>, blocks: &mut Vec<_>| match rule {
-        Rule::Qualified(r) => {
-            preludes.push(r.prelude);
-            blocks.push(r.block);
-        }
-        Rule::At(r) => {
-            preludes.push(r.prelude);
-            blocks.extend(r.block);
-        }
-    };
-    for rule in parsec_css::parse_stylesheet(css).rules {
-        take(rule, &mut preludes, &mut blocks);
-    }
-    while let Some(block) = blocks.pop() {
-        for item in block.contents(css).items {
-            match item {
-                Item::Declaration(d) => declarations.push(d),
-                Item::Rule(r) => take(r, &mut preludes, &mut blocks),
-            }
-        }
-    }
-    (preludes, declarations)
+/// Parsec: the stylesheet with every block's contents, in one pass.
+fn parsec_parse(css: &str) -> parsec_css::Stylesheet<'_, parsec_css::Block<'_>> {
+    parsec_css::parse_stylesheet_deep(css)
 }
 
 /// Every token, into nested blocks too.

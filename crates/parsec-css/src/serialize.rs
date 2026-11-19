@@ -9,8 +9,8 @@
 use std::fmt::{self, Write};
 
 use crate::parser::{
-    AtRule, BlockContents, ComponentValue, Declaration, Item, QualifiedRule, Rule, SimpleBlock,
-    Stylesheet,
+    AtRule, Block, BlockContents, ComponentValue, Declaration, Item, QualifiedRule, Rule,
+    SimpleBlock, Stylesheet,
 };
 use crate::tokenizer::{Token, is_non_ascii_ident};
 
@@ -330,6 +330,53 @@ impl<W: Write> Writer<'_, W> {
     }
 }
 
+impl<'b, W: Write> Writer<'_, W> {
+    /// Writes `rule`, then closes the blocks in `stack`, with a stack of
+    /// the blocks it's in rather than recursing into them.
+    fn deep(
+        &mut self,
+        mut rule: Option<&'b Rule<'b, Block<'b>>>,
+        mut stack: Vec<std::slice::Iter<'b, Item<'b, Block<'b>>>>,
+    ) -> fmt::Result {
+        loop {
+            if let Some(rule) = rule.take() {
+                let block = match rule {
+                    Rule::At(r) => {
+                        self.token(&Token::AtKeyword(r.name.clone()))?;
+                        self.values(&r.prelude)?;
+                        r.block.as_ref()
+                    }
+                    Rule::Qualified(r) => {
+                        self.values(&r.prelude)?;
+                        Some(&r.block)
+                    }
+                };
+                match block {
+                    Some(b) => {
+                        self.token(&Token::LeftBrace)?;
+                        stack.push(b.items.iter());
+                    }
+                    None => self.token(&Token::Semicolon)?,
+                }
+            }
+            let Some(items) = stack.last_mut() else {
+                return Ok(());
+            };
+            match items.next() {
+                None => {
+                    stack.pop();
+                    self.token(&Token::RightBrace)?;
+                }
+                Some(Item::Declaration(d)) => {
+                    self.declaration(d)?;
+                    self.token(&Token::Semicolon)?;
+                }
+                Some(Item::Rule(r)) => rule = Some(r),
+            }
+        }
+    }
+}
+
 fn open_token(c: char) -> Token<'static> {
     match c {
         '(' => Token::LeftParen,
@@ -423,6 +470,29 @@ impl fmt::Display for QualifiedRule<'_> {
 impl fmt::Display for Stylesheet<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writer(f).rules(&self.rules)
+    }
+}
+
+impl fmt::Display for Rule<'_, Block<'_>> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writer(f).deep(Some(self), Vec::new())
+    }
+}
+
+impl fmt::Display for Block<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut w = writer(f);
+        w.token(&Token::LeftBrace)?;
+        w.deep(None, vec![self.items.iter()])
+    }
+}
+
+impl fmt::Display for Stylesheet<'_, Block<'_>> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut w = writer(f);
+        self.rules
+            .iter()
+            .try_for_each(|r| w.deep(Some(r), Vec::new()))
     }
 }
 

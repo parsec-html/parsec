@@ -5,6 +5,11 @@
 //! An+B and `<urange>` microsyntaxes, and serialization back to CSS, as
 //! the W3C's current editor's draft defines them, nesting included.
 //!
+//! [`parse_stylesheet_deep`] parses a whole stylesheet at once, every
+//! block's contents included; [`parse_stylesheet`] keeps each rule's
+//! `{}` block as component values, for [`SimpleBlock::contents`] to parse
+//! when you want it, since what a block holds depends on its rule.
+//!
 //! Every rule, declaration, block, function and token carries its
 //! [`Span`] in the input, and [`LineIndex`] turns one into a line and
 //! column. Names and values borrow the input unless an escape changes
@@ -26,6 +31,7 @@
 //! ```
 
 mod bytes;
+mod deep;
 mod microsyntax;
 mod parser;
 mod position;
@@ -33,10 +39,11 @@ mod serialize;
 mod tokenizer;
 
 pub use bytes::{decode_stylesheet, fallback_encoding};
+pub use deep::parse_stylesheet_deep;
 pub use encoding_rs::Encoding;
 pub use microsyntax::{UnicodeRange, anb, parse_anb, parse_unicode_ranges, serialize_anb};
 pub use parser::{
-    AtRule, BlockContents, Bracket, ComponentValue, Declaration, ErrorKind, Function, Item,
+    AtRule, Block, BlockContents, Bracket, ComponentValue, Declaration, ErrorKind, Function, Item,
     ParseError, QualifiedRule, Rule, SimpleBlock, Stylesheet, parse_block_contents,
     parse_comma_separated, parse_component_value, parse_component_values, parse_declaration,
     parse_declaration_list, parse_rule, parse_rule_list, parse_stylesheet,

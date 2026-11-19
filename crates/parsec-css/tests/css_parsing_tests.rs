@@ -407,6 +407,71 @@ fn round_trips(css: &str) -> Result<(), String> {
     check("block", items(&b), again.clone(), after)
 }
 
+/// The stylesheet `parse_stylesheet` makes, with every block's contents
+/// parsed by `SimpleBlock::contents`, and every error found on the way.
+fn deep_by_hand<'a>(css: &'a str) -> Stylesheet<'a, Block<'a>> {
+    fn rule<'a>(r: Rule<'a>, css: &'a str, errors: &mut Vec<ParseError>) -> Rule<'a, Block<'a>> {
+        let mut block = |b: SimpleBlock<'a>| {
+            let span = b.span;
+            let contents = b.contents(css);
+            errors.extend(contents.errors);
+            let items = contents
+                .items
+                .into_iter()
+                .map(|i| match i {
+                    Item::Declaration(d) => Item::Declaration(d),
+                    Item::Rule(r) => Item::Rule(rule(r, css, errors)),
+                })
+                .collect();
+            Block { items, span }
+        };
+        match r {
+            Rule::At(r) => Rule::At(AtRule {
+                name: r.name,
+                prelude: r.prelude,
+                block: r.block.map(&mut block),
+                span: r.span,
+            }),
+            Rule::Qualified(r) => Rule::Qualified(QualifiedRule {
+                prelude: r.prelude,
+                block: block(r.block),
+                span: r.span,
+            }),
+        }
+    }
+    let sheet = parse_stylesheet(css);
+    let mut errors = sheet.errors;
+    let rules = sheet
+        .rules
+        .into_iter()
+        .map(|r| rule(r, css, &mut errors))
+        .collect();
+    Stylesheet { rules, errors }
+}
+
+/// Whether `parse_stylesheet_deep` makes what parsing each block later
+/// does, spans and errors included, and serializes to text it parses back
+/// to the same.
+fn deep_matches(css: &str) -> Result<(), String> {
+    let mut deep = parse_stylesheet_deep(css);
+    let mut by_hand = deep_by_hand(css);
+    // The same errors, found in a different order.
+    for errors in [&mut deep.errors, &mut by_hand.errors] {
+        errors.sort_by_key(|e| (e.span.start, e.span.end));
+    }
+    if deep != by_hand {
+        return Err(format!(
+            "{css:?}\n  deep:    {deep:?}\n  by hand: {by_hand:?}"
+        ));
+    }
+    let again = deep.to_string();
+    let twice = parse_stylesheet_deep(&again).to_string();
+    if again != twice {
+        return Err(format!("{css:?} wrote {again:?}, then {twice:?}"));
+    }
+    Ok(())
+}
+
 #[test]
 fn css_parsing_tests() {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir("css-parsing-tests"))
@@ -460,7 +525,12 @@ fn css_parsing_tests() {
 
     let mut round_trip_failures = Vec::new();
     for css in &inputs {
-        if let Err(e) = round_trips(css) {
+        // Wrapped, the input is read as a block's contents too.
+        let wrapped = format!("a{{{css}}}");
+        if let Err(e) = round_trips(css)
+            .and_then(|()| deep_matches(css))
+            .and_then(|()| deep_matches(&wrapped))
+        {
             round_trip_failures.push(e);
         }
     }

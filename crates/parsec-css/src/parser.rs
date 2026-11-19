@@ -157,33 +157,38 @@ impl<'a> SimpleBlock<'a> {
 }
 
 /// `@name prelude;` or `@name prelude { block }`.
+///
+/// `B` is what the `{}` block is kept as: a [`SimpleBlock`], unparsed,
+/// from [`parse_stylesheet`] and the other entry points, or a [`Block`],
+/// its contents parsed, from [`parse_stylesheet_deep`].
 #[derive(Clone, Debug, PartialEq)]
-pub struct AtRule<'a> {
+pub struct AtRule<'a, B = SimpleBlock<'a>> {
     pub name: Cow<'a, str>,
     pub prelude: Vec<ComponentValue<'a>>,
-    /// The `{}` block, unparsed: what it holds depends on the rule, so
+    /// The `{}` block. Unparsed, what it holds depends on the rule, so
     /// [`SimpleBlock::contents`] parses it when the rule calls for that.
-    pub block: Option<SimpleBlock<'a>>,
+    pub block: Option<B>,
     pub span: Span,
 }
 
-/// `prelude { block }`: a style rule when the prelude is a selector.
+/// `prelude { block }`: a style rule when the prelude is a selector. `B`
+/// is as for [`AtRule`].
 #[derive(Clone, Debug, PartialEq)]
-pub struct QualifiedRule<'a> {
+pub struct QualifiedRule<'a, B = SimpleBlock<'a>> {
     pub prelude: Vec<ComponentValue<'a>>,
-    /// The `{}` block, unparsed; [`SimpleBlock::contents`] gives its
+    /// The `{}` block. Unparsed, [`SimpleBlock::contents`] gives its
     /// declarations and nested rules.
-    pub block: SimpleBlock<'a>,
+    pub block: B,
     pub span: Span,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Rule<'a> {
-    At(AtRule<'a>),
-    Qualified(QualifiedRule<'a>),
+pub enum Rule<'a, B = SimpleBlock<'a>> {
+    At(AtRule<'a, B>),
+    Qualified(QualifiedRule<'a, B>),
 }
 
-impl Rule<'_> {
+impl<B> Rule<'_, B> {
     pub fn span(&self) -> Span {
         match self {
             Rule::At(r) => r.span,
@@ -218,9 +223,38 @@ impl Declaration<'_> {
 /// One thing in a block: style rules and the nesting-era at-rules mix
 /// declarations and rules, in order.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Item<'a> {
+pub enum Item<'a, B = SimpleBlock<'a>> {
     Declaration(Declaration<'a>),
-    Rule(Rule<'a>),
+    Rule(Rule<'a, B>),
+}
+
+/// A rule's `{}` block with its contents parsed, as declarations and
+/// rules, and its rules' blocks too: what [`parse_stylesheet_deep`] makes.
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct Block<'a> {
+    pub items: Vec<Item<'a, Block<'a>>>,
+    /// From the `{` to the `}`, or to the end of the input if it's missing.
+    pub span: Span,
+}
+
+impl Drop for Block<'_> {
+    /// Takes the blocks inside out a level at a time, as [`drop_flat`]
+    /// does for component values, so deep nesting stays off the stack.
+    fn drop(&mut self) {
+        if self.items.iter().all(|i| matches!(i, Item::Declaration(_))) {
+            return;
+        }
+        let mut stack = std::mem::take(&mut self.items);
+        while let Some(item) = stack.pop() {
+            match item {
+                Item::Rule(Rule::Qualified(mut r)) => stack.append(&mut r.block.items),
+                Item::Rule(Rule::At(AtRule {
+                    block: Some(mut b), ..
+                })) => stack.append(&mut b.items),
+                _ => {}
+            }
+        }
+    }
 }
 
 /// What a parse found wrong, and where.
@@ -257,10 +291,19 @@ impl std::fmt::Display for ParseError {
 impl std::error::Error for ParseError {}
 
 /// A stylesheet's rules, and what was dropped while parsing it.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct Stylesheet<'a> {
-    pub rules: Vec<Rule<'a>>,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Stylesheet<'a, B = SimpleBlock<'a>> {
+    pub rules: Vec<Rule<'a, B>>,
     pub errors: Vec<ParseError>,
+}
+
+impl<B> Default for Stylesheet<'_, B> {
+    fn default() -> Self {
+        Stylesheet {
+            rules: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
 }
 
 /// A block's declarations and rules, and what was dropped while parsing it.
@@ -274,14 +317,14 @@ pub struct BlockContents<'a> {
 /// built whole, with a stack of open ones rather than recursion. The
 /// values of every open one share one buffer, so each list is allocated
 /// once, at its final size, when it closes.
-struct Values<'a> {
-    tokens: Tokenizer<'a>,
+pub(crate) struct Values<'a> {
+    pub(crate) tokens: Tokenizer<'a>,
     open: Vec<Open<'a>>,
     buffer: Vec<ComponentValue<'a>>,
 }
 
 impl<'a> Values<'a> {
-    fn new(tokens: Tokenizer<'a>) -> Values<'a> {
+    pub(crate) fn new(tokens: Tokenizer<'a>) -> Values<'a> {
         Values {
             tokens,
             open: Vec::new(),
@@ -301,7 +344,7 @@ struct Open<'a> {
 
 /// Moves `buf[at..]` into a list of its own size, by copying the bytes,
 /// and leaves `buf` its room for next time.
-fn take_tail<T>(buf: &mut Vec<T>, at: usize) -> Vec<T> {
+pub(crate) fn take_tail<T>(buf: &mut Vec<T>, at: usize) -> Vec<T> {
     if at > 0 {
         return buf.split_off(at);
     }
@@ -361,10 +404,23 @@ impl<'a> Iterator for Values<'a> {
 
     fn next(&mut self) -> Option<ComponentValue<'a>> {
         let (token, span) = self.tokens.next_token()?;
+        Some(self.whole(token, span))
+    }
+}
+
+impl<'a> Values<'a> {
+    /// The component value `token` starts: the token, or the whole of the
+    /// function or block it opens.
+    #[inline]
+    pub(crate) fn whole(&mut self, token: Token<'a>, span: Span) -> ComponentValue<'a> {
         match opens(token, span.start, 0) {
             Ok(open) => self.open.push(open),
-            Err(token) => return Some(ComponentValue::Token(token, span)),
+            Err(token) => return ComponentValue::Token(token, span),
         }
+        self.rest_of_open()
+    }
+
+    fn rest_of_open(&mut self) -> ComponentValue<'a> {
         loop {
             let Some((token, span)) = self.tokens.next_token() else {
                 // Everything still open closes at the end of the input.
@@ -374,7 +430,7 @@ impl<'a> Iterator for Values<'a> {
                     let values = take_tail(&mut self.buffer, open.at);
                     let done = open.finish(values, end);
                     if self.open.is_empty() {
-                        return Some(done);
+                        return done;
                     }
                     self.buffer.push(done);
                 }
@@ -384,7 +440,7 @@ impl<'a> Iterator for Values<'a> {
                 let values = take_tail(&mut self.buffer, open.at);
                 let done = open.finish(values, span.end);
                 if self.open.is_empty() {
-                    return Some(done);
+                    return done;
                 }
                 self.buffer.push(done);
                 continue;
@@ -636,10 +692,14 @@ impl<'a, I: Source<'a>> Parser<'a, I> {
             let n = before_semicolon(rest, nested);
             if let Some(plan) = plan(&rest[..n]) {
                 let name = self.input.next().unwrap();
+                // Not `skip(…).take(…)`: an empty take never runs the skip,
+                // which left the colon behind to be read as a rule.
+                for _ in 1..plan.value_start {
+                    self.input.next();
+                }
                 let value = self
                     .input
                     .by_ref()
-                    .skip(plan.value_start - 1)
                     .take(plan.value_end - plan.value_start)
                     .collect();
                 // Past the `!important` and trailing whitespace.
@@ -747,7 +807,7 @@ impl<'a, I: Source<'a>> Parser<'a, I> {
 }
 
 /// Whether a prelude starts like a custom property: `--name` then `:`.
-fn looks_like_custom_property(prelude: &[ComponentValue<'_>]) -> bool {
+pub(crate) fn looks_like_custom_property(prelude: &[ComponentValue<'_>]) -> bool {
     let mut it = prelude.iter().filter(|v| !v.is_whitespace());
     matches!(it.next(), Some(ComponentValue::Token(Token::Ident(n), _)) if n.starts_with("--"))
         && it.next().is_some_and(|v| v.is(&Token::Colon))
@@ -765,28 +825,47 @@ struct Plan {
 
 /// The plan for `values` as a declaration, or `None` if they aren't one.
 fn plan(values: &[ComponentValue<'_>]) -> Option<Plan> {
-    let skip_ws = |mut i: usize| {
-        while values.get(i).is_some_and(ComponentValue::is_whitespace) {
-            i += 1;
-        }
-        i
-    };
     let Some(ComponentValue::Token(Token::Ident(name), first)) = values.first() else {
         return None;
     };
-    let colon = skip_ws(1);
-    if !values.get(colon).is_some_and(|v| v.is(&Token::Colon)) {
-        return None;
+    let mut colon = 1;
+    while values.get(colon).is_some_and(ComponentValue::is_whitespace) {
+        colon += 1;
     }
-    let value_start = skip_ws(colon + 1);
-    let span_end = values
-        .iter()
-        .rev()
-        .find(|v| !v.is_whitespace())
-        .map_or(first.end, |v| v.span().end);
+    let colon_end = match values.get(colon) {
+        Some(ComponentValue::Token(Token::Colon, span)) => span.end,
+        _ => return None,
+    };
+    let after = colon + 1;
+    let v = value_plan(name, &values[after..])?;
+    Some(Plan {
+        value_start: after + v.start,
+        value_end: after + v.end,
+        important: v.important,
+        unicode_range: name.eq_ignore_ascii_case("unicode-range"),
+        span: Span::new(first.start, v.last_end.unwrap_or(colon_end)),
+    })
+}
 
+/// Where a declaration's value is in what follows its colon.
+pub(crate) struct ValuePlan {
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) important: bool,
+    /// The end of the last thing that isn't whitespace, `!important`
+    /// included: where the declaration's span ends.
+    pub(crate) last_end: Option<usize>,
+}
+
+/// The plan for `values`, all that follows a declaration's colon, or
+/// `None` if a `{}` block where one isn't allowed makes it no declaration.
+pub(crate) fn value_plan(name: &str, values: &[ComponentValue<'_>]) -> Option<ValuePlan> {
+    let mut start = 0;
+    while values.get(start).is_some_and(ComponentValue::is_whitespace) {
+        start += 1;
+    }
     // The last two non-whitespace values: `!` and `important`?
-    let mut solid = (value_start..values.len())
+    let mut solid = (start..values.len())
         .rev()
         .filter(|&i| !values[i].is_whitespace());
     let last = solid.next();
@@ -801,23 +880,22 @@ fn plan(values: &[ComponentValue<'_>]) -> Option<Plan> {
         }
         _ => None,
     };
-    let mut value_end = important.unwrap_or(values.len());
-    while value_end > value_start && values[value_end - 1].is_whitespace() {
-        value_end -= 1;
+    let mut end = important.unwrap_or(values.len());
+    while end > start && values[end - 1].is_whitespace() {
+        end -= 1;
     }
     if !name.starts_with("--") {
         // A `{}` block is allowed only as the whole of a property's value.
-        let value = &values[value_start..value_end];
+        let value = &values[start..end];
         if value.len() > 1 && value.iter().any(ComponentValue::is_curly) {
             return None;
         }
     }
-    Some(Plan {
-        value_start,
-        value_end,
+    Some(ValuePlan {
+        start,
+        end,
         important: important.is_some(),
-        unicode_range: name.eq_ignore_ascii_case("unicode-range"),
-        span: Span::new(first.start, span_end),
+        last_end: last.map(|i| values[i].span().end),
     })
 }
 
@@ -863,7 +941,7 @@ fn declaration_from<'a>(
 
 /// A tokenizer over `src[from..to]` making unicode-range tokens, with
 /// spans that still point into `src`.
-fn unicode_range_tokens(src: &str, from: usize, to: usize) -> Tokenizer<'_> {
+pub(crate) fn unicode_range_tokens(src: &str, from: usize, to: usize) -> Tokenizer<'_> {
     let mut t = Tokenizer::with_unicode_ranges(&src[..to]);
     t.reset(from);
     t

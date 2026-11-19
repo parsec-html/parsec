@@ -42,6 +42,37 @@ fn spans_inside(values: &[ComponentValue<'_>], len: usize) {
     }
 }
 
+/// `r` with its block's contents parsed, and theirs.
+fn deepen<'a>(r: Rule<'a>, css: &'a str, errors: &mut Vec<ParseError>) -> Rule<'a, Block<'a>> {
+    let mut block = |b: SimpleBlock<'a>| {
+        let span = b.span;
+        let contents = b.contents(css);
+        errors.extend(contents.errors);
+        let items = contents
+            .items
+            .into_iter()
+            .map(|i| match i {
+                Item::Declaration(d) => Item::Declaration(d),
+                Item::Rule(r) => Item::Rule(deepen(r, css, errors)),
+            })
+            .collect();
+        Block { items, span }
+    };
+    match r {
+        Rule::At(r) => Rule::At(AtRule {
+            name: r.name,
+            prelude: r.prelude,
+            block: r.block.map(&mut block),
+            span: r.span,
+        }),
+        Rule::Qualified(r) => Rule::Qualified(QualifiedRule {
+            prelude: r.prelude,
+            block: block(r.block),
+            span: r.span,
+        }),
+    }
+}
+
 fuzz_target!(|data: &[u8]| {
     let css = String::from_utf8_lossy(data);
     let css = css.as_ref();
@@ -60,17 +91,22 @@ fuzz_target!(|data: &[u8]| {
     shape(&parse_component_values(&again), &mut after);
     assert_eq!(before, after, "{css:?} serialized as {again:?}");
 
+    // The one-pass parse makes what parsing each block later does.
     let sheet = parse_stylesheet(css);
-    for rule in sheet.rules {
-        let block = match rule {
-            Rule::Qualified(r) => Some(r.block),
-            Rule::At(r) => r.block,
-        };
-        if let Some(block) = block {
-            let contents = block.contents(css);
-            let _ = contents.to_string();
-        }
-    }
+    let mut errors = sheet.errors;
+    let rules: Vec<_> = sheet
+        .rules
+        .into_iter()
+        .map(|r| deepen(r, css, &mut errors))
+        .collect();
+    let mut deep = parse_stylesheet_deep(css);
+    errors.sort_by_key(|e| (e.span.start, e.span.end));
+    deep.errors.sort_by_key(|e| (e.span.start, e.span.end));
+    assert_eq!(deep, Stylesheet { rules, errors }, "{css:?}");
+    // Not checked to read back the same: a nested rule like `a: {}`, left
+    // when a broken declaration is read again as a rule, writes the text
+    // of a declaration. No selector looks like that.
+    let _ = deep.to_string();
     let _ = parse_rule_list(css).to_string();
     let _ = parse_block_contents(css).to_string();
     let _ = parse_declaration_list(css);
