@@ -77,9 +77,12 @@ Every CI run publishes the conformance counts in its summary.
   prebuilt libraries for Linux, macOS and Windows on x86-64 and ARM,
   attached to each release.
 - Done: a guide for moving from Lexbor, call by call, on the wiki.
-- Python wheels, including free-threaded builds. The package is done, in
-  `bindings/python`; its wheels go to PyPI with 0.1.0.
-- Done: WebAssembly for npm, in `bindings/wasm`.
+- Done: a Python package with selectolax's API, in `bindings/python`, on
+  free-threaded Python too, with XPath, source positions and parse
+  errors ([#23](https://github.com/parsec-html/parsec/issues/23)). Its
+  wheels go to PyPI with 0.1.0.
+- Done: WebAssembly for npm, in `bindings/wasm`. It and the C API have
+  XPath, source positions and parse errors too.
 
 ## M5. Encoding
 

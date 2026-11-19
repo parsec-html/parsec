@@ -110,7 +110,8 @@ assert_eq!(doc.text(hits[0]), "one");
   cbindgen generates, and pkg-config and CMake files. Handles are opaque,
   nodes are numbers that can't dangle, every call is NULL-safe and returns
   an error code instead of crashing, and documents can be read from many
-  threads at once. Each release comes with a package for Linux, macOS and
+  threads at once. XPath, source positions and parse errors are there
+  too. Each release comes with a package for Linux, macOS and
   Windows, on x86-64 and ARM; Lexbor's own packages are x86-64 only. The
   C test runs on all three in CI, and under AddressSanitizer on Linux.
 - **One dependency** (`memchr`) and one `unsafe` block in the parser, with
@@ -186,13 +187,15 @@ assert_eq!(doc.text(hits[0]), "one");
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
   be shared by many threads, and on free-threaded Python the GIL stays
-  off. From Python, it parses the 13 pages below in 66 ms to
-  selectolax's 106, and runs the 32 selectors in 283 ms to its 781.
+  off. It has what selectolax lacks: XPath 1.0 that answers as lxml's
+  does, positions on nodes and attributes, and parse errors. From
+  Python, it parses the 13 pages below in 66 ms to selectolax's 106, and
+  runs the 32 selectors in 283 ms to its 781.
 - **WebAssembly for JavaScript** in `bindings/wasm`, the npm package
   `parsec-html` with TypeScript types: `parse`, `parseFragment`,
-  `select`, `selectFirst`, the tree, attributes, `textContent`,
-  `innerHTML` and `outerHTML`, in Node and in browsers. It's 662 KB,
-  279 KB gzipped.
+  `select`, `selectFirst`, `xpath`, the tree, attributes, `textContent`,
+  `innerHTML` and `outerHTML`, spans and parse errors, in Node and in
+  browsers. It's 868 KB, 361 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
@@ -284,9 +287,9 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import` and `@property`; WPT counts published |
-| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
-| Python | through selectolax | yes, free-threaded too |
-| WebAssembly | through bindings | yes, on npm with 0.1.0 |
+| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions and parse errors included |
+| Python | through selectolax | yes, free-threaded too, with XPath, positions and parse errors |
+| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans and parse errors |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
