@@ -155,8 +155,8 @@ assert_eq!(doc.text(hits[0]), "one");
 - **WebAssembly for JavaScript** in `bindings/wasm`, the npm package
   `parsec-html` with TypeScript types: `parse`, `parseFragment`,
   `select`, `selectFirst`, the tree, attributes, `textContent`,
-  `innerHTML` and `outerHTML`, in Node and in browsers. It's 550 KB,
-  238 KB gzipped.
+  `innerHTML` and `outerHTML`, in Node and in browsers. It's 662 KB,
+  279 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York

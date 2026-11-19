@@ -51,7 +51,7 @@ which arrive with [#8](https://github.com/parsec-html/parsec/issues/8).
 
 ## Size
 
-The WebAssembly is 550 KB, 238 KB gzipped. It's built for speed per byte
+The WebAssembly is 662 KB, 279 KB gzipped. It's built for speed per byte
 (`opt-level = "s"`, then `wasm-opt -Os`): building for size alone (`"z"`)
 saved 59 KB but parsed the 13 pages in `bench/` 40% slower.
 
