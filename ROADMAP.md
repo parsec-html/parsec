@@ -148,7 +148,7 @@ environment you give it, and computed values with inheritance.
   scoping proximity, `@container` against sizes the caller gives,
   `@import` through the caller's fetch with `layer()`, `supports()` and
   media, `@property` registrations, and `@keyframes` and
-  `@counter-style` parsed and given back. WPT: 1,139 of 1,345 static
+  `@counter-style` parsed and given back. WPT: 1,141 of 1,345 static
   cascade and at-rule cases.
 - Still to come: the values that need layout (`width: 50%` as pixels,
   container query units).
