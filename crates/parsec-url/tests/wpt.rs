@@ -6,15 +6,12 @@
 //! files run them through `new URL()` and its setters. Each WPT `test()`
 //! counts once.
 //!
-//! A case listed in `tests/wpt/known-failures.txt` is expected to fail and
-//! is counted as failed (the list is written by running with
-//! `WPT_LIST_FAILURES=1`, which prints every failure's line); the run fails on any other failure, and on a listed
-//! case that has started to pass, so the list can't go stale.
+//! Every case passes, and any failure fails the run, with each failing
+//! case's name and what went wrong.
 
 #[path = "../../parsec/tests/summary/mod.rs"]
 mod summary;
 
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use parsec_url::Url;
@@ -64,15 +61,6 @@ fn usv(json: &str) -> String {
     }
     out.push_str(&json[i..]);
     out
-}
-
-fn known_failures() -> BTreeSet<String> {
-    std::fs::read_to_string(data_dir().join("known-failures.txt"))
-        .unwrap()
-        .lines()
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        .map(str::to_owned)
-        .collect()
 }
 
 fn get(url: &Url, attr: &str) -> String {
@@ -147,7 +135,7 @@ impl Suite {
     }
 
     /// Counts one case; a failure is kept under its name with control
-    /// characters escaped, so it fits on one line of the known-failures list.
+    /// characters escaped, so it prints on one line.
     fn check(&mut self, test: String, result: Result<(), String>) {
         match result {
             Ok(()) => self.passed += 1,
@@ -164,8 +152,7 @@ impl Suite {
         }
     }
 
-    /// Prints the counts, writes them for CI, and panics on any failure
-    /// the known-failures list doesn't name or any listed case that passed.
+    /// Prints the counts, writes them for CI, and panics on any failure.
     fn finish(self) {
         eprintln!(
             "{}: {} passed, {} failed, {} skipped{}",
@@ -187,38 +174,14 @@ impl Suite {
             skipped_because: self.skipped_because,
             data: &data_dir(),
         });
-        if std::env::var_os("WPT_LIST_FAILURES").is_some() {
-            for (t, _) in &self.failed {
-                println!("{}: {t}", self.file);
-            }
-        }
-        let known = known_failures();
-        let prefix = format!("{}: ", self.file);
-        let unexpected: Vec<String> = self
-            .failed
-            .iter()
-            .filter(|(t, _)| !known.contains(&format!("{prefix}{t}")))
-            .map(|(t, why)| format!("{prefix}{t}\n    {why}"))
-            .collect();
-        let failed: BTreeSet<String> = self
-            .failed
-            .iter()
-            .map(|(t, _)| format!("{prefix}{t}"))
-            .collect();
-        let fixed: Vec<&String> = known
-            .iter()
-            .filter(|k| k.starts_with(&prefix) && !failed.contains(*k))
-            .collect();
         assert!(
-            unexpected.is_empty() && fixed.is_empty(),
-            "{} unexpected failures:\n{}\n{} known failures now pass, so take them off \
-             tests/wpt/known-failures.txt:\n{}",
-            unexpected.len(),
-            unexpected.join("\n"),
-            fixed.len(),
-            fixed
+            self.failed.is_empty(),
+            "{} failures in {}:\n{}",
+            self.failed.len(),
+            self.file,
+            self.failed
                 .iter()
-                .map(|s| s.as_str())
+                .map(|(t, why)| format!("{t}\n    {why}"))
                 .collect::<Vec<_>>()
                 .join("\n"),
         );

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! Times URL parsing: Parsec (`parsec-url`, Servo's `url` crate) against
-//! Lexbor's `lxb_url_parse` and Ada, each parsing the same strings against
-//! the same bases, already parsed, and freeing what it built.
+//! Times URL parsing: Parsec (`parsec-url`) against Lexbor's
+//! `lxb_url_parse` and Ada, each parsing the same strings against the same
+//! bases, already parsed, and freeing what it built.
 //!
 //! Two lists: every `href` and `src` on the real pages, against the page's
 //! own address, the way a crawler resolves links; and the inputs of WPT's
