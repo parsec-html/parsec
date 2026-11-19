@@ -152,6 +152,11 @@ assert_eq!(doc.text(hits[0]), "one");
   be shared by many threads, and on free-threaded Python the GIL stays
   off. From Python, it parses the 13 pages below in 66 ms to
   selectolax's 106, and runs the 32 selectors in 283 ms to its 781.
+- **WebAssembly for JavaScript** in `bindings/wasm`, the npm package
+  `parsec-html` with TypeScript types: `parse`, `parseFragment`,
+  `select`, `selectFirst`, the tree, attributes, `textContent`,
+  `innerHTML` and `outerHTML`, in Node and in browsers. It's 550 KB,
+  238 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
@@ -242,10 +247,11 @@ every module Lexbor has, and then go past it:
 | Media queries, cascade, computed values | no | yes, against an environment you give; WPT counts published |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |
-| WebAssembly | through bindings | planned, built here |
+| WebAssembly | through bindings | yes, on npm with 0.1.0 |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
-for Python, pytest in CI. A
+for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
+and Firefox. A
 "planned" becomes a "yes" only when it ships.
 
 ## Using it

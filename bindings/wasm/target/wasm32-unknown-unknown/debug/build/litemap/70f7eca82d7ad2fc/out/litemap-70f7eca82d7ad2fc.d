@@ -1,0 +1,10 @@
+/Users/james/Documents/GitHub/parsec-bindings-wasm/bindings/wasm/target/wasm32-unknown-unknown/debug/build/litemap/70f7eca82d7ad2fc/out/litemap-70f7eca82d7ad2fc.d: /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs
+
+/Users/james/Documents/GitHub/parsec-bindings-wasm/bindings/wasm/target/wasm32-unknown-unknown/debug/build/litemap/70f7eca82d7ad2fc/out/liblitemap-70f7eca82d7ad2fc.rlib: /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs
+
+/Users/james/Documents/GitHub/parsec-bindings-wasm/bindings/wasm/target/wasm32-unknown-unknown/debug/build/litemap/70f7eca82d7ad2fc/out/liblitemap-70f7eca82d7ad2fc.rmeta: /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs /Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs
+
+/Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/lib.rs:
+/Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/map.rs:
+/Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/mod.rs:
+/Users/james/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/litemap-0.8.3/src/store/slice_impl.rs:
