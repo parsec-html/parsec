@@ -118,6 +118,10 @@ environment you give it, and computed values with inheritance.
   the suite's 305 syntax cases pass; the other 12 are where it predates
   the draft. Benchmarked against Lexbor's CSS module and Servo's
   cssparser in `bench/`.
+- Done: `parse_stylesheet_deep`, a whole stylesheet with every block's
+  contents in one pass, straight from the tokenizer. It parses at 211
+  MB/s to cssparser's 196 and Lexbor's 112
+  ([#88](https://github.com/parsec-html/parsec/issues/88)).
 - Still to come: every longhand, shorthands, custom properties, `var()`
   and `calc()`; then the cascade, media queries and computed values.
 

@@ -293,7 +293,8 @@ impl<'a> Deep<'a> {
 /// declarations and nested rules, to any depth: what
 /// [`parse_stylesheet`](crate::parse_stylesheet) and
 /// [`SimpleBlock::contents`](crate::SimpleBlock::contents) on each block
-/// make, in one pass and about half the time. The errors are all in the
+/// make, in one pass and
+/// about 70% of the time. The errors are all in the
 /// stylesheet's list, in the order they were found.
 ///
 /// ```

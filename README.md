@@ -97,6 +97,8 @@ assert_eq!(doc.text(hits[0]), "one");
   the version WPT's IDNA tests are generated from.
 - **CSS Syntax Level 3**, in `crates/parsec-css`: the tokenizer and the
   parser with every entry point of the current draft, nesting included,
+  plus `parse_stylesheet_deep` for a whole stylesheet, every block's
+  declarations and nested rules in one pass,
   An+B, `<urange>`, `@charset` decoding, and serialization that parses
   back to the same values. Every rule, declaration and token carries its
   byte span, and you can ask for a line and column, which Lexbor's users
@@ -147,13 +149,14 @@ fast as Ada and 2.28 times as fast as Lexbor, and all three give the same
 
 And CSS. On ten real stylesheets, 1.87 MB of Bootstrap, Bulma, Font
 Awesome, normalize.css and the `<style>` elements of five of the 13
-pages, Parsec tokenizes 378 MB a second to Lexbor's 217, 1.75 times as
-fast, and parses 148 to Lexbor's 115, 1.3 times, ahead on every sheet.
-Lexbor's parse does read selectors and the properties it knows as well.
-Servo's cssparser, which builds no tree of its own, parses at 196, so it
-is a third faster than Parsec; Parsec keeps every block, with its
-spans, and parses its contents from there. Parsec's tokenizer is 1.3
-times as fast as cssparser's.
+pages, Parsec tokenizes 389 MB a second to Lexbor's 210, 1.85 times as
+fast, and parses the whole sheet, every block's declarations included,
+at 211 to Lexbor's 112, 1.9 times, ahead on every sheet. Lexbor's parse
+does read selectors and the properties it knows as well. Servo's
+cssparser, which builds no tree of its own, parses at 196, so Parsec is
+1.08 times as fast while keeping every rule and declaration with its
+span; a second run had it 1.16 times. Its tokenizer is 1.2 times as
+fast as cssparser's.
 
 Hostile inputs, the ones built to make a parser crawl, go Parsec's way
 on all eight. 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2
