@@ -48,7 +48,7 @@ Every CI run publishes the conformance counts in its summary.
   (`parsec_encoding::parse_bytes`, all 82 cases that don't need
   JavaScript).
 - Chunked input that builds exactly the tree whole input does.
-- Parse errors with their spec names, line and column.
+- Done: parse errors with their spec names, line and column.
 - Done: source positions on every node and attribute.
 - Done: the pretty-printing and html5lib serializer formats, with the
   html5lib serializer tests (229 passed, 1 skipped).

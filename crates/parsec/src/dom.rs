@@ -141,12 +141,15 @@ pub struct Document {
     /// noscript element's text serializes.
     pub(crate) scripting: bool,
     /// Where each node and attribute was written, when the parse was
-    /// asked to keep that.
+    /// asked to keep that, and how to map offsets back to the input, for
+    /// spans or errors.
     pub(crate) positions: Option<Box<Positions>>,
     /// Each template's contents, mapped to the template: no link leads
     /// back from the contents, and an edit's cycle check has to climb out
     /// of them. Edits build it the first time they need it.
     pub(crate) hosts: Option<std::collections::HashMap<NodeId, NodeId>>,
+    /// The parse errors, when the parse was asked to collect them.
+    pub(crate) errors: Vec<crate::SyntaxError>,
 }
 
 /// A node or attribute with no recorded position.
@@ -200,7 +203,7 @@ impl Positions {
     }
 
     /// An offset in the preprocessed source, as one in the original.
-    fn original(&self, at: u32) -> usize {
+    pub(crate) fn original(&self, at: u32) -> usize {
         let dropped = self.crlf.partition_point(|&lf| lf < at);
         self.skipped as usize + at as usize + dropped
     }
@@ -254,6 +257,7 @@ impl Document {
             scripting: false,
             positions: None,
             hosts: None,
+            errors: Vec::new(),
         }
     }
 
@@ -411,6 +415,13 @@ impl Document {
             .filter(|&&b| (b as i8) >= -0x40)
             .count();
         (line, column)
+    }
+
+    /// The parse errors in the input, in source order: empty unless the
+    /// document was parsed with [`Options::errors`](crate::Options::errors)
+    /// on.
+    pub fn errors(&self) -> &[crate::SyntaxError] {
+        &self.errors
     }
 
     pub(crate) fn element(&self, id: NodeId) -> Option<&Element> {

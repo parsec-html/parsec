@@ -48,6 +48,11 @@ assert_eq!(doc.text(hits[0]), "one");
   way the document decides them, and `:target` and `:local-link` match once
   you pass the page's URL, where Lexbor parses all four and never matches
   them.
+- **Parse errors, named and located**: with `Options { errors: true, .. }`,
+  `doc.errors()` lists every parse error with the HTML Standard's name
+  (`unexpected-null-character`, `eof-in-tag` and the rest), its byte
+  offset in your input, and its line and column. Lexbor reports them as
+  pointers into its buffer, which PHP had to turn into lines itself.
 - **Where everything came from**: with `Options { spans: true, .. }`,
   every element's start and end tag, every attribute, text run, comment
   and doctype has its byte range in the input you passed, CRLFs and a byte
@@ -262,7 +267,7 @@ every module Lexbor has, and then go past it:
 | HTML parsing, fragments | yes | yes |
 | Bytes in, encoding sniffed | yes | yes, `parse_bytes` |
 | Chunked input | yes | planned |
-| Parse errors with line and column | pointers only | planned |
+| Parse errors with line and column | pointers only | yes, with the spec's names; all 7,042 html5lib tokenizer error cases match |
 | Source positions on nodes and attributes | no ([lexbor#374](https://github.com/lexbor/lexbor/issues/374)) | yes, byte ranges into your input with line and column |
 | Linear worst case | no ([#340](https://github.com/lexbor/lexbor/issues/340)) | planned |
 | Thread-safe documents | no | planned, checked at compile time |
