@@ -10,7 +10,7 @@
 //! original doesn't have.
 //!
 //! The suite was written against an older draft than the one followed
-//! here, so the output is compared with four allowances, each for a
+//! here, so the output is compared with three allowances, each for a
 //! difference of representation rather than of parsing:
 //!
 //! - Two delims written side by side, like `~` `=`, count as the one
@@ -20,8 +20,18 @@
 //!   spec doesn't place in the tree.
 //! - Whitespace at the two ends of a declaration's value isn't compared:
 //!   the spec trims it, and the suite's parsers keep it.
-//! - The `color_*` files test CSS Color, not CSS Syntax, so they're
-//!   counted as skipped until typed values exist.
+//!
+//! The `color_*` files test `<color>`, through `values::Color`, as its
+//! computed form (named colors as `rgb()`, as the suite has them). CSS
+//! Color 4 leaves the precision to the implementation, so their numbers
+//! are compared to within that: legacy `rgb()` channels are rounded to
+//! integers, and their alpha to three decimals, where the suite keeps six.
+//! Where CSS Color has changed since the suite was written, a failure is
+//! checked against the change (`color_difference`), counted under it, and
+//! printed: lightness and chroma are now clamped when parsed, a legacy
+//! color with `none` now keeps its own function, the suite writes
+//! `light-dark()` as a pair, and custom color spaces need `@color-profile`,
+//! which isn't parsed yet.
 //!
 //! Cases in `KNOWN_FAILURES` are where the current draft and the suite
 //! disagree; they're counted as failed, and the run fails if any other
@@ -293,8 +303,107 @@ fn run(file: &str, input: &Value) -> Option<Value> {
                 .map(|r| r.map_or(Value::Null, |r| json!([r.start, r.end])))
                 .collect(),
         ),
+        f if f.starts_with("color_") => match parse_component_value(css)
+            .ok()
+            .and_then(|v| values::Color::parse(&v))
+            .map(|c| c.computed())
+        {
+            Some(c) => Value::String(c.to_string()),
+            None => Value::Null,
+        },
         _ => return None,
     })
+}
+
+/// A color serialization's numbers, and the text around them.
+fn color_parts(s: &str) -> (Vec<f64>, String) {
+    let mut numbers = Vec::new();
+    let mut text = String::new();
+    let mut rest = s;
+    while let Some(c) = rest.chars().next() {
+        // A number starts a word: the 98 in `a98-rgb` is part of a name.
+        let after_word = text.ends_with(|p: char| p.is_ascii_alphanumeric() || p == '-');
+        let starts = !after_word
+            && (c.is_ascii_digit()
+                || (matches!(c, '-' | '.') && rest[1..].starts_with(|d: char| d.is_ascii_digit())));
+        if starts {
+            let len = rest
+                .find(|d: char| !(d.is_ascii_digit() || d == '.' || d == '-' || d == 'e'))
+                .unwrap_or(rest.len());
+            numbers.push(rest[..len].parse().unwrap_or(f64::NAN));
+            text.push('#');
+            rest = &rest[len..];
+        } else {
+            text.push(c);
+            rest = &rest[c.len_utf8()..];
+        }
+    }
+    (numbers, text)
+}
+
+/// Whether two color serializations are the same, allowing for precision,
+/// which CSS Color 4 leaves to the implementation: legacy `rgb()` channels
+/// are rounded to integers and their alpha to three decimals, where the
+/// suite keeps six.
+fn same_color(got: &Value, want: &Value) -> bool {
+    let (Some(got), Some(want)) = (got.as_str(), want.as_str()) else {
+        return got == want;
+    };
+    let ((g, gt), (w, wt)) = (color_parts(got), color_parts(want));
+    if gt != wt || g.len() != w.len() {
+        return false;
+    }
+    let legacy = want.starts_with("rgb");
+    g.iter().zip(&w).enumerate().all(|(i, (a, b))| {
+        let tolerance = match (legacy, i) {
+            (true, 0..=2) => 0.5,
+            (true, _) => 0.0005,
+            _ => 1e-6 * b.abs().max(1.0),
+        };
+        (a - b).abs() <= tolerance
+    })
+}
+
+/// Why the suite's answer for a color isn't the current draft's, when it's
+/// one of the ways CSS Color has changed since the suite was written.
+fn color_difference(input: &str, want: &Value, got: &Value) -> Option<&'static str> {
+    let input = input.to_ascii_lowercase();
+    let got_s = got.as_str().unwrap_or_default();
+    if want.is_array() && input.starts_with("light-dark(") {
+        return Some("light-dark() is a pair of colors in the suite, and a color here");
+    }
+    if input.contains("color(--") {
+        return Some("custom color spaces need @color-profile, which isn't parsed yet");
+    }
+    let want_s = want.as_str()?;
+    if (input.starts_with("hsl") || input.starts_with("hwb"))
+        && input.contains("none")
+        && want_s.starts_with("rgb")
+        && (got_s.starts_with("hsl(") || got_s.starts_with("hwb("))
+    {
+        return Some("the draft now writes a legacy color with `none` in its own function");
+    }
+    // The suite keeps lightness and chroma as written; the draft clamps
+    // them when parsing: lightness to 0..100 (0..1 for the ok spaces),
+    // chroma to 0 and up.
+    let max = match () {
+        _ if want_s.starts_with("lab(") || want_s.starts_with("lch(") => 100.0,
+        _ if want_s.starts_with("oklab(") || want_s.starts_with("oklch(") => 1.0,
+        _ => return None,
+    };
+    let (mut numbers, text) = color_parts(want_s);
+    numbers[0] = numbers[0].clamp(0.0, max);
+    if want_s.contains("lch(") {
+        numbers[1] = numbers[1].max(0.0);
+    }
+    let mut parts = text.split('#');
+    let mut clamped = parts.next().unwrap().to_string();
+    for (n, rest) in numbers.iter().zip(parts) {
+        clamped.push_str(&values::number_to_string(*n));
+        clamped.push_str(rest);
+    }
+    same_color(got, &Value::String(clamped))
+        .then_some("the draft now clamps lightness and chroma when parsing them")
 }
 
 /// The expected value with the allowances in the module comment applied.
@@ -482,6 +591,7 @@ fn css_parsing_tests() {
     files.sort();
     let (mut passed, mut failed, mut skipped) = (0, 0, 0);
     let mut unexpected = Vec::new();
+    let mut color_reasons = std::collections::BTreeMap::new();
     let mut inputs = Vec::new();
     for path in &files {
         let file = path.file_name().unwrap().to_str().unwrap();
@@ -495,15 +605,29 @@ fn css_parsing_tests() {
                 skipped += 1;
                 continue;
             };
-            let known = KNOWN_FAILURES
+            let mut known = KNOWN_FAILURES
                 .iter()
                 .any(|(f, i)| *f == file && input.as_str() == Some(i));
-            let ok = same(&got, &expected(want));
+            if file.starts_with("color_")
+                && !same_color(&got, want)
+                && let Some(why) = color_difference(input.as_str().unwrap_or_default(), want, &got)
+            {
+                *color_reasons.entry(why).or_insert(0) += 1;
+                known = true;
+            }
+            let ok = if file.starts_with("color_") {
+                same_color(&got, want)
+            } else {
+                same(&got, &expected(want))
+            };
             match (ok, known) {
                 (true, false) => passed += 1,
                 (false, true) => failed += 1,
                 (false, false) => {
                     failed += 1;
+                    if std::env::var_os("LIST_FAILURES").is_some() {
+                        println!("FAIL {file}\t{input}\t{want}\t{got}");
+                    }
                     unexpected.push(format!("{file} {input}\n  want: {want}\n  got:  {got}"));
                 }
                 (true, true) => {
@@ -513,13 +637,16 @@ fn css_parsing_tests() {
             }
         }
     }
-    println!("css-parsing-tests: {passed} passed, {failed} failed, {skipped} skipped (CSS Color)");
+    println!("css-parsing-tests: {passed} passed, {failed} failed, {skipped} skipped");
+    for (why, n) in &color_reasons {
+        println!("  {n} color cases fail because {why}");
+    }
     summary::write(&summary::Counts {
         suite: "css-parsing-tests",
         passed,
         failed,
         skipped,
-        skipped_because: "the color_* files test CSS Color, not CSS Syntax",
+        skipped_because: "",
         data: &dir("css-parsing-tests"),
     });
 

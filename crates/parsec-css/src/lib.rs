@@ -37,6 +37,7 @@ mod parser;
 mod position;
 mod serialize;
 mod tokenizer;
+pub mod values;
 
 pub use bytes::{decode_stylesheet, fallback_encoding};
 pub use deep::parse_stylesheet_deep;

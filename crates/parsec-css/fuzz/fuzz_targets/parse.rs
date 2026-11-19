@@ -107,6 +107,41 @@ fuzz_target!(|data: &[u8]| {
     // when a broken declaration is read again as a rule, writes the text
     // of a declaration. No selector looks like that.
     let _ = deep.to_string();
+
+    // Every declaration's value typed for its property, written, read
+    // back, and split if it's a shorthand; and the custom properties
+    // resolved, whatever refers to whatever.
+    let mut custom = values::CustomProperties::new();
+    let mut blocks: Vec<&Block<'_>> = Vec::new();
+    for rule in &deep.rules {
+        match rule {
+            Rule::Qualified(r) => blocks.push(&r.block),
+            Rule::At(r) => blocks.extend(&r.block),
+        }
+    }
+    while let Some(block) = blocks.pop() {
+        for item in &block.items {
+            match item {
+                Item::Declaration(d) => {
+                    if d.name.starts_with("--") {
+                        custom.declare(&d.name, d.value.clone());
+                    }
+                    if let Ok(v) = values::parse_declaration_value(d) {
+                        let written = v.to_string();
+                        let again = parse_component_values(&written);
+                        if let Ok(v2) = values::parse_value(&d.name, &again) {
+                            let _ = v2.to_string();
+                        }
+                    }
+                    let _ = values::expand(&d.name, &d.value);
+                }
+                Item::Rule(Rule::Qualified(r)) => blocks.push(&r.block),
+                Item::Rule(Rule::At(r)) => blocks.extend(&r.block),
+            }
+        }
+    }
+    let resolved = custom.resolve(None);
+    let _ = values::substitute_value("width", &values, &resolved);
     let _ = parse_rule_list(css).to_string();
     let _ = parse_block_contents(css).to_string();
     let _ = parse_declaration_list(css);
