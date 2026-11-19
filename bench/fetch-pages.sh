@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 James Conway
 #
-# Downloads the benchmark's real pages into bench/corpus/ and checks each
-# against the SHA-256 in bench/pages.txt. The pages are someone else's, so
+# Downloads the benchmark's real pages, and the stylesheets in
+# bench/stylesheets.txt, into bench/corpus/ and checks each against the
+# SHA-256 in its list. The pages are someone else's, so
 # the repository holds only their addresses: each one is a fixed snapshot
 # in the Internet Archive, fetched raw (the `id_` form), so every run of
 # this script gets the same bytes.
@@ -40,5 +41,20 @@ while read -r name stamp url sum; do
         status=1
     fi
 done < "$here/pages.txt"
+
+# The stylesheets for the CSS benchmark, fetched as they are.
+while read -r name url sum; do
+    [[ -z "$name" || "$name" == \#* ]] && continue
+    file="$here/corpus/$name.css"
+    if [[ ! -s "$file" ]]; then
+        curl -fsSL --retry 3 --max-time 300 -o "$file.part" "$url"
+        mv "$file.part" "$file"
+    fi
+    got=$(shasum -a 256 "$file" | cut -c1-64)
+    if [[ "$got" != "$sum" ]]; then
+        echo "$name: SHA-256 $got, expected $sum" >&2
+        status=1
+    fi
+done < "$here/stylesheets.txt"
 
 exit $status

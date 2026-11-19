@@ -2,6 +2,10 @@
 /crates/parsec/fuzz/target
 /crates/parsec/fuzz/corpus
 /crates/parsec/fuzz/artifacts
+/crates/parsec-css/fuzz/target
+/crates/parsec-css/fuzz/corpus
+/crates/parsec-css/fuzz/artifacts
+/crates/parsec-css/fuzz/Cargo.lock
 /bench/target
 /bench/corpus
 __pycache__/
