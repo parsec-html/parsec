@@ -47,7 +47,7 @@ Every CI run publishes the conformance counts in its summary.
   browsers do, and the html5lib encoding tests passing
   (`parsec_encoding::parse_bytes`, all 82 cases that don't need
   JavaScript).
-- Chunked input that builds exactly the tree whole input does.
+- Done: chunked input that builds exactly the tree whole input does.
 - Done: parse errors with their spec names, line and column.
 - Done: source positions on every node and attribute.
 - Done: the pretty-printing and html5lib serializer formats, with the
