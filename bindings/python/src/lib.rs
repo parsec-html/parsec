@@ -268,7 +268,7 @@ fn record(doc: &Document, id: NodeId) -> Vec<Step> {
                         .map(Visit::Node),
                 );
             }
-            Kind::Document | Kind::Fragment => {
+            Kind::Document | Kind::Fragment | Kind::ShadowRoot(_) => {
                 stack.extend(
                     doc.children(n)
                         .collect::<Vec<_>>()
@@ -422,6 +422,7 @@ fn options(
         max_depth,
         spans: positions,
         errors,
+        ..Options::default()
     })
 }
 
@@ -1112,7 +1113,7 @@ impl Node {
                 Kind::Comment(_) => "-comment",
                 Kind::Doctype { .. } => "-doctype",
                 Kind::Document => "-document",
-                Kind::Fragment => "-document-fragment",
+                Kind::Fragment | Kind::ShadowRoot(_) => "-document-fragment",
                 Kind::Cdata(_) | Kind::ProcessingInstruction { .. } => return None,
             }
             .to_string(),
@@ -1306,7 +1307,7 @@ impl Node {
     fn is_document_node(&self, py: Python<'_>) -> bool {
         matches!(
             self.p().read(py).kind(self.id),
-            Kind::Document | Kind::Fragment
+            Kind::Document | Kind::Fragment | Kind::ShadowRoot(_)
         )
     }
 

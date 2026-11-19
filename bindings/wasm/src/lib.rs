@@ -204,6 +204,7 @@ fn options(options: Option<&ParseOptions>) -> Options {
             .map(|d| d as usize),
         spans: options.and_then(ParseOptions::spans).unwrap_or(false),
         errors: options.and_then(ParseOptions::errors).unwrap_or(false),
+        ..Options::default()
     }
 }
 
@@ -503,7 +504,8 @@ impl Node {
             Kind::Comment(_) => 8,
             Kind::Document => 9,
             Kind::Doctype { .. } => 10,
-            Kind::Fragment => 11,
+            // A shadow root is a DocumentFragment in the DOM.
+            Kind::Fragment | Kind::ShadowRoot(_) => 11,
         }
     }
 
@@ -521,7 +523,7 @@ impl Node {
             Kind::Comment(_) => "#comment".into(),
             Kind::Document => "#document".into(),
             Kind::Doctype { name, .. } => name.to_string(),
-            Kind::Fragment => "#document-fragment".into(),
+            Kind::Fragment | Kind::ShadowRoot(_) => "#document-fragment".into(),
         }
     }
 

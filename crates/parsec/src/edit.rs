@@ -4,6 +4,13 @@
 //! Changing a parsed document: new nodes, moves, removals and attributes.
 //! A removed node stays in the document's arena, detached, and can be
 //! inserted again.
+//!
+//! A shadow root is edited as a template's contents are: nodes go in and
+//! out of it like any parent, but it's never anyone's child
+//! ([`EditError::NotInsertable`]), and a host can't go into its own shadow
+//! tree ([`EditError::Cycle`]). A host keeps its shadow root when it's
+//! removed, moved or renamed, as an element keeps it in the DOM; a root
+//! is made with [`Document::attach_shadow`] and never taken away.
 
 use crate::dom::{Attr, AttrNs, Data, Document, Element, NONE, Name, NodeId, Ns, Span};
 use crate::tags::Tag;
@@ -18,9 +25,13 @@ pub enum EditError {
     NotAParent,
     /// `before` isn't a child of the parent.
     NotAChild,
-    /// The node is a document or a fragment, such as the root or a
-    /// template's contents, which is never anyone's child.
+    /// The node is a document, a fragment or a shadow root, such as the
+    /// root or a template's contents, which is never anyone's child.
     NotInsertable,
+    /// The element can't have a shadow root: it already has one, or it
+    /// isn't an HTML element that may (`div`, `span`, `section`, a
+    /// custom element...).
+    NotAShadowHost,
 }
 
 impl std::fmt::Display for EditError {
@@ -30,8 +41,9 @@ impl std::fmt::Display for EditError {
             EditError::NotAParent => "only an element, a document or a fragment can have children",
             EditError::NotAChild => "the node to insert before isn't a child of the parent",
             EditError::NotInsertable => {
-                "a document or a fragment can't be inserted, only its children"
+                "a document, fragment or shadow root can't be inserted, only its children"
             }
+            EditError::NotAShadowHost => "the element can't have a shadow root, or has one",
         })
     }
 }
@@ -111,7 +123,7 @@ impl Document {
     ) -> Result<(), EditError> {
         if !matches!(
             self.nodes[parent as usize].data,
-            Data::Element(_) | Data::Document | Data::Fragment
+            Data::Element(_) | Data::Document | Data::Fragment | Data::ShadowRoot { .. }
         ) {
             return Err(EditError::NotAParent);
         }
@@ -119,7 +131,7 @@ impl Document {
         // contents, would otherwise end up under a detached element.
         if matches!(
             self.nodes[child as usize].data,
-            Data::Document | Data::Fragment
+            Data::Document | Data::Fragment | Data::ShadowRoot { .. }
         ) {
             return Err(EditError::NotInsertable);
         }
@@ -129,8 +141,9 @@ impl Document {
             return Err(EditError::NotAChild);
         }
         // Up through the parents, and out of a template's contents to the
-        // template: serializing goes down into them, so a template put in
-        // its own contents would never end.
+        // template and out of a shadow root to its host: serializing goes
+        // down into both, so a template put in its own contents, or a host
+        // in its own shadow tree, would never end.
         let mut at = Some(parent);
         while let Some(a) = at {
             if a == child {
@@ -150,6 +163,9 @@ impl Document {
     /// is built once, then kept as edits add and rename templates, so a
     /// run of inserts into contents stays linear.
     fn host(&mut self, fragment: NodeId) -> Option<NodeId> {
+        if let Data::ShadowRoot { host, .. } = self.nodes[fragment as usize].data {
+            return Some(host);
+        }
         if !matches!(self.nodes[fragment as usize].data, Data::Fragment) {
             return None;
         }
@@ -165,6 +181,12 @@ impl Document {
             })
             .get(&fragment)
             .copied()
+            .inspect(|&t| {
+                debug_assert!(
+                    self.element(t).is_some_and(|e| e.contents == fragment),
+                    "the hosts map says {t} holds {fragment}, which it doesn't"
+                )
+            })
     }
 
     /// Moves every template's contents in under the template element
@@ -448,6 +470,48 @@ mod tests {
         assert_eq!(doc.inner_html(0), "<p>a</p>");
         doc.append(0, second).unwrap();
         assert_eq!(doc.inner_html(0), "<p>a</p><p>b<em>x &amp; y</em></p>");
+    }
+
+    /// Moves, removals, renames and new templates in a pseudo-random
+    /// order, the whole tree checked after each.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn edits_keep_every_invariant() {
+        let mut doc = parse(
+            "<div><p>a<b>b</b></p><template><i>c</i></template><ul><li>d</ul></div>",
+            false,
+        );
+        let mut seed: u32 = 0x2545_f491;
+        let mut next = move |n: usize| {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            seed as usize % n
+        };
+        for i in 0..2000 {
+            let n = doc.len();
+            let (a, b) = (next(n) as NodeId, next(n) as NodeId);
+            match next(6) {
+                0 => {
+                    let _ = doc.append(a, b);
+                }
+                1 => {
+                    let before = doc.first_child(a);
+                    let _ = doc.insert_before(a, b, before);
+                }
+                2 => doc.remove(b),
+                3 => doc.rename(a, if i % 2 == 0 { "template" } else { "span" }),
+                4 => {
+                    let t = doc.create_element(Ns::Html, "template");
+                    let _ = doc.append(a, t);
+                }
+                _ => {
+                    let t = doc.create_text("t");
+                    let _ = doc.append(a, t);
+                }
+            }
+            doc.check_tree();
+        }
     }
 
     #[test]

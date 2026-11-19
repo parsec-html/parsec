@@ -93,10 +93,68 @@ pub(crate) struct Element {
     pub html_integration: bool,
 }
 
+/// Whether a shadow root's host lets scripts reach it, from
+/// `shadowrootmode` or `attachShadow`'s `mode`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShadowRootMode {
+    Open,
+    Closed,
+}
+
+/// How a shadow root's slots get their nodes: by the `slot` attribute of
+/// the host's children, or only as [`Document::assign`] says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SlotAssignment {
+    #[default]
+    Named,
+    Manual,
+}
+
+/// A shadow root's settings, as `attachShadow` takes them and a
+/// declarative `<template shadowrootmode>` sets them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShadowRoot {
+    pub mode: ShadowRootMode,
+    pub delegates_focus: bool,
+    pub clonable: bool,
+    pub serializable: bool,
+    pub slot_assignment: SlotAssignment,
+    /// Made by the parser from a `<template shadowrootmode>`.
+    pub declarative: bool,
+}
+
+impl ShadowRoot {
+    /// An open root, with every flag off and named slot assignment.
+    pub fn open() -> ShadowRoot {
+        ShadowRoot {
+            mode: ShadowRootMode::Open,
+            delegates_focus: false,
+            clonable: false,
+            serializable: false,
+            slot_assignment: SlotAssignment::Named,
+            declarative: false,
+        }
+    }
+
+    /// A closed root, otherwise as [`ShadowRoot::open`].
+    pub fn closed() -> ShadowRoot {
+        ShadowRoot {
+            mode: ShadowRootMode::Closed,
+            ..ShadowRoot::open()
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Data {
     Document,
     Fragment,
+    /// A shadow root: like a fragment, nobody's child, with a link back to
+    /// its host, which [`Document::shadow_root`] gives from the host.
+    ShadowRoot {
+        host: NodeId,
+        init: ShadowRoot,
+    },
     Doctype {
         name: Span,
         public_id: Span,
@@ -148,6 +206,12 @@ pub struct Document {
     /// back from the contents, and an edit's cycle check has to climb out
     /// of them. Edits build it the first time they need it.
     pub(crate) hosts: Option<std::collections::HashMap<NodeId, NodeId>>,
+    /// Each shadow host's shadow root. Empty, and so free, for a page
+    /// without any.
+    pub(crate) shadow_roots: std::collections::HashMap<NodeId, NodeId>,
+    /// Each slot's manually assigned nodes, for a shadow root with
+    /// [`SlotAssignment::Manual`].
+    pub(crate) manual_slots: std::collections::HashMap<NodeId, Vec<NodeId>>,
     /// The parse errors, when the parse was asked to collect them.
     pub(crate) errors: Vec<crate::SyntaxError>,
 }
@@ -201,6 +265,8 @@ impl Positions {
 pub enum Kind<'a> {
     Document,
     Fragment,
+    /// A shadow root: [`Document::shadow_host`] is its host.
+    ShadowRoot(ShadowRoot),
     Doctype {
         name: &'a str,
         public_id: &'a str,
@@ -240,6 +306,8 @@ impl Document {
             scripting: false,
             positions: None,
             hosts: None,
+            shadow_roots: std::collections::HashMap::new(),
+            manual_slots: std::collections::HashMap::new(),
             errors: Vec::new(),
         }
     }
@@ -306,6 +374,8 @@ impl Document {
     pub(crate) fn push_str(&mut self, s: &str) -> Span {
         let start = self.buf.len() as u32;
         self.buf.push_str(s);
+        // Past this, an offset would read as one of the flags.
+        debug_assert!(self.buf.len() < IN_EXTRA as usize, "buffer over 2^30 bytes");
         Span {
             start,
             end: self.buf.len() as u32,
@@ -425,6 +495,31 @@ impl Document {
     /// Inserts `child`, which has no parent, into `parent` before `before`,
     /// or last when `before` is [`NONE`].
     pub(crate) fn insert(&mut self, parent: NodeId, child: NodeId, before: NodeId) {
+        debug_assert!(
+            matches!(
+                self.nodes[parent as usize].data,
+                Data::Element(_) | Data::Document | Data::Fragment | Data::ShadowRoot { .. }
+            ),
+            "node {parent} can't have children"
+        );
+        debug_assert!(
+            !matches!(
+                self.nodes[child as usize].data,
+                Data::Document | Data::Fragment | Data::ShadowRoot { .. }
+            ),
+            "node {child} is a document, fragment or shadow root, never a child"
+        );
+        debug_assert!(
+            self.nodes[child as usize].parent == NONE
+                && self.nodes[child as usize].prev == NONE
+                && self.nodes[child as usize].next == NONE,
+            "node {child} is inserted while still linked"
+        );
+        debug_assert!(parent != child, "node {child} inserted into itself");
+        debug_assert!(
+            before == NONE || self.nodes[before as usize].parent == parent,
+            "node {before} isn't a child of {parent}"
+        );
         let prev = if before == NONE {
             self.nodes[parent as usize].last_child
         } else {
@@ -446,6 +541,7 @@ impl Document {
         } else {
             self.nodes[before as usize].prev = child;
         }
+        debug_assert!(self.links_agree(child), "links around node {child}");
     }
 
     pub(crate) fn detach(&mut self, child: NodeId) {
@@ -453,8 +549,13 @@ impl Document {
             parent, prev, next, ..
         } = self.nodes[child as usize];
         if parent == NONE {
+            debug_assert!(
+                prev == NONE && next == NONE,
+                "node {child} has siblings, no parent"
+            );
             return;
         }
+        debug_assert!(self.links_agree(child), "links around node {child}");
         if prev == NONE {
             self.nodes[parent as usize].first_child = next;
         } else {
@@ -469,6 +570,36 @@ impl Document {
         c.parent = NONE;
         c.prev = NONE;
         c.next = NONE;
+        debug_assert!(
+            (prev == NONE || self.links_agree(prev)) && (next == NONE || self.links_agree(next)),
+            "links where node {child} was"
+        );
+    }
+
+    /// Whether `id`'s links and its neighbours' agree: its siblings point
+    /// back at it, and its parent's first and last child are it exactly
+    /// when it has no sibling on that side. Constant time, for the debug
+    /// assertions on every insert and removal; [`Document::check_tree`]
+    /// checks every node.
+    pub(crate) fn links_agree(&self, id: NodeId) -> bool {
+        let n = &self.nodes[id as usize];
+        if n.parent == NONE {
+            return n.prev == NONE && n.next == NONE;
+        }
+        let p = &self.nodes[n.parent as usize];
+        let prev_ok = if n.prev == NONE {
+            p.first_child == id
+        } else {
+            let s = &self.nodes[n.prev as usize];
+            s.next == id && s.parent == n.parent && p.first_child != id
+        };
+        let next_ok = if n.next == NONE {
+            p.last_child == id
+        } else {
+            let s = &self.nodes[n.next as usize];
+            s.prev == id && s.parent == n.parent && p.last_child != id
+        };
+        prev_ok && next_ok
     }
 
     /// Appends text to a text node, copying its old text to the end of the
@@ -483,6 +614,7 @@ impl Document {
         let span =
             if in_source && self.source_offset(text) == Some((span.end & !IN_SOURCE) as usize) {
                 // The next slice of the source: the span just grows.
+                debug_assert!((span.end & !IN_SOURCE) as usize + text.len() <= self.src.len());
                 Span {
                     start: span.start,
                     end: span.end + text.len() as u32,
@@ -508,6 +640,228 @@ impl Document {
                 Span { start: at, end: at }
             };
         self.nodes[id as usize].data = Data::Text(span);
+    }
+
+    /// Checks every invariant of the tree, panicking at the first that
+    /// doesn't hold: every node's links agree with its parent's and its
+    /// siblings', only elements, documents and fragments have children,
+    /// each node is reached from the root at most once (template contents
+    /// included), each template's contents are a fragment of its own
+    /// that's nobody's child, the map of hosts agrees with the templates,
+    /// and every string and recorded position is inside its buffer.
+    ///
+    /// Linear in the document's size, so it's for tests and fuzzing, not
+    /// for every edit; the parser and the edits assert the parts of this
+    /// they touch as they go. Only in builds with debug assertions.
+    #[cfg(debug_assertions)]
+    pub fn check_tree(&self) {
+        let len = self.nodes.len();
+        let span_ok = |s: Span| {
+            if s.start & IN_SOURCE != 0 {
+                let (a, b) = (s.start & !IN_SOURCE, s.end & !IN_SOURCE);
+                s.end & IN_SOURCE != 0
+                    && a <= b
+                    && self.src.is_char_boundary(a as usize)
+                    && self.src.is_char_boundary(b as usize)
+            } else if s.start & IN_EXTRA != 0 {
+                s.start == s.end && ((s.start & !IN_EXTRA) as usize) < self.extras.len()
+            } else {
+                s.start <= s.end
+                    && self.buf.is_char_boundary(s.start as usize)
+                    && self.buf.is_char_boundary(s.end as usize)
+            }
+        };
+        let mut contents_of = vec![NONE; len];
+        for (id, n) in self.nodes.iter().enumerate() {
+            let id = id as NodeId;
+            for link in [n.parent, n.first_child, n.last_child, n.prev, n.next] {
+                assert!(
+                    link == NONE || (link as usize) < len,
+                    "node {id} links past the end"
+                );
+            }
+            assert!(self.links_agree(id), "links around node {id}");
+            assert_eq!(
+                n.first_child == NONE,
+                n.last_child == NONE,
+                "node {id} has a first child or a last, not both"
+            );
+            if n.first_child != NONE {
+                let first = &self.nodes[n.first_child as usize];
+                let last = &self.nodes[n.last_child as usize];
+                assert!(
+                    first.parent == id && first.prev == NONE,
+                    "node {id}'s first child"
+                );
+                assert!(
+                    last.parent == id && last.next == NONE,
+                    "node {id}'s last child"
+                );
+                assert!(
+                    matches!(
+                        n.data,
+                        Data::Element(_)
+                            | Data::Document
+                            | Data::Fragment
+                            | Data::ShadowRoot { .. }
+                    ),
+                    "node {id} can't have children"
+                );
+            }
+            match n.data {
+                Data::Document | Data::Fragment => {
+                    assert!(
+                        n.parent == NONE,
+                        "node {id}, a document or fragment, has a parent"
+                    )
+                }
+                Data::ShadowRoot { host, .. } => {
+                    assert!(n.parent == NONE, "shadow root {id} has a parent");
+                    assert!(
+                        self.element(host).is_some(),
+                        "shadow root {id}'s host isn't an element"
+                    );
+                    assert_eq!(
+                        self.shadow_roots.get(&host),
+                        Some(&id),
+                        "shadow root {id} isn't its host's"
+                    );
+                }
+                Data::Element(e) => {
+                    let name_ok = match e.name {
+                        Name::Tag => true,
+                        Name::Svg(i) => (i as usize) < crate::tree::SVG_TAG_NAMES.len(),
+                        Name::Span(s) => span_ok(s),
+                    };
+                    assert!(name_ok, "node {id}'s name");
+                    assert!(
+                        e.attrs.start <= e.attrs.end && e.attrs.end as usize <= self.attrs.len(),
+                        "node {id}'s attributes"
+                    );
+                    if e.contents != NONE {
+                        let c = e.contents as usize;
+                        assert!(
+                            e.ns == Ns::Html && e.tag == Tag::Template,
+                            "node {id} has contents but isn't a template"
+                        );
+                        assert!(
+                            c < len && matches!(self.nodes[c].data, Data::Fragment),
+                            "node {id}'s contents aren't a fragment"
+                        );
+                        assert!(contents_of[c] == NONE, "two templates have contents {c}");
+                        contents_of[c] = id;
+                    }
+                }
+                Data::Doctype {
+                    name,
+                    public_id,
+                    system_id,
+                } => assert!(
+                    span_ok(name) && span_ok(public_id) && span_ok(system_id),
+                    "node {id}'s strings"
+                ),
+                Data::Text(s) | Data::Comment(s) | Data::Cdata(s) => {
+                    assert!(span_ok(s), "node {id}'s text")
+                }
+                Data::ProcessingInstruction { target, data } => {
+                    assert!(span_ok(target) && span_ok(data), "node {id}'s strings")
+                }
+            }
+        }
+        for (i, a) in self.attrs.iter().enumerate() {
+            assert!(
+                span_ok(a.name) && span_ok(a.value),
+                "attribute {i}'s strings"
+            );
+        }
+        for (&host, &root) in &self.shadow_roots {
+            assert!(
+                matches!(self.nodes.get(root as usize).map(|n| n.data), Some(Data::ShadowRoot { host: h, .. }) if h == host),
+                "host {host}'s shadow root {root} doesn't name it"
+            );
+        }
+        for (&slot, nodes) in &self.manual_slots {
+            assert!(
+                self.element(slot).is_some(),
+                "manual slot {slot} isn't an element"
+            );
+            assert!(
+                nodes.iter().all(|&n| (n as usize) < len),
+                "manual slot {slot}'s nodes"
+            );
+        }
+        if let Some(hosts) = &self.hosts {
+            for (&contents, &host) in hosts {
+                assert_eq!(
+                    contents_of.get(contents as usize),
+                    Some(&host),
+                    "the hosts map at {contents}"
+                );
+            }
+            let templates = contents_of.iter().filter(|&&h| h != NONE).count();
+            assert_eq!(hosts.len(), templates, "the hosts map misses a template");
+        }
+        // Down from the root, each node once: no cycle, no node in two
+        // places. Siblings are walked by their links, so a loop among
+        // them shows as a node seen twice.
+        let mut seen = vec![false; len];
+        let mut stack = vec![self.root()];
+        while let Some(id) = stack.pop() {
+            assert!(!seen[id as usize], "node {id} reached twice");
+            seen[id as usize] = true;
+            let n = &self.nodes[id as usize];
+            let mut child = n.first_child;
+            while child != NONE {
+                assert!(!seen[child as usize], "a loop among node {id}'s children");
+                assert_eq!(
+                    self.nodes[child as usize].parent, id,
+                    "node {child}'s parent"
+                );
+                stack.push(child);
+                child = self.nodes[child as usize].next;
+                if stack.len() > len {
+                    panic!("a loop among node {id}'s children");
+                }
+            }
+            if let Data::Element(e) = n.data
+                && e.contents != NONE
+            {
+                stack.push(e.contents);
+            }
+            if let Some(&root) = self.shadow_roots.get(&id) {
+                stack.push(root);
+            }
+        }
+        if let Some(p) = self.positions.as_deref() {
+            let src = self.src.len() as u32;
+            let in_src = |at: &[u32; 2]| *at == UNKNOWN || (at[0] <= at[1] && at[1] <= src);
+            assert!(
+                p.nodes.len() <= len && p.ends.len() <= len,
+                "positions past the nodes"
+            );
+            assert!(
+                p.attrs.len() <= self.attrs.len(),
+                "positions past the attributes"
+            );
+            for (i, at) in p.nodes.iter().chain(&p.ends).chain(&p.attrs).enumerate() {
+                assert!(
+                    in_src(at),
+                    "position {i}, {at:?}, outside {src} bytes of source"
+                );
+            }
+            assert!(p.crlf.windows(2).all(|w| w[0] < w[1]), "CRLFs out of order");
+            assert!(
+                p.crlf.last().is_none_or(|&lf| lf < src),
+                "a CRLF past the source"
+            );
+            let original = p.original(src);
+            for e in &self.errors {
+                assert!(
+                    e.offset <= original,
+                    "{e:?} past the input's {original} bytes"
+                );
+            }
+        }
     }
 
     pub fn parent(&self, id: NodeId) -> Option<NodeId> {
@@ -543,6 +897,7 @@ impl Document {
         match &self.nodes[id as usize].data {
             Data::Document => Kind::Document,
             Data::Fragment => Kind::Fragment,
+            Data::ShadowRoot { init, .. } => Kind::ShadowRoot(*init),
             Data::Doctype {
                 name,
                 public_id,

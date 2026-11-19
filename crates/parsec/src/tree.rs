@@ -162,6 +162,12 @@ pub(crate) struct TreeBuilder {
     /// Whether the start tag being handled may close itself, as a void
     /// element or a foreign one can.
     acknowledged: bool,
+    /// The document's "allow declarative shadow roots", from
+    /// [`Options::declarative_shadow_roots`].
+    shadow_roots: bool,
+    /// The templates that made shadow roots, kept off the tree, whose
+    /// contents are those roots while they're parsed.
+    shadow_templates: Vec<NodeId>,
 }
 
 /// How many counters [`TreeBuilder::names`] has.
@@ -608,6 +614,8 @@ impl TreeBuilder {
             errors: false,
             errors_found: Vec::new(),
             acknowledged: false,
+            shadow_roots: false,
+            shadow_templates: Vec::new(),
         }
     }
 
@@ -771,11 +779,28 @@ impl TreeBuilder {
 
     /// Counts `o` as opened (`by` 1) or closed (`by` -1).
     fn count(&mut self, o: Open, by: i32) {
+        debug_assert_eq!(
+            self.open_contains(o.id),
+            by < 0,
+            "node {} {} the stack of open elements twice",
+            o.id,
+            if by < 0 { "leaves" } else { "joins" }
+        );
+        debug_assert!(
+            self.element_at(o.id) == Some(o),
+            "the stack's entry for node {} isn't its element",
+            o.id
+        );
         self.mark(o.id, by > 0);
         if by < 0 && self.closing {
             self.closed_by_end_tag(o.id);
         }
         if o.ns == Ns::Html && o.tag != Tag::Other {
+            debug_assert!(
+                by > 0 || self.counts[o.tag as usize] > 0,
+                "{:?} counted below 0",
+                o.tag
+            );
             self.counts[o.tag as usize] = self.counts[o.tag as usize].wrapping_add_signed(by);
             return;
         }
@@ -783,6 +808,7 @@ impl TreeBuilder {
             return;
         };
         let n = &mut self.names[name_key(o.ns == Ns::Html, name)];
+        debug_assert!(by > 0 || *n > 0, "{name} counted below 0");
         *n = n.wrapping_add_signed(by);
     }
 
@@ -1004,6 +1030,55 @@ impl TreeBuilder {
         }
     }
 
+    /// Checks the stack of open elements against what's kept beside it:
+    /// `on_stack` marks exactly the elements on it, `counts` and `names`
+    /// count them, and each entry's namespace and tag are its element's.
+    /// Linear in the stack, and in the document when `all` asks for every
+    /// mark to be checked, so it runs once a piece of input, not once a
+    /// token.
+    #[cfg(debug_assertions)]
+    fn check_stack(&self, all: bool) {
+        let mut counts = [0u32; 256];
+        let mut names = vec![0u32; NAME_SLOTS];
+        for &o in &self.open {
+            assert!(
+                self.open_contains(o.id),
+                "node {} is open but not marked",
+                o.id
+            );
+            assert_eq!(
+                self.element_at(o.id),
+                Some(o),
+                "the stack's entry for {}",
+                o.id
+            );
+            if o.ns == Ns::Html && o.tag != Tag::Other {
+                counts[o.tag as usize] += 1;
+            } else if let Some(e) = self.doc.element(o.id) {
+                names[name_key(o.ns == Ns::Html, self.doc.element_name(e))] += 1;
+            }
+        }
+        assert!(counts == self.counts, "counts disagree with the stack");
+        assert!(names[..] == self.names[..], "names disagree with the stack");
+        if all {
+            let marked = self.on_stack.iter().filter(|&&on| on).count();
+            assert_eq!(marked, self.open.len(), "a node is marked open but isn't");
+        }
+        // Between the markers, HTML elements only, each once.
+        let mut since_marker = std::collections::HashSet::new();
+        for &e in &self.active {
+            if e == MARKER {
+                since_marker.clear();
+                continue;
+            }
+            assert!(
+                self.element_at(e).is_some_and(|o| o.ns == Ns::Html),
+                "{e} in the list"
+            );
+            assert!(since_marker.insert(e), "node {e} in the list twice");
+        }
+    }
+
     fn open_contains(&self, id: NodeId) -> bool {
         self.on_stack.get(id as usize).copied().unwrap_or(false)
     }
@@ -1079,6 +1154,27 @@ impl TreeBuilder {
     }
 
     fn push_active(&mut self, id: NodeId) {
+        debug_assert!(
+            self.element_at(id).is_some_and(|o| o.ns == Ns::Html
+                && matches!(
+                    o.tag,
+                    Tag::A
+                        | Tag::B
+                        | Tag::Big
+                        | Tag::Code
+                        | Tag::Em
+                        | Tag::Font
+                        | Tag::I
+                        | Tag::Nobr
+                        | Tag::S
+                        | Tag::Small
+                        | Tag::Strike
+                        | Tag::Strong
+                        | Tag::Tt
+                        | Tag::U
+                )),
+            "node {id} isn't a formatting element"
+        );
         let sig = self.signature(id);
         let (mut same, mut earliest) = (0, 0);
         for i in (0..self.active.len()).rev() {
@@ -1086,6 +1182,10 @@ impl TreeBuilder {
             if e == MARKER {
                 break;
             }
+            debug_assert!(
+                e != id,
+                "node {id} is in the list of formatting elements twice"
+            );
             if self.signature(e) == sig && self.same_element(e, id) {
                 same += 1;
                 earliest = i;
@@ -1121,6 +1221,8 @@ impl TreeBuilder {
             i -= 1;
         }
         for j in i..self.active.len() {
+            // Only elements past the last marker are reopened.
+            debug_assert!(self.active[j] != MARKER, "a marker reopened");
             let new = self.clone_element(self.active[j]);
             let place = self.place(None);
             self.insert_at(place, new);
@@ -1300,6 +1402,66 @@ impl TreeBuilder {
     fn stop(&mut self) {
         self.done = true;
         self.truncate_open(0);
+    }
+
+    // ---- declarative shadow roots -----------------------------------------
+
+    /// The "in head" steps for a `template` start tag with a valid
+    /// `shadowrootmode`: the adjusted current node becomes a shadow host,
+    /// and the template, put on the stack but not in the tree, has the
+    /// new shadow root as its contents, so what follows is parsed into
+    /// it. False when the token makes an ordinary template instead: no
+    /// valid mode, the html element or the fragment's context as the host
+    /// (which the result doesn't hold), a host that already has a shadow
+    /// root, or one that can't have one.
+    #[inline(never)]
+    fn shadow_template(&mut self, s: &Start<'_>) {
+        if !self.declarative_shadow_root(s) {
+            self.insert_html(s);
+        }
+    }
+
+    fn declarative_shadow_root(&mut self, s: &Start<'_>) -> bool {
+        let Some(init) = crate::shadow::declared(s.attrs()) else {
+            return false;
+        };
+        let Some(host) = self.adjusted_current() else {
+            return false;
+        };
+        if self.open.first().is_some_and(|o| o.id == host.id)
+            || self.context.is_some_and(|c| c.id == host.id)
+            || self.doc.shadow_root(host.id).is_some()
+        {
+            return false;
+        }
+        let Some(e) = self.doc.element(host.id) else {
+            return false;
+        };
+        if !crate::shadow::valid_host(e.ns, e.tag, self.doc.element_name(e)) {
+            return false;
+        }
+        let template = self.create(s, Ns::Html);
+        let root = self.doc.add_shadow_root(host.id, init);
+        if let Data::Element(e) = &mut self.doc.nodes[template as usize].data {
+            e.contents = root;
+        }
+        self.shadow_templates.push(template);
+        self.push_open(Open {
+            id: template,
+            ns: Ns::Html,
+            tag: Tag::Template,
+        });
+        true
+    }
+
+    /// At the end of the parse, the templates that made shadow roots let
+    /// go of them, so nothing but the hosts lead there.
+    fn release_shadow_roots(&mut self) {
+        for t in std::mem::take(&mut self.shadow_templates) {
+            if let Data::Element(e) = &mut self.doc.nodes[t as usize].data {
+                e.contents = NONE;
+            }
+        }
     }
 
     // ---- <select> and <selectedcontent> -----------------------------------
@@ -1874,7 +2036,11 @@ impl TreeBuilder {
                     self.frameset_ok = false;
                     self.mode = Mode::InTemplate;
                     self.template_modes.push(Mode::InTemplate);
-                    self.insert_html(&s);
+                    if self.shadow_roots {
+                        self.shadow_template(&s);
+                    } else {
+                        self.insert_html(&s);
+                    }
                 }
                 Head => self.err("two-heads-are-not-better-than-one"),
                 _ => self.in_head_else(t),
@@ -2604,6 +2770,7 @@ impl TreeBuilder {
                 let new = self.clone_element(node.id);
                 self.active[ai] = new;
                 self.open[node_index] = Open { id: new, ..node };
+                debug_assert!(self.open_contains(node.id) && !self.open_contains(new));
                 self.mark(node.id, false);
                 self.mark(new, true);
                 if !bookmark_moved {
@@ -2901,7 +3068,11 @@ impl TreeBuilder {
             self.pop();
             self.reprocess(Mode::InTable, t);
         } else if let Tok::Text(s) = t {
-            self.chars_dropped(s, "unexpected-character-in-colgroup", false);
+            // A token a character: only the others are dropped, and the
+            // whitespace among them still goes in, however the text was
+            // cut into runs.
+            self.chars_dropped(s, "unexpected-character-in-colgroup", true);
+            self.frameset_space(s);
         } else {
             self.err("unexpected-character-in-colgroup");
         }
@@ -3485,6 +3656,11 @@ impl Sink for TreeBuilder {
     }
 
     fn position(&mut self, start: usize, end: usize) {
+        debug_assert!(
+            start <= end && end <= self.doc.src.len(),
+            "token at {start}..{end}, outside {} bytes of source",
+            self.doc.src.len()
+        );
         self.at = [start as u32, end as u32];
     }
 }
@@ -3514,6 +3690,14 @@ pub struct Options {
     /// instead of inside it. Only the tree gets flatter; the parse goes on
     /// as before, and every element is still there. `None` is no limit.
     pub max_depth: Option<usize>,
+    /// Whether a `<template shadowrootmode>` attaches a shadow root to the
+    /// element it's in, the document's "allow declarative shadow roots".
+    /// `None` is the HTML Standard's default: on for a document, as a
+    /// browser parses a page, and off for a fragment, as `innerHTML`
+    /// parses one; `Some(true)` for a fragment is `setHTMLUnsafe`. Off, the
+    /// template is an ordinary one. In a fragment the context element is
+    /// never the host: it isn't in the result.
+    pub declarative_shadow_roots: Option<bool>,
 }
 
 /// A parse error the HTML Standard defines, from [`Document::errors`].
@@ -3698,6 +3882,9 @@ impl Parser {
         builder.max_depth = options.max_depth;
         builder.spans = options.spans;
         builder.errors = options.errors;
+        builder.shadow_roots = options
+            .declarative_shadow_roots
+            .unwrap_or(fragment.is_none());
         if options.spans || options.errors {
             builder.doc.positions = Some(Box::default());
         }
@@ -3729,6 +3916,8 @@ impl Parser {
     pub fn feed(&mut self, chunk: &str) {
         if self.push(chunk) {
             self.tokenize(true);
+            #[cfg(debug_assertions)]
+            self.builder.check_stack(false);
         }
     }
 
@@ -3751,9 +3940,12 @@ impl Parser {
                 parsed: self.tokenizer.position(),
             });
         }
+        #[cfg(debug_assertions)]
+        self.builder.check_stack(true);
         if self.fragment {
             self.builder.finish_fragment();
         }
+        self.builder.release_shadow_roots();
         self.builder.finish_errors();
         let mut doc = self.builder.doc;
         doc.src.shrink_to_fit();
@@ -4013,6 +4205,31 @@ mod tests {
             "<html><head></head><body><ul><li>one</li><li>two</li></ul>\
              <p a=\"x\">three</p></body></html>"
         );
+    }
+
+    /// Found by fuzzing: in a template's column group, text after a
+    /// character that isn't whitespace was all dropped, its whitespace
+    /// too, so where a piece ended changed the tree.
+    #[test]
+    fn whitespace_after_a_dropped_character_in_a_template_column_group_stays() {
+        let html = "<template><col>A \n<col></template>";
+        let want = "<html><head><template><col> \n<col></template></head><body></body></html>";
+        assert_eq!(parse(html, false).inner_html(0), want);
+        let (a, b) = html.split_at(html.find(' ').unwrap());
+        assert_eq!(in_pieces(&[a, b]).inner_html(0), want);
+        let errors = parse_with(
+            html,
+            Options {
+                errors: true,
+                ..Options::default()
+            },
+        )
+        .unwrap();
+        let dropped = errors
+            .errors()
+            .iter()
+            .filter(|e| e.code == "unexpected-character-in-colgroup");
+        assert_eq!(dropped.count(), 1);
     }
 
     #[test]

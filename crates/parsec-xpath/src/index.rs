@@ -51,7 +51,7 @@ fn kind_of(tree: &html::Document, id: u32) -> u8 {
         html::Kind::Comment(_) => COMMENT,
         html::Kind::Document => DOCUMENT,
         html::Kind::Doctype { .. } => DOCTYPE,
-        html::Kind::Fragment => OTHER,
+        html::Kind::Fragment | html::Kind::ShadowRoot(_) => OTHER,
     }
 }
 

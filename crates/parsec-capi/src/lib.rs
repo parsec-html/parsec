@@ -287,6 +287,8 @@ fn edit_status(e: html::EditError) -> parsec_status {
         html::EditError::NotAParent => PARSEC_ERR_NOT_A_PARENT,
         html::EditError::NotAChild => PARSEC_ERR_NOT_A_CHILD,
         html::EditError::NotInsertable => PARSEC_ERR_NOT_INSERTABLE,
+        // The C API attaches no shadow roots, so this can't happen yet.
+        html::EditError::NotAShadowHost => PARSEC_ERR_INVALID,
     }
 }
 
@@ -778,7 +780,8 @@ pub unsafe extern "C" fn parsec_node_type(doc: *const parsec_document, node: par
             Kind::Comment(_) => PARSEC_NODE_COMMENT,
             Kind::Document => PARSEC_NODE_DOCUMENT,
             Kind::Doctype { .. } => PARSEC_NODE_DOCTYPE,
-            Kind::Fragment => PARSEC_NODE_FRAGMENT,
+            // A shadow root is a DocumentFragment in the DOM.
+            Kind::Fragment | Kind::ShadowRoot(_) => PARSEC_NODE_FRAGMENT,
         }
     })
 }

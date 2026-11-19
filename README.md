@@ -33,7 +33,7 @@ let hits = SelectorList::parse("li.hit").unwrap().select(&doc, doc.root());
 assert_eq!(doc.text(hits[0]), "one");
 ```
 
-- **The HTML Standard's tokenizer and tree builder.** It passes all 7,045
+- **The HTML Standard's tokenizer and tree builder.** It passes all 7,042
   html5lib tokenizer tests and every web-platform-tests tree-construction
   case that doesn't need JavaScript, run with scripting on and with it off.
   `cargo test` runs both suites; the WPT files are pinned in
@@ -48,6 +48,12 @@ assert_eq!(doc.text(hits[0]), "one");
   way the document decides them, and `:target` and `:local-link` match once
   you pass the page's URL, where Lexbor parses all four and never matches
   them.
+- **Declarative shadow DOM**: a `<template shadowrootmode>` attaches a
+  shadow root as browsers do, with slots, the flat tree, `:host`,
+  `:host()`, `:host-context()` and `::slotted()`, and `getHTML`-style
+  serialization. All 7,590 of web-platform-tests' declarative shadow DOM
+  cases pass. Lexbor has a shadow root node type, but its parser never
+  attaches one.
 - **A page as it arrives**: `Parser::new(options)`, then `feed(chunk)` as
   each piece comes in and `finish()`, builds exactly the tree the whole
   page would: the tests cut every html5lib and tree-construction input at

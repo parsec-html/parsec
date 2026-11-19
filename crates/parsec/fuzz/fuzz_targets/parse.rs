@@ -8,7 +8,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use parsec::{Document, NodeId, Ns, Options, Parser, parse, parse_fragment};
+use parsec::{Document, NodeId, Ns, Options, Parser, SerializeOptions, parse, parse_fragment_with};
 
 const CONTEXTS: &[(Ns, &str)] = &[
     (Ns::Html, "body"),
@@ -26,9 +26,13 @@ const CONTEXTS: &[(Ns, &str)] = &[
     (Ns::MathMl, "annotation-xml"),
 ];
 
-/// Every node reached from the root once, each child's parent being the
-/// node it was reached from.
+/// Every node reached from the root once (shadow roots and template
+/// contents too), each child's parent being the node it was reached
+/// from.
 fn check(doc: &Document) {
+    // cargo fuzz builds with debug assertions: every invariant, then.
+    #[cfg(debug_assertions)]
+    doc.check_tree();
     let mut seen = vec![false; doc.len()];
     let mut stack: Vec<NodeId> = vec![doc.root()];
     while let Some(node) = stack.pop() {
@@ -38,12 +42,24 @@ fn check(doc: &Document) {
             assert_eq!(doc.parent(child), Some(node));
             stack.push(child);
         }
+        if let Some(root) = doc.shadow_root(node) {
+            stack.push(root);
+        }
         if let Some(contents) = doc.template_contents(node) {
             stack.push(contents);
         }
         let _ = doc.kind(node);
         let _ = doc.attrs(node).count();
     }
+}
+
+/// The whole tree, shadow roots and template contents included.
+fn dump(doc: &Document) -> String {
+    let options = SerializeOptions {
+        html5test: true,
+        ..SerializeOptions::default()
+    };
+    doc.serialize_with(doc.root(), &options)
 }
 
 fuzz_target!(|data: &[u8]| {
@@ -71,10 +87,13 @@ fuzz_target!(|data: &[u8]| {
         at = end;
     }
     let pieces = parser.finish().unwrap();
-    assert_eq!(
-        pieces.inner_html(pieces.root()),
-        whole.inner_html(whole.root())
-    );
+    assert_eq!(dump(&pieces), dump(&whole));
     let (ns, name) = CONTEXTS[(first as usize >> 1) % CONTEXTS.len()];
-    check(&parse_fragment(&html, ns, name, scripting));
+    // As innerHTML, or as setHTMLUnsafe with declarative shadow roots.
+    let options = Options {
+        scripting,
+        declarative_shadow_roots: Some(first & 2 != 0),
+        ..Options::default()
+    };
+    check(&parse_fragment_with(&html, ns, name, options).unwrap());
 });
