@@ -193,6 +193,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-html-css"
+version = "0.1.0"
+dependencies = [
+ "encoding_rs",
+ "serde_json",
+]
+
+[[package]]
 name = "parsec-html-encoding"
 version = "0.1.0"
 dependencies = [

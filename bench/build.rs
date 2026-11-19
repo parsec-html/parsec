@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! Builds Lexbor from the submodule at bench/lexbor and Ada from the one at
+//! Builds Lexbor from the submodule at bench/lexbor (with src/lexbor_css.c,
+//! the CSS benchmark's calls into it) and Ada from the one at
 //! bench/ada, each pinned to a release tag: Lexbor with its own default
 //! optimisation, Ada at -O3 as its CMake release build does.
 
@@ -20,6 +21,14 @@ fn main() {
         .define("LEXBOR_INSTALL_HEADERS", "OFF")
         .profile("Release")
         .build();
+    // The CSS benchmark's calls into Lexbor, built against its headers.
+    cc::Build::new()
+        .include(src.join("source"))
+        .define("LEXBOR_STATIC", None)
+        .file("src/lexbor_css.c")
+        .opt_level(2)
+        .compile("lexbor_css");
+    println!("cargo:rerun-if-changed=src/lexbor_css.c");
     println!("cargo:rustc-link-search=native={}/lib", out.display());
     println!("cargo:rustc-link-lib=static=lexbor_static");
     println!("cargo:rerun-if-changed=lexbor/version");

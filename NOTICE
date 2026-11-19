@@ -20,3 +20,11 @@ licensed under its own terms:
   crates/parsec/tests/tree-construction, Copyright web-platform-tests
   contributors, under the 3-Clause BSD License; see the LICENSE.md file
   in that directory.
+- css-parsing-tests (https://github.com/CourtBouillon/css-parsing-tests),
+  in crates/parsec-css/tests/css-parsing-tests, written by Simon Sapin
+  and dedicated to the public domain under CC0 1.0; and its urange.json
+  from rust-cssparser (https://github.com/servo/rust-cssparser), in
+  crates/parsec-css/tests/urange, under the same dedication.
+- css-tokenizer-tests (https://github.com/romainmenke/css-tokenizer-tests),
+  in crates/parsec-css/tests/css-tokenizer-tests, Copyright 2026 Romain
+  Menke, under the MIT License; see the LICENSE file in that directory.

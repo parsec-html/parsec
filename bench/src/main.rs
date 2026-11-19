@@ -25,7 +25,11 @@
 //!
 //! Last comes URL parsing, Parsec against Lexbor and Ada, over the links on
 //! the real pages and WPT's URL test inputs. Name `urls` to run only that.
+//!
+//! Then CSS: tokenizing and parsing real stylesheets, Parsec against
+//! Lexbor's CSS module and Servo's cssparser. Name `css` to run only that.
 
+mod css;
 mod encoding;
 mod lexbor;
 mod pages;
@@ -228,6 +232,11 @@ fn main() {
         selectors::run(&real_pages());
         return;
     }
+    if args.iter().any(|a| a == "css") {
+        header();
+        css::run(&real_pages());
+        return;
+    }
     if args.iter().any(|a| a == "urls") {
         header();
         urls::run(&real_pages());
@@ -300,6 +309,7 @@ fn main() {
     if args.is_empty() {
         selectors::run(&real_pages());
         urls::run(&real_pages());
+        css::run(&real_pages());
     }
 }
 

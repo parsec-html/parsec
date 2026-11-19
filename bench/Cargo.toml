@@ -4,7 +4,7 @@ version = "0.0.0"
 publish = false
 edition = "2024"
 license = "Apache-2.0"
-description = "Times Parsec against Lexbor's C, html5ever and Ada on the same pages and URLs in one process."
+description = "Times Parsec against Lexbor's C, html5ever, Ada and cssparser on the same pages, URLs and stylesheets in one process."
 
 # Its own workspace, so `cargo test --workspace` on every OS doesn't build
 # Lexbor's C.
@@ -17,9 +17,11 @@ test = false
 bench = false
 
 [dependencies]
+cssparser = "0.38"
 html5ever = "0.40"
 markup5ever_rcdom = "0.40"
 parsec-html = { path = "../crates/parsec" }
+parsec-html-css = { path = "../crates/parsec-css" }
 parsec-html-encoding = { path = "../crates/parsec-encoding" }
 parsec-url = { path = "../crates/parsec-url" }
 serde_json = "1"

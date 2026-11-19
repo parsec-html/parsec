@@ -23,8 +23,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [parse]
-        crate: [parsec]
+        include:
+          - crate: parsec
+            target: parse
+          - crate: parsec-css
+            target: parse
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
