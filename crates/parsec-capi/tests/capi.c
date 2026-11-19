@@ -320,6 +320,26 @@ static void positions(void) {
     parsec_document_free(doc);
 }
 
+static void syntax_errors(void) {
+    const char *html = "<p>a\n</b>";
+    parsec_document *doc = NULL;
+    CHECK(parsec_parse(html, strlen(html), PARSEC_ERRORS, &doc) == PARSEC_OK);
+    CHECK(parsec_errors_count(doc) == 2);
+    parsec_syntax_error e;
+    CHECK(parsec_errors_get(doc, 1, &e) == PARSEC_OK);
+    CHECK(is(e.code, &e.code_len, "unexpected-end-tag"));
+    CHECK(e.offset == 5 && e.line == 2 && e.column == 1);
+    CHECK(parsec_errors_get(doc, 2, &e) == PARSEC_ERR_INVALID);
+    CHECK(parsec_errors_get(doc, 0, NULL) == PARSEC_ERR_NULL);
+    CHECK(parsec_errors_get(NULL, 0, &e) == PARSEC_ERR_NULL);
+    CHECK(parsec_errors_count(NULL) == 0);
+    parsec_document_free(doc);
+    /* Kept only when asked for. */
+    CHECK(parsec_parse(html, strlen(html), 0, &doc) == PARSEC_OK);
+    CHECK(parsec_errors_count(doc) == 0);
+    parsec_document_free(doc);
+}
+
 static parsec_xpath_result *eval(const parsec_document *doc, parsec_node context,
                                  const char *expr) {
     parsec_xpath *x = NULL;
@@ -423,6 +443,7 @@ int main(void) {
     fragments_and_options();
     errors_and_null();
     positions();
+    syntax_errors();
     xpath();
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);

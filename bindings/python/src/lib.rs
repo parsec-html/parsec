@@ -49,6 +49,35 @@ struct HtmlParser {
     index: Mutex<Option<Arc<Index>>>,
 }
 
+/// A parse error the parser recovered from, as `HTMLParser.errors` lists
+/// them. A record, not an exception: a page with errors still parses.
+#[pyclass(frozen, get_all, module = "parsec_html", name = "ParseError")]
+struct SyntaxIssue {
+    /// The HTML Standard's name for it (`eof-in-tag`), or html5lib's for
+    /// those tree construction finds (`unexpected-end-tag`).
+    code: &'static str,
+    /// A byte offset into the UTF-8 input.
+    offset: usize,
+    /// From 1.
+    line: usize,
+    /// From 1, in characters.
+    column: usize,
+}
+
+#[pymethods]
+impl SyntaxIssue {
+    fn __repr__(&self) -> String {
+        format!(
+            "<ParseError {} at {}:{}>",
+            self.code, self.line, self.column
+        )
+    }
+
+    fn __str__(&self) -> String {
+        format!("{}:{}: {}", self.line, self.column, self.code)
+    }
+}
+
 #[pyclass(frozen, module = "parsec_html")]
 struct Node {
     parser: Py<HtmlParser>,
@@ -617,9 +646,10 @@ impl HtmlParser {
     /// is the page's address, for `:target` and `:local-link`.
     ///
     /// `positions` records where each node and attribute was written, for
-    /// `Node.source_range` and the like.
+    /// `Node.source_range` and the like; `errors` keeps the parse errors,
+    /// for `errors`.
     #[new]
-    #[pyo3(signature = (html, is_fragment = false, fragment_tag = "div", fragment_namespace = "html", scripting = false, budget = None, max_depth = None, url = None, positions = false))]
+    #[pyo3(signature = (html, is_fragment = false, fragment_tag = "div", fragment_namespace = "html", scripting = false, budget = None, max_depth = None, url = None, positions = false, errors = false))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -632,6 +662,7 @@ impl HtmlParser {
         max_depth: Option<usize>,
         url: Option<String>,
         positions: bool,
+        errors: bool,
     ) -> PyResult<Self> {
         let Some(html) = text_of(html)? else {
             return Err(PyTypeError::new_err("html must be str or bytes"));
@@ -647,6 +678,7 @@ impl HtmlParser {
             budget,
             max_depth,
             spans: positions,
+            errors,
         };
         let ns = namespace(fragment_namespace)?;
         let doc = py
@@ -681,6 +713,23 @@ impl HtmlParser {
         slf.get()
             .run_xpath(slf.py(), query, 0, &vars)?
             .into_py(slf.py(), slf.as_unbound())
+    }
+
+    /// The parse errors the parser recovered from, in source order; empty
+    /// unless parsed with `errors=True`.
+    #[getter]
+    fn errors(&self, py: Python<'_>) -> Vec<SyntaxIssue> {
+        // Copied under the lock, made into objects after it's let go.
+        let found: Vec<parsec::SyntaxError> = self.read(py).errors().to_vec();
+        found
+            .into_iter()
+            .map(|e| SyntaxIssue {
+                code: e.code,
+                offset: e.offset,
+                line: e.line,
+                column: e.column,
+            })
+            .collect()
     }
 
     /// The line and column of a byte offset into the UTF-8 input, both
@@ -1524,6 +1573,7 @@ fn parsec_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<HtmlParser>()?;
     m.add_class::<Node>()?;
     m.add_class::<Attributes>()?;
+    m.add_class::<SyntaxIssue>()?;
     m.add("SelectorError", m.py().get_type::<SelectorError>())?;
     m.add("XPathError", m.py().get_type::<XPathError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;

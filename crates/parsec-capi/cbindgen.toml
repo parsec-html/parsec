@@ -22,10 +22,11 @@ header = """
  *
  * The rules every function keeps:
  *
- * - Handles are opaque. A parsec_document or parsec_selector is made by
- *   one function and freed by one, and NULL is accepted everywhere: a
- *   call given NULL fails with PARSEC_ERR_NULL, or returns NULL,
- *   PARSEC_NO_NODE, 0 or false, and the free functions do nothing.
+ * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath
+ *   or parsec_xpath_result is made by one function and freed by one, and
+ *   NULL is accepted everywhere: a call given NULL fails with
+ *   PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or false, and the
+ *   free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
  *   is, and a number that isn't a node of the document is refused, never
  *   read. Removing a node detaches it; nothing is freed until the
@@ -43,9 +44,10 @@ header = """
  * - Nothing panics into C. A bug in Parsec comes back as
  *   PARSEC_ERR_PANIC instead.
  * - Threads: any number of threads may read one document at once (every
- *   function taking a const parsec_document *), and a selector may be
- *   used from any number of threads. A call taking a non-const
- *   parsec_document * changes it, and needs the document to itself. A
+ *   function taking a const parsec_document *, parsec_xpath_evaluate
+ *   included), and a selector or a compiled XPath may be used from any
+ *   number of threads. A call taking a non-const parsec_document *
+ *   changes it, and needs the document to itself. A
  *   document or selector may be freed on a different thread from the one
  *   that made it.
  */"""

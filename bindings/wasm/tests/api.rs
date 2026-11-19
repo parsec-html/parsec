@@ -155,4 +155,5 @@ fn no_spans_unless_asked() {
     let p = doc.select_first("p").unwrap().unwrap();
     assert!(p.span().is_none() && p.end_span().is_none());
     assert!(p.attribute_span("a").is_none());
+    assert!(doc.errors().is_empty());
 }

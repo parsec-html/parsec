@@ -9,10 +9,11 @@
  *
  * The rules every function keeps:
  *
- * - Handles are opaque. A parsec_document or parsec_selector is made by
- *   one function and freed by one, and NULL is accepted everywhere: a
- *   call given NULL fails with PARSEC_ERR_NULL, or returns NULL,
- *   PARSEC_NO_NODE, 0 or false, and the free functions do nothing.
+ * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath
+ *   or parsec_xpath_result is made by one function and freed by one, and
+ *   NULL is accepted everywhere: a call given NULL fails with
+ *   PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or false, and the
+ *   free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
  *   is, and a number that isn't a node of the document is refused, never
  *   read. Removing a node detaches it; nothing is freed until the
@@ -30,9 +31,10 @@
  * - Nothing panics into C. A bug in Parsec comes back as
  *   PARSEC_ERR_PANIC instead.
  * - Threads: any number of threads may read one document at once (every
- *   function taking a const parsec_document *), and a selector may be
- *   used from any number of threads. A call taking a non-const
- *   parsec_document * changes it, and needs the document to itself. A
+ *   function taking a const parsec_document *, parsec_xpath_evaluate
+ *   included), and a selector or a compiled XPath may be used from any
+ *   number of threads. A call taking a non-const parsec_document *
+ *   changes it, and needs the document to itself. A
  *   document or selector may be freed on a different thread from the one
  *   that made it.
  */
@@ -52,6 +54,10 @@
 // `parsec_node_span`, `parsec_end_span`, `parsec_attr_span` and
 // `parsec_line_col`. It costs a few bytes per node.
 #define PARSEC_SPANS 2
+
+// Keep the parse errors the parser recovered from, for
+// `parsec_errors_count` and `parsec_errors_get`.
+#define PARSEC_ERRORS 4
 
 // What `parsec_xpath_result_item` gives as the attribute index of an item
 // that's a node rather than an attribute.
@@ -106,6 +112,21 @@ typedef uint32_t parsec_node;
 // Called by `parsec_select` with each match, in document order, and the
 // `ctx` you passed. Return 0 to go on, anything else to stop there.
 typedef int (*parsec_match_fn)(parsec_node node, void *ctx);
+
+// A parse error the parser recovered from.
+typedef struct {
+  // Its name, `code_len` bytes with no NUL after them, static: the HTML
+  // Standard's (`eof-in-tag`), or for an error tree construction finds,
+  // html5lib's (`unexpected-end-tag`).
+  const char *code;
+  size_t code_len;
+  // A byte offset into the input.
+  size_t offset;
+  // From 1.
+  size_t line;
+  // From 1, in characters.
+  size_t column;
+} parsec_syntax_error;
 
 // What `parsec_xpath_result_type` returns; 0 is a NULL result.
 typedef uint32_t parsec_xpath_type;
@@ -194,8 +215,8 @@ void parsec_string_free(char *s);
 // Parses `len` bytes of UTF-8 as a whole document and puts it in `*out`.
 // Bad markup never fails: the parser repairs it as a browser does. Bytes
 // that aren't UTF-8 become U+FFFD, and a leading byte order mark is
-// dropped. `flags` is 0, or any of `PARSEC_SCRIPTING` and `PARSEC_SPANS`
-// or'd together.
+// dropped. `flags` is 0, or any of `PARSEC_SCRIPTING`, `PARSEC_SPANS` and
+// `PARSEC_ERRORS` or'd together.
 //
 // Fails with `PARSEC_ERR_TOO_LARGE` over 512 MiB. On any error `*out` is
 // NULL.
@@ -444,6 +465,14 @@ parsec_status parsec_line_col(const parsec_document *doc,
                               size_t offset,
                               size_t *line,
                               size_t *column);
+
+// How many parse errors the input had: 0 unless it was parsed with
+// `PARSEC_ERRORS`.
+size_t parsec_errors_count(const parsec_document *doc);
+
+// The `index`th parse error, in source order, into `*out`.
+// `PARSEC_ERR_INVALID` if `index` is past the last.
+parsec_status parsec_errors_get(const parsec_document *doc, size_t index, parsec_syntax_error *out);
 
 // Compiles an XPath 1.0 expression (`len` bytes, such as
 // `"//a[@href]/@href"`) into `*out`. On `PARSEC_ERR_XPATH`, if `message`

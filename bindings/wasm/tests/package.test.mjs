@@ -46,6 +46,15 @@ test("spans", () => {
   assert.equal(parse(src).selectFirst("p").span, undefined);
 });
 
+test("errors", () => {
+  const doc = parse("<p>a\n</b>", { errors: true });
+  assert.deepEqual(
+    doc.errors.map((e) => [e.code, e.offset, e.line, e.column]),
+    [["expected-doctype-but-got-start-tag", 0, 1, 1], ["unexpected-end-tag", 5, 2, 1]],
+  );
+  assert.deepEqual(parse("</b>").errors, []);
+});
+
 test("xpath", () => {
   const doc = parse("<ul id=l><li class=a>one<li>two</ul>");
   const items = doc.xpath("//li");

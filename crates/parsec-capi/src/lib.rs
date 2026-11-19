@@ -108,6 +108,25 @@ pub const PARSEC_SCRIPTING: u32 = 1;
 /// `parsec_node_span`, `parsec_end_span`, `parsec_attr_span` and
 /// `parsec_line_col`. It costs a few bytes per node.
 pub const PARSEC_SPANS: u32 = 2;
+/// Keep the parse errors the parser recovered from, for
+/// `parsec_errors_count` and `parsec_errors_get`.
+pub const PARSEC_ERRORS: u32 = 4;
+
+/// A parse error the parser recovered from.
+#[repr(C)]
+pub struct parsec_syntax_error {
+    /// Its name, `code_len` bytes with no NUL after them, static: the HTML
+    /// Standard's (`eof-in-tag`), or for an error tree construction finds,
+    /// html5lib's (`unexpected-end-tag`).
+    pub code: *const c_char,
+    pub code_len: usize,
+    /// A byte offset into the input.
+    pub offset: usize,
+    /// From 1.
+    pub line: usize,
+    /// From 1, in characters.
+    pub column: usize,
+}
 
 /// What `parsec_xpath_result_type` returns; 0 is a NULL result.
 pub type parsec_xpath_type = u32;
@@ -256,12 +275,13 @@ fn namespace(ns: parsec_ns) -> Result<Ns, parsec_status> {
 }
 
 fn options(flags: u32) -> Result<Options, parsec_status> {
-    if flags & !(PARSEC_SCRIPTING | PARSEC_SPANS) != 0 {
+    if flags & !(PARSEC_SCRIPTING | PARSEC_SPANS | PARSEC_ERRORS) != 0 {
         return Err(PARSEC_ERR_INVALID);
     }
     Ok(Options {
         scripting: flags & PARSEC_SCRIPTING != 0,
         spans: flags & PARSEC_SPANS != 0,
+        errors: flags & PARSEC_ERRORS != 0,
         ..Options::default()
     })
 }
@@ -347,8 +367,8 @@ pub unsafe extern "C" fn parsec_string_free(s: *mut c_char) {
 /// Parses `len` bytes of UTF-8 as a whole document and puts it in `*out`.
 /// Bad markup never fails: the parser repairs it as a browser does. Bytes
 /// that aren't UTF-8 become U+FFFD, and a leading byte order mark is
-/// dropped. `flags` is 0, or any of `PARSEC_SCRIPTING` and `PARSEC_SPANS`
-/// or'd together.
+/// dropped. `flags` is 0, or any of `PARSEC_SCRIPTING`, `PARSEC_SPANS` and
+/// `PARSEC_ERRORS` or'd together.
 ///
 /// Fails with `PARSEC_ERR_TOO_LARGE` over 512 MiB. On any error `*out` is
 /// NULL.
@@ -1197,6 +1217,48 @@ pub unsafe extern "C" fn parsec_line_col(
                 put(line, l);
                 put(column, c);
             }
+            Ok(())
+        })())
+    })
+}
+
+// ---- parse errors ----------------------------------------------------------
+
+/// How many parse errors the input had: 0 unless it was parsed with
+/// `PARSEC_ERRORS`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_errors_count(doc: *const parsec_document) -> usize {
+    // SAFETY: NULL or a live document.
+    guard(0, || {
+        unsafe { doc_ref(doc) }.map_or(0, |d| d.errors().len())
+    })
+}
+
+/// The `index`th parse error, in source order, into `*out`.
+/// `PARSEC_ERR_INVALID` if `index` is past the last.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_errors_get(
+    doc: *const parsec_document,
+    index: usize,
+    out: *mut parsec_syntax_error,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or a live document; `out` NULL or writable.
+            let d = unsafe { doc_ref(doc)? };
+            if out.is_null() {
+                return Err(PARSEC_ERR_NULL);
+            }
+            let e = d.errors().get(index).ok_or(PARSEC_ERR_INVALID)?;
+            unsafe {
+                out.write(parsec_syntax_error {
+                    code: e.code.as_ptr().cast(),
+                    code_len: e.code.len(),
+                    offset: e.offset,
+                    line: e.line,
+                    column: e.column,
+                })
+            };
             Ok(())
         })())
     })

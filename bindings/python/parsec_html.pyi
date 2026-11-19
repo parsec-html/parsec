@@ -19,6 +19,18 @@ class SelectorError(ValueError):
 class XPathError(ValueError):
     """An XPath expression that doesn't parse, or that can't be evaluated."""
 
+class ParseError:
+    """A parse error the parser recovered from. A record, not an exception."""
+
+    @property
+    def code(self) -> str: ...
+    @property
+    def offset(self) -> int: ...
+    @property
+    def line(self) -> int: ...
+    @property
+    def column(self) -> int: ...
+
 class HTMLParser:
     def __init__(
         self,
@@ -31,7 +43,10 @@ class HTMLParser:
         max_depth: Optional[int] = None,
         url: Optional[str] = None,
         positions: bool = False,
+        errors: bool = False,
     ) -> None: ...
+    @property
+    def errors(self) -> list[ParseError]: ...
     @property
     def root(self) -> Optional[Node]: ...
     @property

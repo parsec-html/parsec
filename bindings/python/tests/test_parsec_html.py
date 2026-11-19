@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from parsec_html import HTMLParser, Node, SelectorError, XPathError
+from parsec_html import HTMLParser, Node, ParseError, SelectorError, XPathError
 
 PAGE = (
     "<!doctype html><title>T</title>"
@@ -251,6 +251,23 @@ def test_positions():
     assert HTMLParser(src).css_first("p").source_range is None
     para.insert_child("new")
     assert para.last_child.source_range is None
+
+
+def test_errors():
+    p = HTMLParser("<p>a\n</b><div x='1' x='2'>", errors=True)
+    found = [(e.code, e.offset, e.line, e.column) for e in p.errors]
+    assert found == [
+        ("expected-doctype-but-got-start-tag", 0, 1, 1),
+        ("unexpected-end-tag", 5, 2, 1),
+        ("duplicate-attribute", 21, 2, 17),
+        ("expected-closing-tag-but-got-eof", 26, 2, 22),
+    ]
+    assert isinstance(p.errors[0], ParseError)
+    assert str(p.errors[1]) == "2:1: unexpected-end-tag"
+    assert repr(p.errors[1]) == "<ParseError unexpected-end-tag at 2:1>"
+    # Kept only when asked for.
+    assert HTMLParser("</b>").errors == []
+    assert HTMLParser("<!doctype html><p>ok</p>", errors=True).errors == []
 
 
 def test_xpath_results_are_shaped_as_lxml_gives_them():

@@ -69,6 +69,23 @@ pub struct Span {
     pub column: u32,
 }
 
+/// A parse error the parser recovered from.
+#[wasm_bindgen]
+pub struct ParseError {
+    /// The HTML Standard's name for it (`eof-in-tag`), or html5lib's for
+    /// one tree construction finds (`unexpected-end-tag`).
+    #[wasm_bindgen(readonly, getter_with_clone)]
+    pub code: String,
+    /// A byte offset into the UTF-8 input.
+    #[wasm_bindgen(readonly)]
+    pub offset: u32,
+    #[wasm_bindgen(readonly)]
+    pub line: u32,
+    /// From 1, in characters.
+    #[wasm_bindgen(readonly)]
+    pub column: u32,
+}
+
 fn span(doc: &parsec::Document, r: Option<std::ops::Range<usize>>) -> Option<Span> {
     let r = r?;
     let (line, column) = doc.line_col(r.start);
@@ -90,6 +107,8 @@ export interface ParseOptions {
     maxDepth?: number;
     /** Record where each node and attribute was written, for `span`. */
     spans?: boolean;
+    /** Keep the parse errors, for `errors`. */
+    errors?: boolean;
 }
 
 /**
@@ -110,6 +129,8 @@ extern "C" {
     fn max_depth(this: &ParseOptions) -> Option<u32>;
     #[wasm_bindgen(method, getter)]
     fn spans(this: &ParseOptions) -> Option<bool>;
+    #[wasm_bindgen(method, getter)]
+    fn errors(this: &ParseOptions) -> Option<bool>;
 }
 
 /// A parsed document or fragment.
@@ -142,6 +163,7 @@ fn run(
             .and_then(ParseOptions::max_depth)
             .map(|d| d as usize),
         spans: options.and_then(ParseOptions::spans).unwrap_or(false),
+        errors: options.and_then(ParseOptions::errors).unwrap_or(false),
     };
     let doc = match context {
         Some(context) => {
@@ -260,6 +282,23 @@ impl Document {
     #[wasm_bindgen(getter)]
     pub fn text(&self) -> String {
         self.doc.borrow().text(0)
+    }
+
+    /// The parse errors, in source order: empty unless parsed with
+    /// `{ errors: true }`.
+    #[wasm_bindgen(getter)]
+    pub fn errors(&self) -> Vec<ParseError> {
+        self.doc
+            .borrow()
+            .errors()
+            .iter()
+            .map(|e| ParseError {
+                code: e.code.to_string(),
+                offset: e.offset as u32,
+                line: e.line as u32,
+                column: e.column as u32,
+            })
+            .collect()
     }
 
     /// Runs an XPath 1.0 expression over the document.
