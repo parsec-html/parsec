@@ -25,11 +25,11 @@ use std::collections::HashMap;
 use std::fmt::{self, Write};
 use std::sync::{Mutex, OnceLock};
 
-use crate::media::{Condition, Environment, Feature, MediaQueryList};
+use crate::media::{Comparison, Condition, Environment, Feature, MediaQueryList, QueryLengths};
 use crate::parser::{AtRule, Block, Bracket, ComponentValue, Item};
 use crate::serialize::{write_identifier, write_string};
 use crate::tokenizer::Token;
-use crate::values::{Component, Grammar, Specified, Unit};
+use crate::values::{Component, Grammar, Leaf, Specified, Unit};
 
 fn trimmed<'v, 'a>(values: &'v [ComponentValue<'a>]) -> &'v [ComponentValue<'a>] {
     let start = values
@@ -658,8 +658,9 @@ pub struct ContainerQuery {
     styles: Vec<(String, StyleQuery)>,
 }
 
-/// `style()`'s query, §6.1.3: a custom property's value, or that it has
-/// one, and those joined with `not`, `and` and `or`.
+/// `style()`'s query, §6.2: a custom property's value, that it has one,
+/// or a range of values compared, and those joined with `not`, `and` and
+/// `or`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum StyleQuery {
     /// `--name: value`, the value written as CSS writes it back, or
@@ -667,6 +668,13 @@ pub enum StyleQuery {
     Feature {
         name: String,
         value: Option<String>,
+    },
+    /// `10px < --a <= 2em`: two or three values, each written as CSS
+    /// (a custom property's name as `var()` of it), and the comparisons
+    /// between them.
+    Range {
+        values: Vec<String>,
+        ops: Vec<Comparison>,
     },
     Not(Box<StyleQuery>),
     And(Vec<StyleQuery>),
@@ -714,6 +722,15 @@ impl StyleQuery {
                 StyleQuery::Or(items)
             };
         }
+        if v.iter().any(|c| is_comparison(c)) {
+            return StyleQuery::range(&v);
+        }
+        // `<declaration-value>` has no `;` at the top.
+        if v.iter()
+            .any(|c| matches!(c, ComponentValue::Token(Token::Semicolon, _)))
+        {
+            return StyleQuery::Unknown;
+        }
         // A declaration, or a name alone.
         let colon = values
             .iter()
@@ -729,9 +746,68 @@ impl StyleQuery {
         }
     }
 
+    /// `<style-range>`: values with `<`, `>` or `=` between them, at most
+    /// three, the comparisons all one way when there are three.
+    fn range(v: &[&ComponentValue<'_>]) -> StyleQuery {
+        let mut values = Vec::new();
+        let mut ops = Vec::new();
+        let mut start = 0;
+        let mut i = 0;
+        loop {
+            let end = i == v.len();
+            if !end && !is_comparison(v[i]) {
+                i += 1;
+                continue;
+            }
+            let part = &v[start..i];
+            // A value is a `<style-feature-value>`: no `!` or `;` or `:`.
+            let bad = part.iter().any(|c| {
+                matches!(
+                    c,
+                    ComponentValue::Token(Token::Delim('!') | Token::Semicolon | Token::Colon, _)
+                )
+            });
+            if part.is_empty() || bad || values.len() == 3 {
+                return StyleQuery::Unknown;
+            }
+            values.push(match part {
+                [ComponentValue::Token(Token::Ident(n), _)] if n.starts_with("--") => {
+                    format!("var({n})")
+                }
+                _ => part
+                    .iter()
+                    .map(|c| crate::to_css(std::slice::from_ref(*c)))
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            });
+            if end {
+                break;
+            }
+            let Some((op, n)) = crate::media::comparison(&v[i..]) else {
+                return StyleQuery::Unknown;
+            };
+            ops.push(op);
+            i += n;
+            start = i;
+        }
+        let lt = |o: &Comparison| matches!(o, Comparison::Lt | Comparison::Le);
+        let gt = |o: &Comparison| matches!(o, Comparison::Gt | Comparison::Ge);
+        let ok = match &ops[..] {
+            [_] => true,
+            [a, b] => lt(a) && lt(b) || gt(a) && gt(b),
+            _ => false,
+        };
+        if ok {
+            StyleQuery::Range { values, ops }
+        } else {
+            StyleQuery::Unknown
+        }
+    }
+
     /// Whether every part is a feature on a property that exists.
     fn whole(&self) -> bool {
         match self {
+            StyleQuery::Range { .. } => true,
             StyleQuery::Feature { name, .. } => {
                 name.starts_with("--") || crate::values::property(name).is_some()
             }
@@ -741,8 +817,28 @@ impl StyleQuery {
         }
     }
 
-    fn evaluate(&self, get: &dyn Fn(&str) -> Option<String>) -> Option<bool> {
+    fn evaluate(
+        &self,
+        get: &dyn Fn(&str) -> Option<String>,
+        number: &dyn Fn(&str) -> Option<Leaf>,
+    ) -> Option<bool> {
         match self {
+            // §6.2: each value substituted, then a number or a dimension
+            // computed; anything else, or two of different types, is false.
+            StyleQuery::Range { values, ops } => {
+                let mut leaves = Vec::with_capacity(values.len());
+                for v in values {
+                    match number(v) {
+                        Some(l) => leaves.push(l),
+                        None => return Some(false),
+                    }
+                }
+                Some(
+                    ops.iter()
+                        .zip(leaves.windows(2))
+                        .all(|(op, w)| compare(w[0], *op, w[1])),
+                )
+            }
             StyleQuery::Feature { name, value } => {
                 if !name.starts_with("--") {
                     return None;
@@ -757,12 +853,42 @@ impl StyleQuery {
                     }
                 })
             }
-            StyleQuery::Not(q) => q.evaluate(get).map(|b| !b),
-            StyleQuery::And(qs) => three(qs.iter().map(|q| q.evaluate(get)), false),
-            StyleQuery::Or(qs) => three(qs.iter().map(|q| q.evaluate(get)), true),
+            StyleQuery::Not(q) => q.evaluate(get, number).map(|b| !b),
+            StyleQuery::And(qs) => three(qs.iter().map(|q| q.evaluate(get, number)), false),
+            StyleQuery::Or(qs) => three(qs.iter().map(|q| q.evaluate(get, number)), true),
             StyleQuery::Unknown => None,
         }
     }
+}
+
+/// A `<`, `>` or `=` delim, which a style range is made of.
+fn is_comparison(c: &ComponentValue<'_>) -> bool {
+    matches!(c, ComponentValue::Token(Token::Delim('<' | '>' | '='), _))
+}
+
+/// `a op b` for two computed range values: false unless they're of one
+/// type, with a unitless zero a length beside a length.
+fn compare(a: Leaf, op: Comparison, b: Leaf) -> bool {
+    let typed = |l: Leaf| -> Option<(u8, Option<crate::values::Kind>, f64)> {
+        Some(match l {
+            Leaf::Number(v) => (0, None, v),
+            Leaf::Percentage(v) => (1, None, v),
+            Leaf::Dimension(v, u) => (2, Some(u.kind()), v * u.to_canonical()?),
+        })
+    };
+    let (Some(mut x), Some(mut y)) = (typed(a), typed(b)) else {
+        return false;
+    };
+    let length = Some(crate::values::Kind::Length);
+    if x.0 == 0 && x.2 == 0.0 && y.1 == length {
+        x = y;
+        x.2 = 0.0;
+    }
+    if y.0 == 0 && y.2 == 0.0 && x.1 == length {
+        y = x;
+        y.2 = 0.0;
+    }
+    (x.0, x.1) == (y.0, y.1) && op.test(x.2, y.2)
 }
 
 /// Three-valued `and` (`or` when `any`): the deciding value wins over
@@ -897,14 +1023,18 @@ impl ContainerQuery {
     }
 
     /// The condition against a container `size` CSS pixels wide and high
-    /// (horizontal writing), with `font_size` for `em` and `style` giving
-    /// its custom properties' computed values: `Some(true)`, `Some(false)`,
-    /// or `None` for unknown, which `@container` treats as false.
+    /// (horizontal writing), with `lengths` for the relative lengths in
+    /// it, `style` giving the container's custom properties' computed
+    /// values, and `number` a style range's value substituted and computed
+    /// on the container (`None` if it isn't a number or a dimension):
+    /// `Some(true)`, `Some(false)`, or `None` for unknown, which
+    /// `@container` treats as false.
     pub fn evaluate(
         &self,
         size: Option<(f64, f64)>,
-        font_size: f64,
+        lengths: &QueryLengths,
         style: &dyn Fn(&str) -> Option<String>,
+        number: &dyn Fn(&str) -> Option<Leaf>,
     ) -> Option<bool> {
         let Some(c) = &self.condition else {
             return Some(true);
@@ -912,11 +1042,18 @@ impl ContainerQuery {
         let env = size.map(|(width, height)| Environment {
             width,
             height,
-            font_size,
+            font_size: lengths.font_size,
             keywords: Vec::new(),
             ..Environment::default()
         });
-        evaluate(c, env.as_ref(), &self.styles, style)
+        let cx = Evaluation {
+            env: env.as_ref(),
+            lengths,
+            styles: &self.styles,
+            style,
+            number,
+        };
+        evaluate(c, &cx)
     }
 
     /// Whether the condition has a `style()` in it.
@@ -925,14 +1062,19 @@ impl ContainerQuery {
     }
 }
 
+/// What evaluating a container condition needs.
+struct Evaluation<'e> {
+    /// The container's size as an environment, if it has one.
+    env: Option<&'e Environment>,
+    lengths: &'e QueryLengths,
+    styles: &'e [(String, StyleQuery)],
+    style: &'e dyn Fn(&str) -> Option<String>,
+    number: &'e dyn Fn(&str) -> Option<Leaf>,
+}
+
 /// A container condition: media's three-valued logic over the size
 /// features alone, `inline-size` as `width` and `block-size` as `height`.
-fn evaluate(
-    c: &Condition,
-    env: Option<&Environment>,
-    styles: &[(String, StyleQuery)],
-    style: &dyn Fn(&str) -> Option<String>,
-) -> Option<bool> {
+fn evaluate(c: &Condition, cx: &Evaluation<'_>) -> Option<bool> {
     let rename = |n: &str| -> Option<String> {
         let (prefix, base) = match n.strip_prefix("min-") {
             Some(b) => ("min-", b),
@@ -966,16 +1108,17 @@ fn evaluate(
                     after: after.clone(),
                 },
             };
-            f.evaluate(env?)
+            f.evaluate_with(cx.env?, cx.lengths)
         }
-        Condition::Parens(c) => evaluate(c, env, styles, style),
-        Condition::Not(c) => evaluate(c, env, styles, style).map(|b| !b),
-        Condition::Unknown(t) => styles
+        Condition::Parens(c) => evaluate(c, cx),
+        Condition::Not(c) => evaluate(c, cx).map(|b| !b),
+        Condition::Unknown(t) => cx
+            .styles
             .iter()
             .find(|(text, _)| text == t)
-            .and_then(|(_, q)| q.evaluate(style)),
-        Condition::And(cs) => three(cs.iter().map(|c| evaluate(c, env, styles, style)), false),
-        Condition::Or(cs) => three(cs.iter().map(|c| evaluate(c, env, styles, style)), true),
+            .and_then(|(_, q)| q.evaluate(cx.style, cx.number)),
+        Condition::And(cs) => three(cs.iter().map(|c| evaluate(c, cx)), false),
+        Condition::Or(cs) => three(cs.iter().map(|c| evaluate(c, cx)), true),
     }
 }
 
@@ -1274,8 +1417,16 @@ mod tests {
         .unwrap();
         assert_eq!(q[0].name.as_deref(), Some("card"));
         let none = |_: &str| None;
-        assert_eq!(q[0].evaluate(Some((500.0, 10.0)), 16.0, &none), Some(true));
-        assert_eq!(q[0].evaluate(Some((300.0, 10.0)), 16.0, &none), Some(false));
+        let no_number = |_: &str| None;
+        let lengths = QueryLengths::of(&Environment::default());
+        assert_eq!(
+            q[0].evaluate(Some((500.0, 10.0)), &lengths, &none, &no_number),
+            Some(true)
+        );
+        assert_eq!(
+            q[0].evaluate(Some((300.0, 10.0)), &lengths, &none, &no_number),
+            Some(false)
+        );
         assert_eq!(
             q[0].axes(),
             Axes {
@@ -1284,14 +1435,56 @@ mod tests {
             }
         );
         let q = ContainerQuery::parse(&crate::parse_component_values("(color)")).unwrap();
-        assert_eq!(q.evaluate(Some((500.0, 10.0)), 16.0, &none), None);
+        assert_eq!(
+            q.evaluate(Some((500.0, 10.0)), &lengths, &none, &no_number),
+            None
+        );
         let q = ContainerQuery::parse(&crate::parse_component_values(
             "style((--a: 1) and (not (--b)))",
         ))
         .unwrap();
         let get = |n: &str| (n == "--a").then(|| " 1".to_string());
-        assert_eq!(q.evaluate(None, 16.0, &get), Some(true));
+        assert_eq!(q.evaluate(None, &lengths, &get, &no_number), Some(true));
         assert!(ContainerQuery::parse(&crate::parse_component_values("name screen")).is_none());
+
+        // Style ranges: two or three values, compared one way.
+        let range = |s: &str| {
+            let v = crate::parse_component_values(s);
+            StyleQuery::parse(&v, 0)
+        };
+        assert_eq!(
+            range("10px < --a <= 2em"),
+            StyleQuery::Range {
+                values: vec!["10px".into(), "var(--a)".into(), "2em".into()],
+                ops: vec![Comparison::Lt, Comparison::Le],
+            }
+        );
+        for bad in [
+            "10px < 1em > 1",
+            "< 1em",
+            "1px < 1em !",
+            "1 = 2 = 3",
+            "1 < 2 < 3 < 4",
+        ] {
+            assert_eq!(range(bad), StyleQuery::Unknown, "{bad}");
+        }
+        assert_eq!(range("--a: b;"), StyleQuery::Unknown);
+        let q = ContainerQuery::parse(&crate::parse_component_values(
+            "style(0 < 3px) and style(1 < 2%)",
+        ))
+        .unwrap();
+        let number = |v: &str| match v {
+            "0" => Some(Leaf::Number(0.0)),
+            "1" => Some(Leaf::Number(1.0)),
+            "3px" => Some(Leaf::Dimension(3.0, Unit::Px)),
+            "2%" => Some(Leaf::Percentage(2.0)),
+            _ => None,
+        };
+        // A unitless zero is a length beside one; a number and a
+        // percentage don't compare.
+        assert_eq!(q.evaluate(None, &lengths, &none, &number), Some(false));
+        let q = ContainerQuery::parse(&crate::parse_component_values("style(0 < 3px)")).unwrap();
+        assert_eq!(q.evaluate(None, &lengths, &none, &number), Some(true));
     }
 
     #[test]

@@ -167,7 +167,8 @@ assert_eq!(doc.text(hits[0]), "one");
   give (`parsec_css::media` and `::supports`), `@layer`, nesting,
   specificity, `!important` and `style=""`, `@scope` with scoping
   proximity, `@container` against the container sizes you give (size and
-  `style()` queries), `@import` through a fetch you give with `layer()`,
+  `style()` queries, ranges like `style(--gap > 1em)` included, and the
+  `cqw`, `cqi`, `cqmin` units, each from its nearest container), `@import` through a fetch you give with `layer()`,
   `supports()` and media, and `@property` registrations, then read any
   element's computed value as `getComputedStyle()` gives it: inheritance,
   the CSS-wide keywords with `revert` and `revert-layer`, `var()`,
@@ -179,7 +180,7 @@ assert_eq!(doc.text(hits[0]), "one");
   `cargo test` runs WPT's media query cases (1,370 of 1,370), its
   computed-value cases (11,287 of 12,041) and its static cascade and
   at-rule cases, `@scope`, `@container`, `@property` and
-  `@counter-style` among them (1,141 of 1,345);
+  `@counter-style` among them (1,198 of 1,345);
   [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade) on the
   wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:

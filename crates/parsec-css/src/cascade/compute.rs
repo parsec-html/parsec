@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use super::{Declared, Key, css_wide};
-use crate::media::Environment;
+use crate::media::{Environment, QueryLengths};
 use crate::parser::ComponentValue;
 use crate::values::{
     Color, Component, CssWide, CustomProperties, Kind, Leaf, Resolved, Specified, Unit, expand,
@@ -34,6 +34,12 @@ pub struct Computed {
     /// `color`, written out, which `currentcolor` here is.
     color: String,
     env: Environment,
+    /// The width and height `cqw` and `cqh` are 1% of here: the nearest
+    /// ancestor query container's on each axis, or the small viewport's.
+    cq: (f64, f64),
+    /// What they are for the children: this element's own size on the
+    /// axes it's a size container for, [`Computed::cq`] otherwise.
+    pub(super) cq_children: (f64, f64),
 }
 
 impl Computed {
@@ -87,6 +93,73 @@ impl Computed {
             root_font_size: self.root_font_size,
             color: &self.color,
             env: &self.env,
+            cq: self.cq,
+            vertical: self.vertical(),
+        }
+    }
+
+    /// Whether the writing mode is vertical, which makes `cqi` and the
+    /// inline axis the height.
+    fn vertical(&self) -> bool {
+        self.values.get("writing-mode").is_some_and(|w| {
+            w.starts_with("vertical") || w.starts_with("sideways") || w.starts_with("tb")
+        })
+    }
+
+    /// What a container query's lengths are relative to when this is the
+    /// container: its font size, and its own query containers for `cq*`.
+    pub(super) fn query_lengths(&self) -> QueryLengths {
+        QueryLengths {
+            font_size: self.font_size,
+            viewport: (self.env.width, self.env.height),
+            container: self.cq,
+            vertical: self.vertical(),
+        }
+    }
+
+    /// The physical axes this element is a size container for, width then
+    /// height: none if it has no box.
+    pub(super) fn size_axes(&self) -> (bool, bool) {
+        let Some(ty) = self.values.get("container-type") else {
+            return (false, false);
+        };
+        if matches!(
+            self.values.get("display").map(String::as_str),
+            Some("none" | "contents")
+        ) {
+            return (false, false);
+        }
+        let size = ty.split_ascii_whitespace().any(|w| w == "size");
+        let inline = ty.split_ascii_whitespace().any(|w| w == "inline-size");
+        let vertical = self.vertical();
+        (size || inline && !vertical, size || inline && vertical)
+    }
+
+    /// A style range's value, CSS Conditional 5 §6.2: `var()` substituted
+    /// from the custom properties here, typed as a number, percentage or
+    /// dimension, and computed here.
+    pub(super) fn range_value(&self, text: &str) -> Option<Leaf> {
+        static TYPES: std::sync::OnceLock<Option<crate::values::Grammar>> =
+            std::sync::OnceLock::new();
+        let types = TYPES.get_or_init(|| {
+            crate::values::Grammar::parse(
+                "<number> | <percentage> | <length> | <angle> | <time> | <frequency> | <resolution>",
+            )
+        });
+        let values = crate::parse_component_values(text);
+        let custom = Resolved::from_values(
+            self.custom
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_deref().map(crate::parse_component_values))),
+        );
+        let values = substitute(&values, &custom).ok()?;
+        let typed = crate::values::match_grammar(types.as_ref()?, &values)?;
+        let cx = self.cx("--", self.font_size);
+        match &components(&typed, &cx, None)[..] {
+            [Component::Number { value, .. }] => Some(Leaf::Number(*value)),
+            [Component::Percentage(p)] => Some(Leaf::Percentage(*p)),
+            [Component::Dimension(v, u)] => Some(Leaf::Dimension(*v, *u)),
+            _ => None,
         }
     }
 
@@ -102,6 +175,8 @@ pub(super) struct Input<'d, 's> {
     pub root: Option<&'d Computed>,
     pub is_root: bool,
     pub env: &'d Environment,
+    /// What `cqw` and `cqh` are 1% of here; see [`Computed::cq`].
+    pub cq: (f64, f64),
     /// The custom properties `@property` registers, with their syntax.
     pub registered: &'d HashMap<String, (crate::rules::PropertyRule, crate::rules::Syntax)>,
 }
@@ -114,10 +189,12 @@ struct Cx<'c> {
     root_font_size: f64,
     color: &'c str,
     env: &'c Environment,
+    cq: (f64, f64),
+    vertical: bool,
 }
 
 /// The order properties are computed in: what others refer to first.
-const FIRST: &[&str] = &["font-size", "color"];
+const FIRST: &[&str] = &["font-size", "color", "writing-mode"];
 
 fn inherited(name: &str) -> bool {
     property(name).and_then(|p| p.inherited) == Some(true)
@@ -135,6 +212,8 @@ pub(super) fn compute(input: Input<'_, '_>) -> Computed {
         root_font_size,
         color: parent.map_or_else(|| "rgb(0, 0, 0)".to_string(), |p| p.color.clone()),
         env: input.env.clone(),
+        cq: input.cq,
+        cq_children: input.cq,
     };
     // Inherited values first: what isn't declared keeps them.
     if let Some(p) = parent {
@@ -411,6 +490,11 @@ fn px(u: Unit, cx: &Cx<'_>) -> Option<f64> {
         cx.font_size
     };
     let (w, h) = (cx.env.width, cx.env.height);
+    let (ci, cb) = if cx.vertical {
+        (cx.cq.1, cx.cq.0)
+    } else {
+        cx.cq
+    };
     Some(match u {
         Unit::Em => em,
         Unit::Rem => cx.root_font_size,
@@ -421,7 +505,6 @@ fn px(u: Unit, cx: &Cx<'_>) -> Option<f64> {
         Unit::Ric => cx.root_font_size,
         Unit::Lh => em * 1.2,
         Unit::Rlh => cx.root_font_size * 1.2,
-        // Without containers, container units are the small viewport's.
         Unit::Vw
         | Unit::Svw
         | Unit::Lvw
@@ -429,9 +512,7 @@ fn px(u: Unit, cx: &Cx<'_>) -> Option<f64> {
         | Unit::Vi
         | Unit::Svi
         | Unit::Lvi
-        | Unit::Dvi
-        | Unit::Cqw
-        | Unit::Cqi => w / 100.0,
+        | Unit::Dvi => w / 100.0,
         Unit::Vh
         | Unit::Svh
         | Unit::Lvh
@@ -439,11 +520,17 @@ fn px(u: Unit, cx: &Cx<'_>) -> Option<f64> {
         | Unit::Vb
         | Unit::Svb
         | Unit::Lvb
-        | Unit::Dvb
-        | Unit::Cqh
-        | Unit::Cqb => h / 100.0,
-        Unit::Vmin | Unit::Svmin | Unit::Lvmin | Unit::Dvmin | Unit::Cqmin => w.min(h) / 100.0,
-        Unit::Vmax | Unit::Svmax | Unit::Lvmax | Unit::Dvmax | Unit::Cqmax => w.max(h) / 100.0,
+        | Unit::Dvb => h / 100.0,
+        Unit::Vmin | Unit::Svmin | Unit::Lvmin | Unit::Dvmin => w.min(h) / 100.0,
+        Unit::Vmax | Unit::Svmax | Unit::Lvmax | Unit::Dvmax => w.max(h) / 100.0,
+        // CSS Conditional 5 §6.3: each axis's nearest query container,
+        // the inline one by this element's writing mode.
+        Unit::Cqw => cx.cq.0 / 100.0,
+        Unit::Cqh => cx.cq.1 / 100.0,
+        Unit::Cqi => ci / 100.0,
+        Unit::Cqb => cb / 100.0,
+        Unit::Cqmin => ci.min(cb) / 100.0,
+        Unit::Cqmax => ci.max(cb) / 100.0,
         u if u.kind() == Kind::Length => u.to_canonical()?,
         _ => return None,
     })

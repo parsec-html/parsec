@@ -25,7 +25,8 @@
 //! ```
 //!
 //! `@scope` applies with scoping proximity in the cascade order;
-//! `@container` against the sizes [`Styler::container_sizes`] gives;
+//! `@container`, and the `cq*` units, against the sizes
+//! [`Styler::container_sizes`] gives;
 //! `@import` through the fetch [`Styler::fetch`] gives, with `layer()`,
 //! `supports()` and media; `@property` registers custom properties, which
 //! then take their syntax, initial value and inheritance from it; and
@@ -240,10 +241,12 @@ impl Styler {
         self
     }
 
-    /// Gives each container's size, for `@container`: `size` is asked for
-    /// an element whose `container-type` makes it a container, with its
-    /// computed values, and gives its width and height in CSS pixels. A
-    /// query on a container with no size given is false.
+    /// Gives each container's size, for `@container` and the `cq*` units:
+    /// `size` is asked for an element whose `container-type` makes it a
+    /// container, with its computed values, and gives its width and height
+    /// in CSS pixels. A query on a container with no size given is false,
+    /// and `cq*` units look past it to the next container out, or the
+    /// viewport.
     pub fn container_sizes(
         mut self,
         size: impl Fn(NodeId, &Computed) -> Option<(f64, f64)> + Send + Sync + 'static,
@@ -608,15 +611,31 @@ impl Styler {
             } else {
                 root.and_then(|r| styles.get(&r))
             };
-            let computed = compute::compute(compute::Input {
+            let mut computed = compute::compute(compute::Input {
                 declared: &declared,
                 custom: &custom,
                 parent,
                 root: root_style,
                 is_root: Some(el) == root,
                 env: &self.env,
+                cq: parent.map_or((self.env.width, self.env.height), |p| p.cq_children),
                 registered: &registered,
             });
+            // A size container is what its descendants' `cq*` units are
+            // relative to, on the axes it contains; one with no size given
+            // passes its own on.
+            let (w, h) = computed.size_axes();
+            if (w || h)
+                && let Some((width, height)) =
+                    self.container_size.as_ref().and_then(|f| f(el, &computed))
+            {
+                if w {
+                    computed.cq_children.0 = width;
+                }
+                if h {
+                    computed.cq_children.1 = height;
+                }
+            }
             styles.insert(el, computed);
         }
         Styled { styles }
@@ -774,7 +793,8 @@ impl Styler {
                     false => None,
                 };
                 let get = |name: &str| c.get(name);
-                return q.evaluate(size, c.font_size, &get) == Some(true);
+                let number = |value: &str| c.range_value(value);
+                return q.evaluate(size, &c.query_lengths(), &get, &number) == Some(true);
             }
             false
         })
@@ -1543,6 +1563,62 @@ mod tests {
         let html = "<div id=x><style>@scope { p { color: green } }</style><p></p></div><p id=y>";
         assert_eq!(style(html, "#x p", "color"), "rgb(0, 128, 0)");
         assert_eq!(style(html, "#y", "color"), "rgb(0, 0, 0)");
+    }
+
+    #[test]
+    fn container_units_and_style_ranges() {
+        // `cqw` from the inline-size container, `cqh` from the size one
+        // beyond it, and the small viewport's with no container.
+        let doc = parsec::parse(
+            "<style>.s { container-type: size } .i { container-type: inline-size } \
+             p { width: 10cqw; height: 10cqh; margin-left: 10cqi; margin-top: 10cqmax }</style>\
+             <div class=s id=s><div class=i id=i><p></p></div></div><p id=bare>",
+            false,
+        );
+        let find = |s: &str| {
+            SelectorList::parse(s)
+                .unwrap()
+                .select_first(&doc, doc.root())
+                .unwrap()
+        };
+        let styled = Styler::new(Environment::default())
+            .with_document_styles(&doc)
+            .container_sizes(|_, c| {
+                Some(match c.get("container-type").as_deref() {
+                    Some("size") => (1000.0, 500.0),
+                    _ => (200.0, 50.0),
+                })
+            })
+            .style(&doc);
+        let p = find("#i p");
+        assert_eq!(styled.get(p, "width").as_deref(), Some("20px"));
+        assert_eq!(styled.get(p, "height").as_deref(), Some("50px"));
+        assert_eq!(styled.get(p, "margin-left").as_deref(), Some("20px"));
+        assert_eq!(styled.get(p, "margin-top").as_deref(), Some("50px"));
+        let bare = find("#bare");
+        assert_eq!(styled.get(bare, "width").as_deref(), Some("128px"));
+        assert_eq!(styled.get(bare, "height").as_deref(), Some("72px"));
+
+        // A range in `style()`, with a custom property's value and `em`
+        // on the container.
+        let doc = parsec::parse(
+            "<style>.c { --n: 30px; font-size: 10px } @container style(2em < --n <= 3em) { p { color: green } } \
+             @container style(--n > 5) { p { background-color: red } }</style><div class=c><p>",
+            false,
+        );
+        let p = SelectorList::parse("p")
+            .unwrap()
+            .select_first(&doc, doc.root())
+            .unwrap();
+        let styled = Styler::new(Environment::default())
+            .with_document_styles(&doc)
+            .style(&doc);
+        assert_eq!(styled.get(p, "color").as_deref(), Some("rgb(0, 128, 0)"));
+        // A length against a number is false, not unknown.
+        assert_eq!(
+            styled.get(p, "background-color").as_deref(),
+            Some("rgba(0, 0, 0, 0)")
+        );
     }
 
     #[test]

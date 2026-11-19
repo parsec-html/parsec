@@ -154,8 +154,14 @@ environment you give it, and computed values with inheritance.
   media, `@property` registrations, and `@keyframes` and
   `@counter-style` parsed and given back. WPT: 1,141 of 1,345 static
   cascade and at-rule cases.
-- Still to come: the values that need layout (`width: 50%` as pixels,
-  container query units).
+- Done: range syntax in `style()` queries and the container query units
+  (`cqw`, `cqh`, `cqi`, `cqb`, `cqmin`, `cqmax`), each axis from its
+  nearest container and the small viewport without one
+  ([#100](https://github.com/parsec-html/parsec/issues/100)). WPT: 1,198
+  of 1,345 static cascade and at-rule cases.
+- Still to come: shadow DOM for `@scope` and container lookups, which
+  needs declarative shadow roots in the tree builder first; pseudo-element
+  styles; and the values that need layout (`width: 50%` as pixels).
 
 ## M8. XPath
 
