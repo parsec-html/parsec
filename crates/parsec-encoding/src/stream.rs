@@ -51,8 +51,9 @@ use crate::{Confidence, Options, Parsed, changed, declared, prescan};
 /// transport encoding), every byte is kept for that second parse, so the
 /// input sits in memory once as bytes beside the document, which holds
 /// the decoded text anyway. Give the transport layer's encoding when you
-/// have it and only the decoder's few bytes of state are kept. The bytes
-/// held back before the encoding is known are 1,024 at most.
+/// have it and only the decoder's few bytes of state are kept. Before the
+/// encoding is known, the pieces fed so far wait, which stops once there
+/// are 1,024 bytes.
 ///
 /// A time budget in [`Options::html`] counts the time spent in
 /// [`ByteParser::feed`] and [`ByteParser::finish`], both parses together,
