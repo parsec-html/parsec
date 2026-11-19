@@ -30,6 +30,8 @@ So if your change touches any of these, make it in Netweir first:
 - `crates/parsec/examples`
 - `crates/parsec/scripts`
 - `crates/parsec/fuzz/fuzz_targets`
+- `crates/parsec-xpath/src` and `crates/parsec-xpath/tests`, which come from
+  Netweir's [`crates/netweir-xpath`](https://github.com/netweir/netweir/tree/main/crates/netweir-xpath)
 
 Once it's merged there, a pull request here runs the sync and moves
 `NETWEIR_COMMIT` forward:
