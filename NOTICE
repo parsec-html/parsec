@@ -20,6 +20,13 @@ longhands, in crates/parsec-css/src/values/generated.rs, from
 crates/parsec-css/data/webref/css.json, Copyright (c) 2020 World Wide Web
 Consortium, under the MIT License; see the LICENSE file in that directory.
 
+Parsec's CSS module also includes the user agent stylesheet from the
+HTML Standard's rendering section
+(https://html.spec.whatwg.org/multipage/rendering.html), in
+crates/parsec-css/src/cascade/html.css, © WHATWG (Apple, Google, Mozilla,
+Microsoft), licensed under the Creative Commons Attribution 4.0
+International License.
+
 Parsec's tests use test data that is not part of the library and is
 licensed under its own terms:
 
@@ -45,3 +52,9 @@ licensed under its own terms:
   into crates/parsec-css/tests/wpt-values, Copyright web-platform-tests
   contributors, under the 3-Clause BSD License; see the LICENSE.md file
   in that directory.
+- web-platform-tests' media query, computed-value and cascade tests
+  (https://github.com/web-platform-tests/wpt), as the cases extracted
+  into crates/parsec-css/tests/wpt-media, wpt-computed and wpt-cascade,
+  with the test files those cases come from, Copyright
+  web-platform-tests contributors, under the 3-Clause BSD License; see
+  the LICENSE.md file in each directory.

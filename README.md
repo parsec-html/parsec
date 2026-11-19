@@ -127,9 +127,23 @@ assert_eq!(doc.text(hits[0]), "one");
   css-parsing-tests' 8,061 color cases now run: 4,803 pass, and each of
   the other 3,258 is where CSS Color has changed since the suite was
   written, which the runner checks case by case. Of web-platform-tests'
-  14,893 static CSS parsing cases, 13,899 pass; the wiki's
+  14,893 static CSS parsing cases, 13,907 pass; the wiki's
   [CSS values](https://github.com/parsec-html/parsec/wiki/CSS-values)
-  page breaks down the other 994.
+  page breaks down the other 986.
+- **The cascade and computed values**, in `parsec_css::cascade`: style a
+  Parsec document with the user agent's, the user's and the author's
+  sheets, `@media` and `@supports` evaluated against an environment you
+  give (`parsec_css::media` and `::supports`), `@layer`, nesting,
+  specificity, `!important` and `style=""`, then read any element's
+  computed value as `getComputedStyle()` gives it: inheritance, the
+  CSS-wide keywords with `revert` and `revert-layer`, `var()`, absolute
+  lengths, and colours worked out, mixes and relative colours included.
+  Lexbor has no media query evaluation and no computed values
+  ([discussion #265](https://github.com/lexbor/lexbor/discussions/265)).
+  `cargo test` runs WPT's media query cases (1,370 of 1,370), its
+  computed-value cases (10,974 of 12,041) and its static cascade cases
+  (104 of 123); [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade)
+  on the wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
@@ -180,7 +194,9 @@ span; a second run had it 1.16 times. Its tokenizer is 1.2 times as
 fast as cssparser's.
 With every declaration's value typed for its property as well, all 822
 properties where Lexbor types 105, Parsec runs at 120 MB a second to
-Lexbor's 116.
+Lexbor's 116. And with every element's computed values worked out, the
+13 pages take 2.8 seconds between them, two of those for the HTML spec's
+337,200 elements; Lexbor computes no values to compare with.
 
 Hostile inputs, the ones built to make a parser crawl, go Parsec's way
 on all eight. 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2
@@ -221,7 +237,7 @@ every module Lexbor has, and then go past it:
 | Unicode normalization | yes | yes, all of NormalizationTest passing |
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 93% of WPT's parsing cases |
-| Media queries, cascade, computed values | no | planned |
+| Media queries, cascade, computed values | no | yes, against an environment you give; WPT counts published |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |
 | WebAssembly | through bindings | planned, built here |

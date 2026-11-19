@@ -24,7 +24,7 @@ the order can change when users show us something more urgent.
 | M5. Encoding | done, November 2026 |
 | M6. URL | done, November 2026 |
 | M8. XPath | summer 2027 |
-| M7. CSS | late 2027 into 2028, in parts; the syntax parser done, November 2026 |
+| M7. CSS | late 2027 into 2028, in parts; syntax, values and the cascade done, November 2026 |
 
 ## M0. Foundations
 
@@ -130,10 +130,17 @@ environment you give it, and computed values with inheritance.
   and most of 5;
   shorthands into longhands; custom properties with cycles and `var()`.
   css-parsing-tests' color files run (4,803 of 8,061 pass, the rest
-  checked against how CSS Color changed), and 13,899 of WPT's 14,893
+  checked against how CSS Color changed), and 13,907 of WPT's 14,893
   static CSS parsing cases pass.
-- Still to come: the cascade, media queries and computed values
-  ([#30](https://github.com/parsec-html/parsec/issues/30)).
+- Done: the cascade, media queries and computed values
+  ([#30](https://github.com/parsec-html/parsec/issues/30)). Origins,
+  layers, specificity, `!important` and `style=""`; `@media` and
+  `@supports` evaluated against an environment you give; inheritance,
+  `revert`, `var()` and computed values as `getComputedStyle()` writes
+  them. WPT: 1,370 of 1,370 media query cases, 10,974 of 12,041
+  computed-value cases, 104 of 123 cascade cases.
+- Still to come: `@container` and `@scope`, `@property`, and the values
+  that need layout (`width: 50%` as pixels).
 
 ## M8. XPath
 
