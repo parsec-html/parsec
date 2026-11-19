@@ -14,6 +14,8 @@ pub struct TypeRef {
     pub name: Box<str>,
     pub range: Option<(f64, f64)>,
     pub(crate) target: OnceLock<super::matcher::Target>,
+    /// What its value can start with, for skipping it when it can't.
+    pub(crate) first: OnceLock<super::matcher::First>,
 }
 
 impl Clone for TypeRef {
@@ -22,6 +24,7 @@ impl Clone for TypeRef {
             name: self.name.clone(),
             range: self.range,
             target: OnceLock::new(),
+            first: OnceLock::new(),
         }
     }
 }
@@ -38,6 +41,7 @@ pub struct PropertyRef {
     pub name: Box<str>,
     #[allow(clippy::type_complexity)]
     pub(crate) target: OnceLock<Option<(&'static super::PropertyData, &'static Grammar)>>,
+    pub(crate) first: OnceLock<super::matcher::First>,
 }
 
 impl Clone for PropertyRef {
@@ -45,6 +49,7 @@ impl Clone for PropertyRef {
         PropertyRef {
             name: self.name.clone(),
             target: OnceLock::new(),
+            first: OnceLock::new(),
         }
     }
 }
@@ -290,11 +295,21 @@ impl P {
             self.i += 1;
             alts.push(self.any()?);
         }
-        Some(if alts.len() == 1 {
-            alts.pop().unwrap()
-        } else {
-            Grammar::One(alts)
-        })
+        if alts.len() == 1 {
+            return alts.pop();
+        }
+        // Values 4 §6.2: where a `<number>` would do, a unitless zero is
+        // one rather than a `<length>`, so numbers are tried first.
+        let numeric = |g: &Grammar, name: &str| matches!(g, Grammar::Type(t) if &*t.name == name);
+        if let (Some(n), Some(l)) = (
+            alts.iter().position(|a| numeric(a, "number")),
+            alts.iter().position(|a| numeric(a, "length")),
+        ) && n > l
+        {
+            let number = alts.remove(n);
+            alts.insert(l, number);
+        }
+        Some(Grammar::One(alts))
     }
 
     fn any(&mut self) -> Option<Grammar> {
@@ -406,15 +421,18 @@ impl P {
                 name: name.into(),
                 range,
                 target: OnceLock::new(),
+                first: OnceLock::new(),
             }),
             Tok::Property(p) => Grammar::Property(PropertyRef {
                 name: p.into(),
                 target: OnceLock::new(),
+                first: OnceLock::new(),
             }),
             Tok::FunctionType(f) => Grammar::Type(TypeRef {
                 name: format!("{f}()").into(),
                 range: None,
                 target: OnceLock::new(),
+                first: OnceLock::new(),
             }),
             Tok::Function(name) => {
                 let inner = if self.peek() == Some(&Tok::CloseParen) {

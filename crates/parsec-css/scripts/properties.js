@@ -21,6 +21,34 @@ const commit = fs.readFileSync(path.join(root, 'data/webref/COMMIT'), 'utf8').tr
 const str = (s) => JSON.stringify(s);
 const opt = (s) => (s === undefined ? 'None' : `Some(${str(s)})`);
 
+// Where webref's grammar is behind its spec, or a spec's prose restricts
+// what the grammar says, the grammar as it should read. Each with where it
+// comes from.
+const PROPERTY_PATCHES = {
+  // CSS Overflow 4 §5.1 refers to the property; webref has a type that
+  // isn't defined.
+  'line-clamp': { syntax: "none | [ <integer [1,∞]> || auto || <'block-ellipsis'> ] -webkit-legacy?" },
+  // CSS Multi-column 2 §4.1; webref merges it with CSS Sizing 3's
+  // mention and loses the rest.
+  'column-width': {
+    syntax: 'auto | <length [0,∞]>',
+    initial: 'auto',
+    inherited: 'no',
+    href: 'https://drafts.csswg.org/css-multicol-2/#cw',
+  },
+};
+const TYPE_PATCHES = {
+  // Scroll Animations 1 §3.1 lists the range names in prose.
+  'timeline-range-name': 'cover | contain | entry | exit | entry-crossing | exit-crossing | scroll',
+  // CSS UI 4 §5.1.1: "a limited version of image-set()".
+  'url-set': '<image-set()>',
+  // CSS Color 5 §7: light-dark() takes two images where an image goes.
+  'image': '<url> | <image()> | <image-set()> | <cross-fade()> | <element()> | <gradient> | <light-dark-image>',
+  // CSS Transitions 1 §2.2: a duration can't be negative, and it's the
+  // first time in a transition.
+  'single-transition': '[ none | <single-transition-property> ] || <time [0s,∞]> || <easing-function> || <time> || <transition-behavior-value>',
+};
+
 const props = [...css.properties].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 const lines = [];
 lines.push('// SPDX-License-Identifier: Apache-2.0');
@@ -32,7 +60,8 @@ lines.push('');
 lines.push('use super::properties::PropertyData;');
 lines.push('');
 lines.push('pub(crate) static PROPERTIES: &[PropertyData] = &[');
-for (const p of props) {
+for (const raw of props) {
+  const p = { ...raw, ...(PROPERTY_PATCHES[raw.name] || {}) };
   const inherited = p.inherited === 'yes' ? 'Some(true)' : p.inherited === 'no' ? 'Some(false)' : 'None';
   lines.push('    PropertyData {');
   lines.push(`        name: ${str(p.name)},`);
@@ -60,6 +89,13 @@ const PATCHES = {
   'saturate': 'saturate( [ <number [0,∞]> | <percentage [0,∞]> ]? )',
   'sepia': 'sepia( [ <number [0,∞]> | <percentage [0,∞]> ]? )',
   'drop-shadow': 'drop-shadow( [ <color>? && [ <length>{2} <length [0,∞]>? ] ] )',
+  // CSS Shapes 1 §3.1: a circle's radius is one value, "two
+  // <length-percentage> values are invalid"; percentages resolve against
+  // the reference box, and an ellipse's radii may each be either.
+  'circle': 'circle( [ <radial-extent> | <length-percentage [0,∞]> ]? [ at <position> ]? )',
+  'ellipse': 'ellipse( [ <radial-extent> | <length-percentage [0,∞]> ]{0,2} [ at <position> ]? )',
+  // A corner's rounding is a radius, which can't be negative.
+  'polygon': "polygon( <'fill-rule'>? [ round <length [0,∞]> ]? , [<length-percentage> <length-percentage>]# )",
 };
 
 // Types and functions by name, sorted for binary search. Where a name is
@@ -68,14 +104,14 @@ const PATCHES = {
 function table(name, items, key) {
   const seen = new Map();
   for (const t of items) {
-    if (!t.syntax) continue;
+    if (!t.syntax && !(name === 'TYPES' && TYPE_PATCHES[key(t)])) continue;
     const k = key(t);
     if (!seen.has(k) || (seen.get(k).for && !t.for)) seen.set(k, t);
   }
   const keys = [...seen.keys()].sort();
   lines.push(`pub(crate) static ${name}: &[(&str, &str)] = &[`);
   for (const k of keys) {
-    const syntax = (name === 'FUNCTIONS' && PATCHES[k]) || seen.get(k).syntax;
+    const syntax = (name === 'FUNCTIONS' && PATCHES[k]) || (name === 'TYPES' && TYPE_PATCHES[k]) || seen.get(k).syntax;
     lines.push(`    (${str(k)}, ${str(syntax)}),`);
   }
   lines.push('];');

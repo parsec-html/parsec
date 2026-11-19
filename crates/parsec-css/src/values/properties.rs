@@ -43,7 +43,7 @@ impl PropertyData {
 
     /// Where this is in the table, from its address, so no lookup by
     /// name; a `PropertyData` made elsewhere is looked up.
-    fn position(&self) -> Option<usize> {
+    pub(crate) fn position(&self) -> Option<usize> {
         let at = (self as *const PropertyData as usize).wrapping_sub(PROPERTIES.as_ptr() as usize)
             / std::mem::size_of::<PropertyData>();
         match PROPERTIES.get(at) {
@@ -56,14 +56,26 @@ impl PropertyData {
     /// and properties it refers to: what a `<custom-ident>` in its value
     /// can't be, by Values 4 §4.2's rule that a keyword some other part of
     /// the grammar can take isn't an identifier of the author's.
-    pub(crate) fn keywords(&self) -> &'static HashSet<&'static str> {
-        static ALL: OnceLock<Vec<OnceLock<HashSet<&'static str>>>> = OnceLock::new();
-        static NONE: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    pub(crate) fn keywords(&self) -> &'static Keywords {
+        static ALL: OnceLock<Vec<OnceLock<Keywords>>> = OnceLock::new();
+        static NONE: OnceLock<Keywords> = OnceLock::new();
         let all = ALL.get_or_init(|| PROPERTIES.iter().map(|_| OnceLock::new()).collect());
         let (Some(i), Some(g)) = (self.position(), self.grammar()) else {
-            return NONE.get_or_init(HashSet::new);
+            return NONE.get_or_init(Keywords::default);
         };
         all[i].get_or_init(|| keywords_of(g))
+    }
+
+    /// Whether a lone identifier that isn't one of its keywords can be a
+    /// value of it: a name, a color's, or anything for a grammar that takes
+    /// tokens as they are.
+    pub(crate) fn takes_names(&self) -> bool {
+        static ALL: OnceLock<Vec<OnceLock<bool>>> = OnceLock::new();
+        let all = ALL.get_or_init(|| PROPERTIES.iter().map(|_| OnceLock::new()).collect());
+        let (Some(i), Some(g)) = (self.position(), self.grammar()) else {
+            return true;
+        };
+        *all[i].get_or_init(|| names_in(g))
     }
 
     /// The grammar of its value, parsed: the alias target's for an alias.
@@ -95,22 +107,68 @@ pub fn properties() -> &'static [Property] {
 }
 
 fn index(name: &str) -> Option<usize> {
-    let mut buf = [0; 64];
-    let lower = match name.bytes().any(|b| b.is_ascii_uppercase()) {
-        true => {
-            let out = buf.get_mut(..name.len())?;
-            out.copy_from_slice(name.as_bytes());
-            out.make_ascii_lowercase();
-            std::str::from_utf8(out).ok()?
+    // Open addressing on FNV-1a of the lowercased name, worked out as it's
+    // read, so no copy: this is looked up once a declaration.
+    let table = by_name();
+    let mask = table.len() - 1;
+    let mut slot = fnv_lower(name.as_bytes()) as usize & mask;
+    loop {
+        match table[slot] {
+            0 => return None,
+            i => {
+                let i = i as usize - 1;
+                let found = PROPERTIES[i].name;
+                if found.len() == name.len() && (found == name || found.eq_ignore_ascii_case(name))
+                {
+                    return Some(i);
+                }
+            }
         }
-        false => name,
-    };
-    by_name().get(lower).copied()
+        slot = (slot + 1) & mask;
+    }
 }
 
-/// FNV-1a: names are short, and this is looked up once a declaration.
+/// A hash of a name that ignores ASCII case: its first and last eight
+/// bytes and its length, so a few instructions rather than a loop. Bit
+/// 0x20 set lowercases a letter and leaves `-` and digits as they are;
+/// the comparison after it settles everything else.
+fn fnv_lower(bytes: &[u8]) -> u32 {
+    let word = |b: &[u8]| {
+        let mut w = [0u8; 8];
+        w[..b.len()].copy_from_slice(b);
+        u64::from_le_bytes(w) | 0x2020_2020_2020_2020
+    };
+    let n = bytes.len();
+    let (head, tail) = if n >= 8 {
+        (word(&bytes[..8]), word(&bytes[n - 8..]))
+    } else {
+        (word(bytes), 0)
+    };
+    let h = (head ^ tail.rotate_left(29) ^ n as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    (h >> 32) as u32
+}
+
+/// Each property's place in the table plus one, by its name's hash; 0
+/// is an empty slot.
+fn by_name() -> &'static [u16] {
+    static TABLE: OnceLock<Vec<u16>> = OnceLock::new();
+    TABLE.get_or_init(|| {
+        let size = (PROPERTIES.len() * 2).next_power_of_two();
+        let mut t = vec![0u16; size];
+        for (i, p) in PROPERTIES.iter().enumerate() {
+            let mut slot = fnv_lower(p.name.as_bytes()) as usize & (size - 1);
+            while t[slot] != 0 {
+                slot = (slot + 1) & (size - 1);
+            }
+            t[slot] = i as u16 + 1;
+        }
+        t
+    })
+}
+
+/// FNV-1a, for the keyword sets: keywords are short.
 #[derive(Default)]
-struct Fnv(u64);
+pub(crate) struct Fnv(u64);
 
 impl std::hash::Hasher for Fnv {
     fn finish(&self) -> u64 {
@@ -130,21 +188,13 @@ impl std::hash::Hasher for Fnv {
     }
 }
 
-type ByName = std::collections::HashMap<&'static str, usize, std::hash::BuildHasherDefault<Fnv>>;
+pub(crate) type FnvBuild = std::hash::BuildHasherDefault<Fnv>;
 
-fn by_name() -> &'static ByName {
-    static MAP: OnceLock<ByName> = OnceLock::new();
-    MAP.get_or_init(|| {
-        PROPERTIES
-            .iter()
-            .enumerate()
-            .map(|(i, p)| (p.name, i))
-            .collect()
-    })
-}
+/// A property's keywords, looked up by FNV: they're short.
+pub(crate) type Keywords = HashSet<&'static str, FnvBuild>;
 
-fn keywords_of(g: &'static Grammar) -> HashSet<&'static str> {
-    let mut out = HashSet::new();
+fn keywords_of(g: &'static Grammar) -> Keywords {
+    let mut out = Keywords::default();
     let mut seen: HashSet<*const Grammar> = HashSet::new();
     let mut stack = vec![g];
     while let Some(g) = stack.pop() {
@@ -172,6 +222,41 @@ fn keywords_of(g: &'static Grammar) -> HashSet<&'static str> {
         }
     }
     out
+}
+
+fn names_in(g: &'static Grammar) -> bool {
+    let mut seen: HashSet<*const Grammar> = HashSet::new();
+    let mut stack = vec![g];
+    while let Some(g) = stack.pop() {
+        if !seen.insert(g) {
+            continue;
+        }
+        match g {
+            Grammar::Type(t) => {
+                if t.name.ends_with("()") {
+                    continue;
+                }
+                match &*t.name {
+                    "ident"
+                    | "custom-ident"
+                    | "dashed-ident"
+                    | "custom-property-name"
+                    | "color"
+                    | "declaration-value"
+                    | "any-value" => return true,
+                    // A type that's prose only matches nothing.
+                    name => stack.extend(type_grammar(name)),
+                }
+            }
+            Grammar::Property(r) => stack.extend(property(&r.name).and_then(|p| p.grammar())),
+            Grammar::Sequence(v) | Grammar::All(v) | Grammar::Any(v) | Grammar::One(v) => {
+                stack.extend(v.iter())
+            }
+            Grammar::Repeat { item, .. } | Grammar::NonEmpty(item) => stack.push(item),
+            _ => {}
+        }
+    }
+    false
 }
 
 /// Every grammar in the table, parsed once, on first use.

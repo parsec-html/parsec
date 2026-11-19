@@ -2544,12 +2544,12 @@ pub(crate) static PROPERTIES: &[PropertyData] = &[
     },
     PropertyData {
         name: "column-width",
-        syntax: Some("auto | <box-size> | auto | <box-size>"),
-        initial: None,
-        inherited: None,
+        syntax: Some("auto | <length [0,∞]>"),
+        initial: Some("auto"),
+        inherited: Some(false),
         longhands: &[],
         alias_of: None,
-        href: "https://drafts.csswg.org/css-sizing-3/#column-sizing",
+        href: "https://drafts.csswg.org/css-multicol-2/#cw",
     },
     PropertyData {
         name: "column-wrap",
@@ -4307,7 +4307,7 @@ pub(crate) static PROPERTIES: &[PropertyData] = &[
     },
     PropertyData {
         name: "line-clamp",
-        syntax: Some("none | [<integer [1,∞]> || auto || <block-ellipsis>] -webkit-legacy?"),
+        syntax: Some("none | [ <integer [1,∞]> || auto || <'block-ellipsis'> ] -webkit-legacy?"),
         initial: Some("none"),
         inherited: None,
         longhands: &["max-lines", "block-ellipsis", "continue"],
@@ -8315,7 +8315,7 @@ pub(crate) static TYPES: &[(&str, &str)] = &[
     ),
     (
         "image",
-        "<url> | <image()> | <image-set()> | <cross-fade()> | <element()> | <gradient>",
+        "<url> | <image()> | <image-set()> | <cross-fade()> | <element()> | <gradient> | <light-dark-image>",
     ),
     ("image-1D", "<stripes()>"),
     (
@@ -8783,7 +8783,7 @@ pub(crate) static TYPES: &[(&str, &str)] = &[
     ),
     (
         "single-transition",
-        "[ none | <single-transition-property> ] || <time> || <easing-function> || <time> || <transition-behavior-value>",
+        "[ none | <single-transition-property> ] || <time [0s,∞]> || <easing-function> || <time> || <transition-behavior-value>",
     ),
     ("single-transition-property", "all | <custom-ident>"),
     (
@@ -8916,6 +8916,10 @@ pub(crate) static TYPES: &[(&str, &str)] = &[
     ),
     ("time-percentage", "[ <time> | <percentage> ]"),
     (
+        "timeline-range-name",
+        "cover | contain | entry | exit | entry-crossing | exit-crossing | scroll",
+    ),
+    (
         "track-breadth",
         "<length-percentage [0,∞]> | <flex [0,∞]> | min-content | max-content | auto",
     ),
@@ -8948,6 +8952,7 @@ pub(crate) static TYPES: &[(&str, &str)] = &[
     ("type", "'<' [ number | string ] '>'"),
     ("type-selector", "<wq-name> | <ns-prefix>? '*'"),
     ("url", "<url()> | <src()>"),
+    ("url-set", "<image-set()>"),
     (
         "var-args",
         "var( <declaration-value> , <declaration-value>? )",
@@ -9005,7 +9010,10 @@ pub(crate) static FUNCTIONS: &[(&str, &str)] = &[
     ),
     ("calc-size", "calc-size( <calc-size-basis>, <calc-sum> )"),
     ("change", "change()"),
-    ("circle", "circle( <radial-size>? [ at <position> ]? )"),
+    (
+        "circle",
+        "circle( [ <radial-extent> | <length-percentage [0,∞]> ]? [ at <position> ]? )",
+    ),
     (
         "clamp",
         "clamp( [ <calc-sum> | none ], <calc-sum>, [ <calc-sum> | none ] )",
@@ -9067,7 +9075,10 @@ pub(crate) static FUNCTIONS: &[(&str, &str)] = &[
         "dynamic-range-limit-mix( [ <'dynamic-range-limit'> && <percentage [0,100]> ]# )",
     ),
     ("element", "element( <id-selector> )"),
-    ("ellipse", "ellipse( <radial-size>? [ at <position> ]? )"),
+    (
+        "ellipse",
+        "ellipse( [ <radial-extent> | <length-percentage [0,∞]> ]{0,2} [ at <position> ]? )",
+    ),
     (
         "env",
         "env( <custom-ident> <integer [0,∞]>*, <declaration-value>? )",
@@ -9191,7 +9202,7 @@ pub(crate) static FUNCTIONS: &[(&str, &str)] = &[
     ("pointerup", "pointerup()"),
     (
         "polygon",
-        "polygon( <'fill-rule'>? [ round <length> ]? , [<length-percentage> <length-percentage>]# )",
+        "polygon( <'fill-rule'>? [ round <length [0,∞]> ]? , [<length-percentage> <length-percentage>]# )",
     ),
     ("pow", "pow( <calc-sum>, <calc-sum> )"),
     (

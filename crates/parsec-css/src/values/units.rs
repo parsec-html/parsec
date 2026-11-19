@@ -132,6 +132,10 @@ units! {
 impl Unit {
     /// The unit a dimension token's unit names, ignoring ASCII case.
     pub fn parse(unit: &str) -> Option<Unit> {
+        // Units are nearly always written in lowercase already.
+        if !unit.bytes().any(|b| b.is_ascii_uppercase()) {
+            return Unit::from_lowercase(unit);
+        }
         let mut buf = [0; 32];
         let lower = lowercase(unit, &mut buf)?;
         Unit::from_lowercase(lower)

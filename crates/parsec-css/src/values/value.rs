@@ -62,15 +62,16 @@ pub enum CssWide {
 
 impl CssWide {
     fn parse(word: &str) -> Option<CssWide> {
-        let mut buf = [0; 32];
-        Some(match super::units::lowercase(word, &mut buf)? {
-            "initial" => CssWide::Initial,
-            "inherit" => CssWide::Inherit,
-            "unset" => CssWide::Unset,
-            "revert" => CssWide::Revert,
-            "revert-layer" => CssWide::RevertLayer,
+        // By length first: most words are none of these.
+        let k = match word.len() {
+            7 if word.eq_ignore_ascii_case("initial") => CssWide::Initial,
+            7 if word.eq_ignore_ascii_case("inherit") => CssWide::Inherit,
+            5 if word.eq_ignore_ascii_case("unset") => CssWide::Unset,
+            6 if word.eq_ignore_ascii_case("revert") => CssWide::Revert,
+            12 if word.eq_ignore_ascii_case("revert-layer") => CssWide::RevertLayer,
             _ => return None,
-        })
+        };
+        Some(k)
     }
 
     pub fn as_str(self) -> &'static str {
@@ -182,9 +183,189 @@ fn parse_for<'a>(
     if value.is_empty() {
         return Err(InvalidValue);
     }
+    if let [ComponentValue::Token(Token::Ident(w), _)] = value {
+        let Some(lone) = lone(p, w) else {
+            if !p.takes_names() {
+                return Err(InvalidValue);
+            }
+            return parse_matched(p, value);
+        };
+        return match lone {
+            Lone::Invalid => Err(InvalidValue),
+            Lone::Keywords(k) => Ok(Specified::Value(
+                k.iter().map(|k| Component::Keyword(k)).collect(),
+            )),
+            Lone::Other => parse_matched(p, value),
+        };
+    }
     if has_substitution(value) {
         return Ok(Specified::Unparsed(value.to_vec()));
     }
+    if p.name == "font-family"
+        && let Some(found) = font_family(value)
+    {
+        return found;
+    }
+    // One token, `1px` or `#fff`, for a grammar of plain alternatives.
+    if let [v @ ComponentValue::Token(..)] = value {
+        let f = flags(p);
+        if !f.form
+            && !f.restricted
+            && let Some(g) = p.grammar()
+            && let Some(found) = super::matcher::single(g, v)
+        {
+            return found.map(|c| Specified::Value(vec![c])).ok_or(InvalidValue);
+        }
+    }
+    parse_matched(p, value)
+}
+
+/// `font-family` without the matcher, which takes a while over a long
+/// list: each name a string, identifiers, or a generic family's keyword,
+/// as CSS Fonts 4 §2.1 says. `None` for anything else, `generic(kai)` say.
+fn font_family<'a>(value: &[ComponentValue<'a>]) -> Option<Result<Specified<'a>, InvalidValue>> {
+    use super::restrict::{CSS_WIDE, GENERIC_FAMILIES};
+    let mut c = Vec::with_capacity(value.len());
+    for item in value.split(|v| matches!(v, ComponentValue::Token(Token::Comma, _))) {
+        if !c.is_empty() {
+            c.push(Component::Literal(','));
+        }
+        let mut words = item.iter().filter(|v| !v.is_whitespace()).peekable();
+        match words.peek() {
+            None => return Some(Err(InvalidValue)),
+            Some(ComponentValue::Token(Token::String(s), _)) => {
+                c.push(Component::String(s.clone()));
+                words.next();
+                if words.next().is_some() {
+                    return Some(Err(InvalidValue));
+                }
+            }
+            Some(_) => {
+                let start = c.len();
+                for w in words {
+                    let ComponentValue::Token(Token::Ident(s), _) = w else {
+                        return None;
+                    };
+                    c.push(Component::Ident(s.clone()));
+                }
+                // One word that's a generic family is its keyword; a
+                // generic family or a CSS-wide keyword in a name is no
+                // name at all.
+                let generic = |x: &Component<'_>| {
+                    GENERIC_FAMILIES
+                        .iter()
+                        .find(|g| matches!(x, Component::Ident(s) if s.eq_ignore_ascii_case(g)))
+                };
+                if c.len() - start == 1
+                    && let Some(g) = generic(&c[start])
+                {
+                    c[start] = Component::Keyword(g);
+                    continue;
+                }
+                let reserved = c[start..].iter().any(|x| {
+                    generic(x).is_some()
+                        || matches!(x, Component::Ident(s) if CSS_WIDE.iter().any(|w| s.eq_ignore_ascii_case(w)))
+                });
+                if reserved {
+                    return Some(Err(InvalidValue));
+                }
+            }
+        }
+    }
+    super::canonical::form("font-family", &mut c);
+    Some(Ok(Specified::Value(c)))
+}
+
+/// What [`parse_matched`] has to do for a property, worked out once.
+#[derive(Clone, Copy)]
+struct Flags {
+    keep_order: bool,
+    restricted: bool,
+    form: bool,
+}
+
+fn flags(p: &'static Property) -> Flags {
+    use std::sync::OnceLock;
+    static ALL: OnceLock<Vec<OnceLock<Flags>>> = OnceLock::new();
+    let all = ALL.get_or_init(|| {
+        super::properties::properties()
+            .iter()
+            .map(|_| OnceLock::new())
+            .collect()
+    });
+    let work = || {
+        let name = p.alias_of.unwrap_or(p.name);
+        Flags {
+            keep_order: super::canonical::KEEP_ORDER.contains(&name),
+            restricted: super::restrict::PROPERTIES.contains(&name),
+            form: super::canonical::has_form(name),
+        }
+    };
+    match p.position().and_then(|i| all.get(i)) {
+        Some(cell) => *cell.get_or_init(work),
+        None => work(),
+    }
+}
+
+/// What one of a property's keywords alone parses to.
+enum Lone {
+    Invalid,
+    Keywords(Vec<&'static str>),
+    /// Something else, `0 0 auto` for `flex: none`: worked out each time.
+    Other,
+}
+
+type LoneTable = std::collections::HashMap<&'static [u8], Lone, super::properties::FnvBuild>;
+
+/// A value of one keyword, worked out the long way once for each keyword
+/// of each property, the first time the property's value is parsed: most
+/// declarations are a keyword alone (`display: none`), and its grammar
+/// can take many steps to say so. `None` for a word that's no keyword of
+/// the property's, or one that parses to something else, a name.
+fn lone(p: &'static Property, word: &str) -> Option<&'static Lone> {
+    use std::sync::OnceLock;
+    static ALL: OnceLock<Vec<OnceLock<LoneTable>>> = OnceLock::new();
+    let all = ALL.get_or_init(|| {
+        super::properties::properties()
+            .iter()
+            .map(|_| OnceLock::new())
+            .collect()
+    });
+    let table = all.get(p.position()?)?.get_or_init(|| {
+        p.keywords()
+            .iter()
+            .map(|k| {
+                let values = crate::parse_component_values(k);
+                let lone = match parse_matched(p, &values) {
+                    Err(_) => Lone::Invalid,
+                    Ok(Specified::Value(c)) => c
+                        .iter()
+                        .map(|c| match c {
+                            Component::Keyword(k) => Some(*k),
+                            _ => None,
+                        })
+                        .collect::<Option<_>>()
+                        .map_or(Lone::Other, Lone::Keywords),
+                    Ok(_) => Lone::Other,
+                };
+                (k.as_bytes(), lone)
+            })
+            .collect()
+    });
+    // Lowercased as bytes: no need to check it's still UTF-8.
+    let mut buf = [0u8; 32];
+    let out = buf.get_mut(..word.len())?;
+    out.copy_from_slice(word.as_bytes());
+    out.make_ascii_lowercase();
+    table.get(&*out)
+}
+
+/// [`parse_for`] after its shortcuts: the value matched against the
+/// grammar.
+fn parse_matched<'a>(
+    p: &'static Property,
+    value: &[ComponentValue<'a>],
+) -> Result<Specified<'a>, InvalidValue> {
     let g = p.grammar().ok_or(InvalidValue)?;
     // A keyword the grammar has elsewhere is taken as that keyword where it
     // can be (`span` in `grid-column`), and as a name only if nothing
@@ -196,24 +377,19 @@ fn parse_for<'a>(
             return Err(InvalidValue);
         }
     }
-    let outs = canonical(m.out);
+    let name = p.alias_of.unwrap_or(p.name);
+    let f = flags(p);
+    let outs = canonical(m.out, f.keep_order);
     let mut c = match same_pair(g, &outs) {
         Some(first) => components(first),
         None => components(outs),
     };
-    shortest(g, &mut c);
-    // `first baseline` is `baseline`, CSS Box Alignment §4.2.
-    if let Some(i) = c
-        .windows(2)
-        .position(|w| w[0] == Component::Keyword("first") && w[1] == Component::Keyword("baseline"))
-    {
-        c.remove(i);
+    if f.restricted && !super::restrict::property(name, value, &c) {
+        return Err(InvalidValue);
     }
-    match p.name {
-        "display" => shortest_display(&mut c),
-        "white-space" => shortest_white_space(&mut c),
-        "flex" => shortest_flex(&mut c),
-        _ => {}
+    shortest(g, &mut c);
+    if f.form {
+        super::canonical::form(name, &mut c);
     }
     Ok(Specified::Value(c))
 }
@@ -225,7 +401,7 @@ fn same_pair<'a>(g: &Grammar, outs: &[Out<'a>]) -> Option<Vec<Out<'a>>> {
         return None;
     };
     let [
-        Grammar::Property(_),
+        Grammar::Property(_) | Grammar::Type(_),
         Grammar::Repeat {
             item,
             min: 0,
@@ -236,6 +412,19 @@ fn same_pair<'a>(g: &Grammar, outs: &[Out<'a>]) -> Option<Vec<Out<'a>>> {
     else {
         return None;
     };
+    if let (Grammar::Type(a), Grammar::Type(b)) = (&items[0], &**item)
+        && a == b
+        && single(&items[0])
+    {
+        // `<inset-value> <inset-value>?`: the second left out is the first.
+        let values: Vec<&Out<'a>> = outs.iter().filter(|o| matches!(o, Out::C(_))).collect();
+        if let [Out::C(x), Out::C(y)] = values[..]
+            && x == y
+        {
+            return Some(vec![Out::C(x.clone())]);
+        }
+        return None;
+    }
     if !matches!(**item, Grammar::Property(_)) {
         return None;
     }
@@ -245,162 +434,6 @@ fn same_pair<'a>(g: &Grammar, outs: &[Out<'a>]) -> Option<Vec<Out<'a>>> {
     };
     let text = |o: &[Out<'a>]| Specified::Value(components(o.to_vec())).to_string();
     (text(a) == text(b)).then(|| a.to_vec())
-}
-
-/// `flex` in full, as browsers write it: grow, shrink and basis, with
-/// `1`, `1` and `0%` where they're left out, and `none` as `0 0 auto`.
-fn shortest_flex(c: &mut Vec<Component<'_>>) {
-    if *c == [Component::Keyword("none")] {
-        *c = vec![
-            Component::Number {
-                value: 0.0,
-                integer: true,
-            },
-            Component::Number {
-                value: 0.0,
-                integer: true,
-            },
-            Component::Keyword("auto"),
-        ];
-        return;
-    }
-    let mut numbers = Vec::new();
-    let mut basis = None;
-    for x in c.drain(..) {
-        match x {
-            Component::Number { .. } if numbers.len() < 2 => numbers.push(x),
-            Component::Math(ref m) if numbers.len() < 2 && m.fits(super::math::Expect::Number) => {
-                numbers.push(x)
-            }
-            other => basis = Some(other),
-        }
-    }
-    let one = Component::Number {
-        value: 1.0,
-        integer: true,
-    };
-    let grow = numbers.first().cloned().unwrap_or(one.clone());
-    let shrink = numbers.get(1).cloned().unwrap_or(one);
-    let basis = basis.unwrap_or(Component::Percentage(0.0));
-    *c = vec![grow, shrink, basis];
-}
-
-fn keywords(c: &[Component<'_>]) -> Option<Vec<&'static str>> {
-    c.iter()
-        .map(|c| match c {
-            Component::Keyword(k) => Some(*k),
-            _ => None,
-        })
-        .collect()
-}
-
-/// `display` in its shortest form, CSS Display 3 §2: `block flow` is
-/// `block`, `inline flex` is `inline-flex`, `block flow list-item` is
-/// `list-item`.
-fn shortest_display(c: &mut Vec<Component<'_>>) {
-    let Some(words) = keywords(c) else { return };
-    if words.len() < 2 {
-        return;
-    }
-    let outer = ["block", "inline", "run-in"];
-    let out = words.iter().copied().find(|w| outer.contains(w));
-    let list_item = words.contains(&"list-item");
-    let inner = words
-        .iter()
-        .copied()
-        .find(|w| !outer.contains(w) && *w != "list-item");
-    let out_word = out.unwrap_or("block");
-    let inner_word = inner.unwrap_or("flow");
-    let written: Vec<&'static str> = if list_item {
-        let mut v = Vec::new();
-        if out_word != "block" {
-            v.push(out_word);
-        }
-        if inner_word != "flow" {
-            v.push(inner_word);
-        }
-        v.push("list-item");
-        v
-    } else {
-        match (out_word, inner_word) {
-            ("block", "flow") => vec!["block"],
-            ("inline", "flow") => vec!["inline"],
-            ("run-in", "flow") => vec!["run-in"],
-            ("block", "flow-root") => vec!["flow-root"],
-            ("inline", "flow-root") => vec!["inline-block"],
-            ("block", "table") => vec!["table"],
-            ("inline", "table") => vec!["inline-table"],
-            ("block", "flex") => vec!["flex"],
-            ("inline", "flex") => vec!["inline-flex"],
-            ("block", "grid") => vec!["grid"],
-            ("inline", "grid") => vec!["inline-grid"],
-            ("inline", "ruby") => vec!["ruby"],
-            (o, i) => vec![o, i],
-        }
-    };
-    *c = written.into_iter().map(Component::Keyword).collect();
-}
-
-/// `white-space` as its legacy keywords where one says it, and otherwise
-/// without what's at its initial value.
-fn shortest_white_space(c: &mut Vec<Component<'_>>) {
-    let Some(words) = keywords(c) else { return };
-    let collapse = [
-        "collapse",
-        "preserve",
-        "preserve-breaks",
-        "preserve-spaces",
-        "break-spaces",
-    ];
-    let wrap = ["wrap", "nowrap"];
-    if words
-        .iter()
-        .any(|w| ["normal", "pre", "pre-wrap", "pre-line"].contains(w))
-    {
-        return;
-    }
-    let col = words
-        .iter()
-        .copied()
-        .find(|w| collapse.contains(w))
-        .unwrap_or("collapse");
-    let wr = words
-        .iter()
-        .copied()
-        .find(|w| wrap.contains(w))
-        .unwrap_or("wrap");
-    let trim: Vec<&'static str> = words
-        .iter()
-        .copied()
-        .filter(|w| !collapse.contains(w) && !wrap.contains(w) && *w != "none")
-        .collect();
-    let mut written: Vec<&'static str> = Vec::new();
-    if trim.is_empty() {
-        let legacy = match (col, wr) {
-            ("collapse", "wrap") => Some("normal"),
-            ("preserve", "nowrap") => Some("pre"),
-            ("preserve", "wrap") => Some("pre-wrap"),
-            ("preserve-breaks", "wrap") => Some("pre-line"),
-            ("collapse", "nowrap") => Some("nowrap"),
-            ("break-spaces", "wrap") => Some("break-spaces"),
-            _ => None,
-        };
-        if let Some(l) = legacy {
-            *c = vec![Component::Keyword(l)];
-            return;
-        }
-    }
-    if col != "collapse" {
-        written.push(col);
-    }
-    if wr != "wrap" {
-        written.push(wr);
-    }
-    written.extend(trim);
-    if written.is_empty() {
-        written.push("normal");
-    }
-    *c = written.into_iter().map(Component::Keyword).collect();
 }
 
 /// Leaves out what a box shorthand repeats, as CSSOM writes them:
@@ -416,17 +449,26 @@ fn shortest(g: &Grammar, c: &mut Vec<Component<'_>>) {
         return;
     };
     // Only where each item is one value.
-    if !matches!(**item, Grammar::Property(_) | Grammar::Type(_)) || c.len() > *max as usize {
+    if !single(item) || c.len() > *max as usize {
         return;
     }
-    if c.len() == 4 && c[3] == c[1] {
-        c.pop();
+    super::canonical::sides(c);
+}
+
+/// [`shortest`] for a property by name.
+pub(crate) fn shortest_of(name: &str, c: &mut Vec<Component<'_>>) {
+    if let Some(g) = property(name).and_then(|p| p.grammar()) {
+        shortest(g, c);
     }
-    if c.len() == 3 && c[2] == c[0] {
-        c.pop();
-    }
-    if c.len() == 2 && c[1] == c[0] {
-        c.pop();
+}
+
+/// Whether a grammar always matches exactly one value.
+fn single(g: &Grammar) -> bool {
+    match g {
+        Grammar::Keyword(_) | Grammar::Property(_) | Grammar::Function(..) => true,
+        Grammar::Type(t) => !matches!(&*t.name, "position" | "bg-position" | "track-list"),
+        Grammar::One(alts) => alts.iter().all(single),
+        _ => false,
     }
 }
 
@@ -450,7 +492,7 @@ pub(crate) fn match_function<'a>(
     if !m.whole(g) {
         return None;
     }
-    Some(components(canonical(m.out)))
+    Some(components(canonical(m.out, false)))
 }
 
 /// Parses a declaration's value for its property.
@@ -460,7 +502,9 @@ pub fn parse_declaration_value<'a>(d: &Declaration<'a>) -> Result<Specified<'a>,
 
 /// Parses a shorthand's value and splits it into a value for each of its
 /// longhands, in the order the spec lists them; a longhand the value
-/// leaves out gets its initial value. A longhand gives itself.
+/// leaves out gets its initial value. A longhand that is itself a
+/// shorthand (`border-width` in `border`) is followed by its own. A
+/// longhand gives itself.
 ///
 /// ```
 /// use parsec_css::values::expand;
@@ -488,7 +532,11 @@ pub fn expand<'a>(
     match parse_for(p, value)? {
         Specified::Value(_) => {}
         // Every longhand takes the keyword, or waits for substitution.
-        other => return Ok(p.longhands.iter().map(|l| (*l, other.clone())).collect()),
+        other => {
+            let mut leaves = Vec::new();
+            leaf_longhands(p, &mut leaves);
+            return Ok(leaves.into_iter().map(|l| (l, other.clone())).collect());
+        }
     }
     if let Some(special) = expand_special(p, value) {
         return Ok(special);
@@ -499,18 +547,213 @@ pub fn expand<'a>(
         m = Matcher::new(value);
         m.whole(g);
     }
-    let outs = canonical(m.out);
-    let mut assigned: Vec<Option<Vec<Out<'a>>>> = vec![None; p.longhands.len()];
-    split(p, g, &outs, &mut assigned).ok_or(InvalidValue)?;
+    let outs = canonical(m.out, false);
     let mut result = Vec::with_capacity(p.longhands.len());
+    assign(p, g, &outs, &mut result)?;
+    // CSS Masking 1 §7.10 and CSS Backgrounds 3 §4.4: `mask` resets
+    // `mask-border` too, and `border` `border-image`.
+    let resets = match p.name {
+        "mask" => Some("mask-border"),
+        "border" => Some("border-image"),
+        _ => None,
+    };
+    if let Some(border) = resets.and_then(property) {
+        result.push((border.name, initial(border.name)));
+        result.extend(border.longhands.iter().map(|l| (*l, initial(l))));
+    }
+    Ok(result)
+}
+
+/// Splits a match of shorthand `p`'s grammar `g` into its longhands, and
+/// those that are shorthands into theirs after them, onto `result`.
+fn assign<'a>(
+    p: &'static Property,
+    g: &'static Grammar,
+    outs: &[Out<'a>],
+    result: &mut Vec<(&'static str, Specified<'a>)>,
+) -> Result<(), InvalidValue> {
+    let mut assigned: Vec<Option<Vec<Out<'a>>>> = vec![None; p.longhands.len()];
+    // Lists of layers, `background` or `transition`, layer by layer.
+    let listed = matches!(g, Grammar::Repeat { commas: true, .. }) || p.name == "background";
+    let by_layer = listed && (p.longhands.len() > 2 || p.name == "animation-range");
+    if by_layer || split(p, g, outs, &mut assigned).is_none() {
+        assigned = layers(p, outs).ok_or(InvalidValue)?;
+    }
     for (name, part) in p.longhands.iter().zip(assigned) {
+        let Some(lp) = property(name) else { continue };
+        if lp.is_shorthand() {
+            // The shorthand itself, then its own longhands.
+            match (part, lp.grammar()) {
+                (Some(outs), Some(sg)) => {
+                    let mut c = components(outs.clone());
+                    super::canonical::property(name, &mut c);
+                    result.push((*name, Specified::Value(c)));
+                    assign(lp, sg, &outs, result)?
+                }
+                _ => {
+                    result.push((*name, initial(name)));
+                    let mut leaves = Vec::new();
+                    leaf_longhands(lp, &mut leaves);
+                    result.extend(leaves.into_iter().map(|l| (l, initial(l))));
+                }
+            }
+            continue;
+        }
         let value = match part {
-            Some(outs) => Specified::Value(components(outs)),
+            Some(outs) => {
+                let mut c = components(outs);
+                shortest_of(name, &mut c);
+                super::canonical::property(name, &mut c);
+                Specified::Value(c)
+            }
             None => initial(name),
         };
         result.push((*name, value));
     }
-    Ok(result)
+    Ok(())
+}
+
+/// A shorthand's longhands, those that are shorthands by theirs.
+fn leaf_longhands(p: &'static Property, out: &mut Vec<&'static str>) {
+    for l in p.longhands {
+        out.push(l);
+        if let Some(lp) = property(l)
+            && lp.is_shorthand()
+        {
+            leaf_longhands(lp, out);
+        }
+    }
+}
+
+/// Splits a comma-separated list of layers, `background` or `transition`
+/// say, by finding for each run of values in a layer the longhand that
+/// takes it, longest runs first, in the longhands' order; what follows a
+/// `/` goes first. A longhand with no list (`background-color`) takes its
+/// value from the layer that has it.
+fn layers<'a>(p: &'static Property, outs: &[Out<'a>]) -> Option<Vec<Option<Vec<Out<'a>>>>> {
+    let all = components(outs.to_vec());
+    let n = p.longhands.len();
+    let mut per: Vec<Vec<Option<Vec<Component<'a>>>>> = Vec::new();
+    for layer in all.split(|c| *c == Component::Literal(',')) {
+        let mut got: Vec<Option<Vec<Component<'a>>>> = vec![None; n];
+        let mut rest: Vec<Component<'a>> = layer.to_vec();
+        let mut slashed = None;
+        if let Some(s) = rest.iter().position(|c| *c == Component::Literal('/')) {
+            let after = rest.split_off(s);
+            slashed = Some(after[1..].to_vec());
+        }
+        if let Some(after) = slashed {
+            // The run before the `/` and the run after it, for the two
+            // longhands that take them.
+            let (i, before) = take_run(p, &mut rest, &got, true)?;
+            got[i] = Some(before);
+            let mut after = after;
+            let (j, run) = take_run(p, &mut after, &got, false)?;
+            got[j] = Some(run);
+            if !after.is_empty() {
+                rest.extend(after);
+            }
+        }
+        while !rest.is_empty() {
+            let (i, run) = take_run(p, &mut rest, &got, false)?;
+            got[i] = Some(run);
+        }
+        // Scroll Animations 1 §4.4: an end left out is the start's range
+        // name, at its own default, or `normal`.
+        if p.name == "animation-range"
+            && got[1].is_none()
+            && let Some(start) = &got[0]
+            && let Some(Component::Keyword(name)) = start.first()
+            && *name != "normal"
+        {
+            got[1] = Some(vec![Component::Keyword(name)]);
+        }
+        // One box is both the origin and the clip.
+        let origin = p.longhands.iter().position(|l| l.ends_with("-origin"));
+        let clip = p.longhands.iter().position(|l| l.ends_with("-clip"));
+        if let (Some(o), Some(c)) = (origin, clip)
+            && got[c].is_none()
+            && let Some(b) = got[o].clone()
+        {
+            got[c] = Some(b);
+        }
+        per.push(got);
+    }
+    let mut out = vec![None; n];
+    for (i, name) in p.longhands.iter().enumerate() {
+        let listed = property(name).and_then(|lp| lp.grammar()).is_some_and(|g| {
+            let list = |g: &Grammar| matches!(g, Grammar::Repeat { commas: true, .. });
+            match g {
+                // `none | <single-transition-property>#`
+                Grammar::One(alts) => alts.iter().any(list),
+                g => list(g),
+            }
+        });
+        if !listed {
+            out[i] = per
+                .iter()
+                .rev()
+                .find_map(|l| l[i].clone())
+                .map(|c| c.into_iter().map(Out::C).collect());
+            continue;
+        }
+        let mut joined = Vec::new();
+        for (k, l) in per.iter().enumerate() {
+            if k > 0 {
+                joined.push(Out::C(Component::Literal(',')));
+            }
+            match &l[i] {
+                Some(c) => joined.extend(c.iter().cloned().map(Out::C)),
+                None => joined.extend(initial_components(name)?.into_iter().map(Out::C)),
+            }
+        }
+        out[i] = Some(joined);
+    }
+    Some(out)
+}
+
+/// The longest run at the start of `rest` (or all of it, for `whole`)
+/// that a longhand not yet given a value takes, and which one.
+fn take_run<'a>(
+    p: &'static Property,
+    rest: &mut Vec<Component<'a>>,
+    got: &[Option<Vec<Component<'a>>>],
+    whole: bool,
+) -> Option<(usize, Vec<Component<'a>>)> {
+    // No longhand takes more than a few values (a position takes four), so
+    // runs are capped: a long hostile layer stays linear.
+    let ends: Vec<usize> = if whole {
+        vec![rest.len()]
+    } else {
+        (1..=rest.len().min(8)).rev().collect()
+    };
+    for end in ends {
+        let run = &rest[..end];
+        let text = Specified::Value(run.to_vec()).to_string();
+        let values = crate::parse_component_values(&text);
+        for (i, name) in p.longhands.iter().enumerate() {
+            if got[i].is_some() {
+                continue;
+            }
+            let Some(lp) = property(name) else { continue };
+            let Ok(Specified::Value(c)) = parse_for(lp, &values) else {
+                continue;
+            };
+            // A keyword stays one: `paused` isn't an animation's name.
+            let renamed = run.iter().any(|r| match r {
+                Component::Keyword(k) => c
+                    .iter()
+                    .any(|x| matches!(x, Component::Ident(s) if s.eq_ignore_ascii_case(k))),
+                _ => false,
+            });
+            if renamed || c.contains(&Component::Literal(',')) {
+                continue;
+            }
+            let run: Vec<Component<'a>> = rest.drain(..end).collect();
+            return Some((i, run));
+        }
+    }
+    None
 }
 
 /// The shorthands whose left-out parts aren't their longhands' initial
@@ -546,6 +789,107 @@ fn expand_special<'a>(
                 ("text-wrap-mode", kw(wrap)),
             ])
         }
+        "border-radius" | "grid-area" | "grid-row" | "grid-column" | "place-content" => {
+            let Ok(Specified::Value(c)) = parse_for(p, value) else {
+                return None;
+            };
+            // The value before its shortest form: what each part says.
+            let c = match p.name {
+                "place-content" => c,
+                _ => {
+                    let g = p.grammar()?;
+                    let mut m = Matcher::new(value).for_property(p);
+                    if !m.whole(g) {
+                        m = Matcher::new(value);
+                        m.whole(g);
+                    }
+                    components(canonical(m.out, false))
+                }
+            };
+            let parts: Vec<Vec<Component<'a>>> = c
+                .split(|x| *x == Component::Literal('/'))
+                .map(<[_]>::to_vec)
+                .collect();
+            let value = |c: Vec<Component<'a>>| Specified::Value(c);
+            match p.name {
+                // CSS Backgrounds 3 §5.1: one to four corners, then as many
+                // vertical radii, the same if left out.
+                "border-radius" => {
+                    let corner = |part: &[Component<'a>], i: usize| -> Option<Component<'a>> {
+                        let at = match (part.len(), i) {
+                            (1, _) => 0,
+                            (2, i) => i % 2,
+                            (3, 3) => 1,
+                            (3, i) => i,
+                            (4, i) => i,
+                            _ => return None,
+                        };
+                        part.get(at).cloned()
+                    };
+                    let v = parts.get(1).unwrap_or(&parts[0]);
+                    (0..4)
+                        .map(|i| {
+                            let (a, b) = (corner(&parts[0], i)?, corner(v, i)?);
+                            let c = if a == b { vec![a] } else { vec![a, b] };
+                            Some((p.longhands[i], value(c)))
+                        })
+                        .collect()
+                }
+                // CSS Box Alignment §5.1: with a baseline, `start` across.
+                "place-content" => {
+                    // In its shortest form, the baseline and then what's
+                    // across: `start` if nothing was given.
+                    let at = c
+                        .iter()
+                        .position(|x| *x == Component::Keyword("baseline"))?;
+                    let mut align = c;
+                    let mut justify = align.split_off(at + 1);
+                    if justify.is_empty() {
+                        justify.push(Component::Keyword("start"));
+                    }
+                    Some(vec![
+                        (p.longhands[0], value(align)),
+                        (p.longhands[1], value(justify)),
+                    ])
+                }
+                // CSS Grid 2 §8.4: a line left out is the one it pairs
+                // with if that's a name, `auto` if not.
+                _ => {
+                    let default = |of: &Vec<Component<'a>>| match &of[..] {
+                        [Component::Ident(_)] => of.clone(),
+                        _ => vec![Component::Keyword("auto")],
+                    };
+                    let n = p.longhands.len();
+                    let mut lines: Vec<Vec<Component<'a>>> = parts.clone();
+                    let pairs: &[usize] = if n == 4 { &[0, 0, 0, 1] } else { &[0, 0] };
+                    while lines.len() < n {
+                        let i = lines.len();
+                        let d = default(&lines[pairs[i]]);
+                        lines.push(d);
+                    }
+                    // `grid-area`'s order is row start, column start, row
+                    // end, column end; its longhands' differs.
+                    Some(
+                        p.longhands
+                            .iter()
+                            .enumerate()
+                            .map(|(i, l)| {
+                                let at = match (n, *l) {
+                                    (4, "grid-row-start") => 0,
+                                    (4, "grid-column-start") => 1,
+                                    (4, "grid-row-end") => 2,
+                                    (4, "grid-column-end") => 3,
+                                    _ => i,
+                                };
+                                let mut c = lines[at].clone();
+                                super::canonical::span_one(&mut c);
+                                (*l, value(c))
+                            })
+                            .collect(),
+                    )
+                }
+            }
+        }
         "flex" => {
             let (grow, shrink, basis) = match keyword.as_deref() {
                 Some("none") => ("0", "0", "auto"),
@@ -557,7 +901,7 @@ fn expand_special<'a>(
                     if !m.whole(g) {
                         return None;
                     }
-                    let outs = canonical(m.out);
+                    let outs = canonical(m.out, false);
                     let mut assigned: Vec<Option<Vec<Out<'a>>>> = vec![None; 3];
                     split(p, g, &outs, &mut assigned)?;
                     let mut fill = |i: usize, d: &'static str| match assigned[i].take() {
@@ -597,11 +941,71 @@ fn parse_value_static<'a>(
     parse_value(name, values)
 }
 
+/// A longhand's initial value as its shortest form writes it, worked out
+/// once: what a shorthand leaves out when a longhand has it.
+pub(crate) fn initial_text(name: &str) -> Option<&'static str> {
+    use std::sync::OnceLock;
+    static ALL: OnceLock<Vec<OnceLock<Option<String>>>> = OnceLock::new();
+    let all = ALL.get_or_init(|| {
+        super::properties::properties()
+            .iter()
+            .map(|_| OnceLock::new())
+            .collect()
+    });
+    let p = property(name)?;
+    let cell = all.get(p.position()?)?;
+    cell.get_or_init(|| {
+        if p.is_shorthand() {
+            // Its longhands', in order: `0% 0%` for `background-position`.
+            let parts: Option<Vec<&str>> = p.longhands.iter().map(|l| initial_text(l)).collect();
+            let text = parts?.join(" ");
+            let values = crate::parse_component_values(&text);
+            return match parse_for(p, &values) {
+                Ok(v @ Specified::Value(_)) => Some(v.to_string()),
+                _ => None,
+            };
+        }
+        match initial(p.name) {
+            v @ Specified::Value(_) => Some(v.to_string()),
+            _ => p.initial.map(str::to_ascii_lowercase),
+        }
+    })
+    .as_deref()
+}
+
+/// A longhand's initial value, typed, worked out once.
+pub(crate) fn initial_cached(name: &str) -> Option<&'static [Component<'static>]> {
+    use std::sync::OnceLock;
+    static ALL: OnceLock<Vec<OnceLock<Option<Vec<Component<'static>>>>>> = OnceLock::new();
+    let all = ALL.get_or_init(|| {
+        super::properties::properties()
+            .iter()
+            .map(|_| OnceLock::new())
+            .collect()
+    });
+    let p = property(name)?;
+    all.get(p.position()?)?
+        .get_or_init(|| initial_components(p.name))
+        .as_deref()
+}
+
+/// A longhand's initial value, typed, if the spec gives one as a value.
+pub(crate) fn initial_components(name: &str) -> Option<Vec<Component<'static>>> {
+    match initial(name) {
+        Specified::Value(c) => Some(c),
+        _ => None,
+    }
+}
+
 /// A longhand's initial value, parsed, or `initial` where the spec's is
 /// prose. The text is the table's, so the value borrows nothing.
 fn initial(name: &str) -> Specified<'static> {
     let parsed = property(name).and_then(|p| {
-        let values = crate::parse_component_values(p.initial?);
+        let text = match p.is_shorthand() {
+            true => initial_text(p.name)?,
+            false => p.initial?,
+        };
+        let values = crate::parse_component_values(text);
         match parse_for(p, &values) {
             Ok(v @ Specified::Value(_)) => Some(v),
             _ => None,
@@ -617,7 +1021,8 @@ fn segments<'o, 'a>(outs: &'o [Out<'a>]) -> Vec<(Option<&'static str>, &'o [Out<
     let mut i = 0;
     while i < outs.len() {
         match &outs[i] {
-            Out::Start(name) => {
+            Out::Start(p) => {
+                let name = &p.name;
                 let mut depth = 0;
                 let mut j = i;
                 loop {
@@ -662,7 +1067,9 @@ fn split<'a>(
     let slot = |name: &str| p.longhands.iter().position(|l| *l == name);
     // `<'margin-top'>{1,4}`: one property written one to four times, over
     // four sides, or `{1,2}` over two.
-    if !refs.is_empty() && refs.iter().all(|r| *r == refs[0]) && refs.len() > 1
+    let repeat_of_one = matches!(g, Grammar::Repeat { item, min: 1, max: 2 | 4, commas: false }
+        if matches!(**item, Grammar::Property(_)));
+    if !refs.is_empty() && refs.iter().all(|r| *r == refs[0]) && (refs.len() > 1 || repeat_of_one)
         || (refs.len() == 1 && slot(refs[0]).is_none() && matches!(p.longhands.len(), 2 | 4))
     {
         let values: Vec<&[Out<'a>]> = parts
@@ -681,6 +1088,15 @@ fn split<'a>(
         };
         for (slot, i) in assigned.iter_mut().zip(order) {
             *slot = Some(values[*i].to_vec());
+        }
+        return Some(());
+    }
+    // `rule: <'column-rule'>`: one value for each of its longhands.
+    if let Grammar::Property(_) = g
+        && let [(Some(_), part)] = &parts[..]
+    {
+        for slot in assigned.iter_mut() {
+            *slot = Some(part.to_vec());
         }
         return Some(());
     }
@@ -737,9 +1153,6 @@ fn split<'a>(
                 continue;
             }
             let lp = property(l)?;
-            if lp.is_shorthand() {
-                continue;
-            }
             if matches!(parse_for(lp, &values), Ok(Specified::Value(_))) {
                 assigned[i] = Some(part.to_vec());
                 taken = true;
@@ -894,6 +1307,34 @@ mod tests {
     fn written(property: &str, css: &str) -> Option<String> {
         let v = crate::parse_component_values(css);
         parse_value(property, &v).ok().map(|s| s.to_string())
+    }
+
+    #[test]
+    fn font_family_without_the_matcher() {
+        let p = property("font-family").unwrap();
+        let cases = [
+            "a, b",
+            "\"New Century Schoolbook\", serif",
+            "Serif",
+            "cursive serif",
+            "x, inherit",
+            "a b c, 'd'",
+            "MONOSPACE, ui-serif",
+            ",a",
+            "a,",
+            "\"a\" b",
+            "default",
+            "revert-rule",
+            "\"serif\"",
+            "Emoji",
+        ];
+        for css in cases {
+            let v = crate::parse_component_values(css);
+            let v = trim(&v);
+            let fast = font_family(v).expect(css).map(|s| s.to_string());
+            let slow = parse_matched(p, v).map(|s| s.to_string());
+            assert_eq!(fast, slow, "{css}");
+        }
     }
 
     #[test]

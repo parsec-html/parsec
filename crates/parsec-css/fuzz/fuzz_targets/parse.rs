@@ -134,6 +134,18 @@ fuzz_target!(|data: &[u8]| {
                         }
                     }
                     let _ = values::expand(&d.name, &d.value);
+                    // And as the properties with shortest forms and
+                    // shorthands of their own, whatever it was given for.
+                    for p in [
+                        "font", "background", "mask", "grid", "grid-area", "animation",
+                        "transition", "list-style", "border-radius", "clip-path", "offset",
+                        "line-clamp", "grid-template-areas", "rule-inset", "animation-range",
+                    ] {
+                        if let Ok(v) = values::parse_value(p, &d.value) {
+                            let _ = v.to_string();
+                        }
+                        let _ = values::expand(p, &d.value);
+                    }
                 }
                 Item::Rule(Rule::Qualified(r)) => blocks.push(&r.block),
                 Item::Rule(Rule::At(r)) => blocks.extend(&r.block),

@@ -130,14 +130,18 @@ environment you give it, and computed values with inheritance.
   and most of 5;
   shorthands into longhands; custom properties with cycles and `var()`.
   css-parsing-tests' color files run (4,803 of 8,061 pass, the rest
-  checked against how CSS Color changed), and 13,907 of WPT's 14,893
-  static CSS parsing cases pass.
+  checked against how CSS Color changed).
+- Done: each value in its canonical form, CSSOM's shortest, property by
+  property, the specs' prose restrictions as checks, and typed values
+  ahead of Lexbor on every sheet in the bench, 145 MB/s to 114
+  ([#92](https://github.com/parsec-html/parsec/issues/92)). 14,758 of
+  WPT's 14,893 static CSS parsing cases pass.
 - Done: the cascade, media queries and computed values
   ([#30](https://github.com/parsec-html/parsec/issues/30)). Origins,
   layers, specificity, `!important` and `style=""`; `@media` and
   `@supports` evaluated against an environment you give; inheritance,
   `revert`, `var()` and computed values as `getComputedStyle()` writes
-  them. WPT: 1,370 of 1,370 media query cases, 10,974 of 12,041
+  them. WPT: 1,370 of 1,370 media query cases, 11,287 of 12,041
   computed-value cases, 104 of 123 cascade cases.
 - Still to come: `@container` and `@scope`, `@property`, and the values
   that need layout (`width: 50%` as pixels).

@@ -121,17 +121,19 @@ assert_eq!(doc.text(hits[0]), "one");
   unit in Values 4, colors per CSS Color 4 and most of 5 (relative
   colors, `color-mix()`, `light-dark()`), every math function from
   `calc()` to `atan2()`, simplified and written back as the spec says,
-  and shorthands split into their longhands where the grammar shows
-  which part is which. Custom properties resolve against each other,
+  shorthands split into their longhands, layer by layer for the likes of
+  `background` and `transition`, and each value written back in the
+  shortest form CSSOM gives it (`scale: 100% 100%` as `1`, `circle(at
+  left)` as `circle(at left center)`). Custom properties resolve against each other,
   with cycles made the guaranteed-invalid value and `var()` substituted
   anywhere, which Lexbor doesn't have
   ([lexbor#232](https://github.com/lexbor/lexbor/issues/232)).
   css-parsing-tests' 8,061 color cases now run: 4,803 pass, and each of
   the other 3,258 is where CSS Color has changed since the suite was
   written, which the runner checks case by case. Of web-platform-tests'
-  14,893 static CSS parsing cases, 13,907 pass; the wiki's
+  14,893 static CSS parsing cases, 14,758 pass; the wiki's
   [CSS values](https://github.com/parsec-html/parsec/wiki/CSS-values)
-  page breaks down the other 986.
+  page breaks down the other 135.
 - **The cascade and computed values**, in `parsec_css::cascade`: style a
   Parsec document with the user agent's, the user's and the author's
   sheets, `@media` and `@supports` evaluated against an environment you
@@ -143,7 +145,7 @@ assert_eq!(doc.text(hits[0]), "one");
   Lexbor has no media query evaluation and no computed values
   ([discussion #265](https://github.com/lexbor/lexbor/discussions/265)).
   `cargo test` runs WPT's media query cases (1,370 of 1,370), its
-  computed-value cases (10,974 of 12,041) and its static cascade cases
+  computed-value cases (11,287 of 12,041) and its static cascade cases
   (104 of 123); [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade)
   on the wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:
@@ -195,10 +197,12 @@ cssparser, which builds no tree of its own, parses at 196, so Parsec is
 span; a second run had it 1.16 times. Its tokenizer is 1.2 times as
 fast as cssparser's.
 With every declaration's value typed for its property as well, all 822
-properties where Lexbor types 105, Parsec runs at 120 MB a second to
-Lexbor's 116. And with every element's computed values worked out, the
-13 pages take 2.8 seconds between them, two of those for the HTML spec's
-337,200 elements; Lexbor computes no values to compare with.
+properties where Lexbor types 105, Parsec runs at 145 MB a second to
+Lexbor's 114, 1.26 times as fast, and it's ahead on every sheet, from
+1.04 times on the New York Times' `<style>` to 1.9 on Font Awesome. And
+with every element's computed values worked out, the 13 pages take 2.3
+seconds between them, 1.6 of those for the HTML spec's 337,200
+elements; Lexbor computes no values to compare with.
 
 Hostile inputs, the ones built to make a parser crawl, go Parsec's way
 on all eight. 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2
@@ -238,7 +242,7 @@ every module Lexbor has, and then go past it:
 | WHATWG URL | yes, no WPT count published | yes, all 4,565 WPT cases passing |
 | Unicode normalization | yes | yes, all of NormalizationTest passing |
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
-| Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 93% of WPT's parsing cases |
+| Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give; WPT counts published |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |

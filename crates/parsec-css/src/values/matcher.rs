@@ -14,7 +14,7 @@
 use super::color::Color;
 use super::grammar::{Grammar, TypeRef};
 use super::math::{Expect, Math};
-use super::properties::{function_grammar, property, type_grammar};
+use super::properties::{PropertyData, function_grammar, property, type_grammar};
 use super::units::{Kind, Unit};
 use super::value::Component;
 use crate::parser::{Bracket, ComponentValue};
@@ -31,12 +31,16 @@ const MAX_DEPTH: usize = 48;
 #[derive(Clone, Debug)]
 pub(crate) enum Out<'a> {
     C(Component<'a>),
-    Start(&'static str),
+    Start(&'static PropertyData),
     End,
-    /// Around what one alternative of a `||` or `&&` matched: which group
-    /// and which alternative, for writing them in the grammar's order.
-    Alt(usize, usize, bool),
+    /// Around what one alternative of a `||` or `&&` matched: which group,
+    /// which alternative, whether it's `||`, and the group's alternatives,
+    /// for writing them in the grammar's order.
+    Alt(usize, usize, bool, &'static [Grammar]),
     AltEnd,
+    /// Around what a type with a shortest form of its own matched.
+    Type(&'static str),
+    TypeEnd,
 }
 
 /// One thing in a match, with what it contains.
@@ -45,47 +49,505 @@ enum Tree<'a> {
     Group(Out<'a>, Vec<Tree<'a>>),
 }
 
-fn tree<'a>(outs: &mut std::iter::Peekable<std::vec::IntoIter<Out<'a>>>) -> Vec<Tree<'a>> {
-    let mut items = Vec::new();
-    while let Some(o) = outs.next() {
+fn tree<'a>(outs: &mut std::vec::IntoIter<Out<'a>>) -> Vec<Tree<'a>> {
+    // Iterative, with a stack of open groups: a value can nest deeply.
+    let mut stack: Vec<(Option<Out<'a>>, Vec<Tree<'a>>)> = vec![(None, Vec::new())];
+    for o in outs {
         match o {
-            Out::End | Out::AltEnd => break,
-            o @ (Out::Start(_) | Out::Alt(..)) => {
-                let inner = tree(outs);
-                items.push(Tree::Group(o, inner));
+            Out::End | Out::AltEnd | Out::TypeEnd => {
+                if stack.len() > 1 {
+                    let (open, items) = stack.pop().unwrap();
+                    let group = Tree::Group(open.unwrap(), items);
+                    stack.last_mut().unwrap().1.push(group);
+                }
             }
-            o => items.push(Tree::Leaf(o)),
+            o @ (Out::Start(_) | Out::Alt(..) | Out::Type(_)) => stack.push((Some(o), Vec::new())),
+            o => stack.last_mut().unwrap().1.push(Tree::Leaf(o)),
         }
     }
-    items
+    while stack.len() > 1 {
+        let (open, items) = stack.pop().unwrap();
+        stack
+            .last_mut()
+            .unwrap()
+            .1
+            .push(Tree::Group(open.unwrap(), items));
+    }
+    stack.pop().unwrap().1
 }
 
-fn flatten<'a>(items: Vec<Tree<'a>>, out: &mut Vec<Out<'a>>) {
-    let mut items = items;
+/// The values in a part of a match, in order.
+fn leaves<'t, 'a>(items: &'t [Tree<'a>], out: &mut Vec<&'t Component<'a>>) {
+    for t in items {
+        match t {
+            Tree::Leaf(Out::C(c)) => out.push(c),
+            Tree::Group(_, inner) => leaves(inner, out),
+            _ => {}
+        }
+    }
+}
+
+fn is_initial(property: &str, inner: &[Tree<'_>]) -> bool {
+    let Some(initial) = super::value::initial_cached(property) else {
+        return false;
+    };
+    let mut cs = Vec::new();
+    leaves(inner, &mut cs);
+    cs.len() == initial.len() && cs.iter().zip(initial).all(|(a, b)| *a == b)
+}
+
+/// Whether `values` are the initial value of `property`.
+fn initial_values(property: &str, values: &[Out<'_>]) -> bool {
+    let Some(initial) = super::value::initial_cached(property) else {
+        return false;
+    };
+    values.len() == initial.len()
+        && values
+            .iter()
+            .zip(initial)
+            .all(|(a, b)| matches!(a, Out::C(c) if c == b))
+}
+
+/// A longhand at `i` with only values inside, through longhands that are
+/// each other's whole value (`outline-color` as `<'border-top-color'>`):
+/// where its values are and where it ends.
+fn longhand<'o, 'a>(outs: &'o [Out<'a>], i: usize) -> Option<Longhand<'o, 'a>> {
+    let mut j = i;
+    let mut any_form = false;
+    while let Some(Out::Start(p)) = outs.get(j) {
+        any_form |= needs_form(p);
+        j += 1;
+    }
+    let chain = &outs[i..j];
+    let start = j;
+    while matches!(outs.get(j), Some(Out::C(_))) {
+        j += 1;
+    }
+    let values = &outs[start..j];
+    for _ in 0..chain.len() {
+        if !matches!(outs.get(j)?, Out::End) {
+            return None;
+        }
+        j += 1;
+    }
+    if !any_form {
+        return Some(Longhand {
+            values: std::borrow::Cow::Borrowed(values),
+            whole: None,
+            end: j,
+        });
+    }
+    // Written in each longhand's shortest form, the innermost first.
+    let mut c: Vec<Component<'a>> = values
+        .iter()
+        .filter_map(|o| match o {
+            Out::C(c) => Some(c.clone()),
+            _ => None,
+        })
+        .collect();
+    for o in chain.iter().rev() {
+        if let Out::Start(p) = o {
+            let (form, repeats) = forms(p);
+            if repeats {
+                super::value::shortest_of(p.name, &mut c);
+            }
+            if form {
+                super::canonical::form(p.name, &mut c);
+            }
+        }
+    }
+    let values: Vec<Out<'a>> = c.into_iter().map(Out::C).collect();
+    let mut whole = Vec::with_capacity(values.len() + 2 * chain.len());
+    whole.extend(chain.iter().cloned());
+    whole.extend(values.iter().cloned());
+    whole.extend(chain.iter().map(|_| Out::End));
+    Some(Longhand {
+        values: std::borrow::Cow::Owned(values),
+        whole: Some(whole),
+        end: j,
+    })
+}
+
+/// A longhand in a match, from [`longhand`].
+struct Longhand<'o, 'a> {
+    /// Its values, in their shortest form.
+    values: std::borrow::Cow<'o, [Out<'a>]>,
+    /// All of it, markers too, where its shortest form changed it.
+    whole: Option<Vec<Out<'a>>>,
+    /// Where it ends in the match.
+    end: usize,
+}
+
+/// [`canonical`] without a tree, for the common shape: `||` and `&&`
+/// alternatives side by side, each one value or one longhand of values,
+/// and longhands of values. `None` for anything else, or a group all at
+/// its defaults, which the tree handles.
+fn plan<'a>(outs: &[Out<'a>], keep_order: bool) -> Option<Vec<Item<'a>>> {
+    let mut items: Vec<Item<'a>> = Vec::with_capacity(8);
+    let mut i = 0;
+    while i < outs.len() {
+        match &outs[i] {
+            // A last `/` part at its initial value is left out: `/ normal`.
+            Out::C(Component::Literal('/')) if matches!(outs.get(i + 1), Some(Out::Start(p)) if SLASHED.contains(&p.name)) =>
+            {
+                let Some(Out::Start(p)) = outs.get(i + 1) else {
+                    return None;
+                };
+                let l = longhand(outs, i + 1)?;
+                let end = l.end;
+                let last = !outs[end..]
+                    .iter()
+                    .any(|o| matches!(o, Out::C(Component::Literal('/'))));
+                if !(last && initial_values(p.name, &l.values)) {
+                    items.push(Item {
+                        start: i,
+                        end,
+                        alt: None,
+                        default: false,
+                        owned: l.whole.map(|w| {
+                            let mut v = vec![outs[i].clone()];
+                            v.extend(w);
+                            v
+                        }),
+                    });
+                }
+                i = end;
+            }
+            Out::Type(_) => {
+                let (owned, end) = typed(outs, i, keep_order)?;
+                items.push(Item {
+                    start: i,
+                    end,
+                    alt: None,
+                    default: false,
+                    owned: Some(owned),
+                });
+                i = end;
+            }
+            Out::C(_) => {
+                items.push(Item {
+                    start: i,
+                    end: i + 1,
+                    alt: None,
+                    default: false,
+                    owned: None,
+                });
+                i += 1;
+            }
+            Out::Start(_) => {
+                let l = longhand(outs, i)?;
+                let end = l.end;
+                items.push(Item {
+                    start: i,
+                    end,
+                    alt: None,
+                    default: false,
+                    owned: l.whole,
+                });
+                i = end;
+            }
+            Out::Alt(set, idx, any, _) if matches!(outs.get(i + 1), Some(Out::Type(_))) => {
+                let (owned, end) = typed(outs, i + 1, keep_order)?;
+                if !matches!(outs.get(end)?, Out::AltEnd) {
+                    return None;
+                }
+                items.push(Item {
+                    start: i + 1,
+                    end,
+                    alt: Some((*set, *idx, *any)),
+                    default: false,
+                    owned: Some(owned),
+                });
+                i = end + 1;
+            }
+            // An alternative of values and alternatives: `span && [ <integer>
+            // || <custom-ident> ]`.
+            Out::Alt(set, idx, any, _)
+                if !matches!(outs.get(i + 1), Some(Out::Start(_)))
+                    && !matches!(outs.get(i + 2), Some(Out::AltEnd)) =>
+            {
+                let mut depth = 0;
+                let mut end = None;
+                for (j, o) in outs.iter().enumerate().skip(i + 1) {
+                    match o {
+                        Out::C(_) => {}
+                        Out::Alt(..) => depth += 1,
+                        Out::AltEnd if depth == 0 => {
+                            end = Some(j);
+                            break;
+                        }
+                        Out::AltEnd => depth -= 1,
+                        _ => return None,
+                    }
+                }
+                let end = end?;
+                let owned = flat(&outs[i + 1..end], keep_order)?;
+                items.push(Item {
+                    start: i + 1,
+                    end,
+                    alt: Some((*set, *idx, *any)),
+                    default: false,
+                    owned: Some(owned),
+                });
+                i = end + 1;
+            }
+            Out::Alt(set, idx, any, _) => {
+                let mut whole = None;
+                let (inner, close) = match outs.get(i + 1)? {
+                    Out::Start(p) => {
+                        if !drops_default(p.name) {
+                            return None;
+                        }
+                        let l = longhand(outs, i + 1)?;
+                        let end = l.end;
+                        if !matches!(outs.get(end)?, Out::AltEnd) {
+                            return None;
+                        }
+                        let default = *any && initial_values(p.name, &l.values);
+                        whole = l.whole;
+                        ((i + 1, end, default), end + 1)
+                    }
+                    Out::C(c) => {
+                        if !matches!(outs.get(i + 2)?, Out::AltEnd) {
+                            return None;
+                        }
+                        let default = *any && *c == Component::Keyword("normal");
+                        ((i + 1, i + 2, default), i + 3)
+                    }
+                    _ => return None,
+                };
+                items.push(Item {
+                    start: inner.0,
+                    end: inner.1,
+                    alt: Some((*set, *idx, *any)),
+                    default: inner.2,
+                    owned: whole,
+                });
+                i = close;
+            }
+            _ => return None,
+        }
+    }
+    // Runs of one group: in the grammar's order, defaults left out.
+    let mut k = 0;
+    while k < items.len() {
+        let Some((set, _, any)) = items[k].alt else {
+            k += 1;
+            continue;
+        };
+        let mut j = k;
+        while matches!(items.get(j), Some(Item { alt: Some((s, ..)), .. }) if *s == set) {
+            j += 1;
+        }
+        if !keep_order {
+            items[k..j].sort_by_key(|t| t.alt.map_or(0, |a| a.1));
+        }
+        if any {
+            if items[k..j].iter().all(|t| t.default) {
+                return None;
+            }
+            let before = items.len();
+            let mut n = 0;
+            items.retain(|t| {
+                let inside = n >= k && n < j;
+                n += 1;
+                !(inside && t.default)
+            });
+            j -= before - items.len();
+        }
+        k = j;
+    }
+    Some(items)
+}
+
+/// One part of a match, for [`plan`]: its range in the match, and for an
+/// alternative its group, index and whether it's at its default.
+struct Item<'a> {
+    start: usize,
+    end: usize,
+    alt: Option<(usize, usize, bool)>,
+    default: bool,
+    /// Values in their shortest form, in place of the range.
+    owned: Option<Vec<Out<'a>>>,
+}
+
+fn flat<'a>(outs: &[Out<'a>], keep_order: bool) -> Option<Vec<Out<'a>>> {
+    let mut out = Vec::with_capacity(outs.len());
+    for t in plan(outs, keep_order)? {
+        match t.owned {
+            Some(owned) => out.extend(owned),
+            None => out.extend(outs[t.start..t.end].iter().cloned()),
+        }
+    }
+    Some(out)
+}
+
+/// Whether `items` leave out any value of `outs`.
+fn dropped(outs: &[Out<'_>], items: &[Item<'_>]) -> bool {
+    let kept: usize = items
+        .iter()
+        .map(|t| {
+            outs[t.start..t.end]
+                .iter()
+                .filter(|o| matches!(o, Out::C(_)))
+                .count()
+        })
+        .sum();
+    kept != outs.iter().filter(|o| matches!(o, Out::C(_))).count()
+}
+
+/// [`flat`] for a whole match, moving rather than copying, and giving the
+/// match back as it is when nothing changes.
+fn flat_owned<'a>(mut outs: Vec<Out<'a>>, keep_order: bool) -> Result<Vec<Out<'a>>, Vec<Out<'a>>> {
+    let Some(items) = plan(&outs, keep_order) else {
+        return Err(outs);
+    };
+    // In order, nothing left out or rewritten: the match as it is, the
+    // markers around alternatives being ignored after this anyway.
+    let same = items.iter().all(|t| t.owned.is_none() && !t.default)
+        && items.windows(2).all(|w| w[0].end <= w[1].start)
+        && !dropped(&outs, &items);
+    if same {
+        return Ok(outs);
+    }
+    let mut out = Vec::with_capacity(outs.len());
+    for t in items {
+        match t.owned {
+            Some(owned) => out.extend(owned),
+            None => out.extend(
+                outs[t.start..t.end]
+                    .iter_mut()
+                    .map(|o| std::mem::replace(o, Out::End)),
+            ),
+        }
+    }
+    Ok(out)
+}
+
+/// A type's group at `i` with only values and alternatives in it, in its
+/// shortest form, and where it ends.
+fn typed<'a>(outs: &[Out<'a>], i: usize, keep_order: bool) -> Option<(Vec<Out<'a>>, usize)> {
+    let Out::Type(name) = outs[i] else {
+        return None;
+    };
+    let len = outs[i + 1..]
+        .iter()
+        .position(|o| !matches!(o, Out::C(_) | Out::Alt(..) | Out::AltEnd))?;
+    let end = i + 1 + len;
+    if !matches!(outs[end], Out::TypeEnd) {
+        return None;
+    }
+    let keep = keep_order || name == "try-tactic";
+    let inner = flat(&outs[i + 1..end], keep)?;
+    let mut c: Vec<Component<'a>> = inner
+        .into_iter()
+        .filter_map(|o| match o {
+            Out::C(c) => Some(c),
+            _ => None,
+        })
+        .collect();
+    super::canonical::of_type(name, &mut c);
+    Some((c.into_iter().map(Out::C).collect(), end + 1))
+}
+
+/// Whether a shorthand leaves this longhand out at its initial value:
+/// `flex`, `list-style` and `line-clamp` have shortest forms of their own.
+fn drops_default(name: &str) -> bool {
+    !(matches!(
+        name,
+        "flex-grow" | "flex-shrink" | "flex-basis" | "block-ellipsis"
+    ) || name.starts_with("list-style-"))
+}
+
+/// Whether one alternative of a `||` group says only its default: the
+/// initial value of the longhand it sets, or `normal`.
+fn is_default(t: &Tree<'_>) -> bool {
+    let Tree::Group(_, inner) = t else {
+        return false;
+    };
+    match &inner[..] {
+        [Tree::Leaf(Out::C(Component::Keyword("normal")))] => true,
+        [Tree::Group(Out::Start(p), value)] => drops_default(p.name) && is_initial(p.name, value),
+        _ => false,
+    }
+}
+
+/// A group whose contents are all values, through `||` and `&&` groups,
+/// rewritten by `f`; one with types or properties inside is left as it is.
+fn tidy_leaves(inner: &mut Vec<Tree<'_>>, f: impl FnOnce(&mut Vec<Component<'_>>)) {
+    fn plain(items: &[Tree<'_>]) -> bool {
+        items.iter().all(|t| match t {
+            Tree::Leaf(Out::C(_)) => true,
+            Tree::Group(Out::Alt(..), inner) => plain(inner),
+            _ => false,
+        })
+    }
+    fn take<'a>(items: Vec<Tree<'a>>, out: &mut Vec<Component<'a>>) {
+        for t in items {
+            match t {
+                Tree::Leaf(Out::C(c)) => out.push(c),
+                Tree::Group(_, inner) => take(inner, out),
+                _ => {}
+            }
+        }
+    }
+    if !plain(inner) {
+        return;
+    }
+    let mut c = Vec::new();
+    take(std::mem::take(inner), &mut c);
+    f(&mut c);
+    inner.extend(c.into_iter().map(|c| Tree::Leaf(Out::C(c))));
+}
+
+/// One level of a match in canonical form, its groups first.
+fn process(items: Vec<Tree<'_>>, keep_order: bool) -> Vec<Tree<'_>> {
+    let mut items: Vec<Tree<'_>> = items
+        .into_iter()
+        .map(|t| match t {
+            Tree::Group(o, inner) => {
+                // Flips in `position-try` apply in the order written.
+                let keep = keep_order || matches!(o, Out::Type("try-tactic"));
+                let mut inner = process(inner, keep);
+                match o {
+                    Out::Start(p) => tidy_leaves(&mut inner, |c| {
+                        super::value::shortest_of(p.name, c);
+                        super::canonical::property(p.name, c)
+                    }),
+                    Out::Type(t) => tidy_leaves(&mut inner, |c| super::canonical::of_type(t, c)),
+                    _ => {}
+                }
+                Tree::Group(o, inner)
+            }
+            leaf => leaf,
+        })
+        .collect();
     // Runs of one group's alternatives go in the grammar's order, which
     // is the canonical order CSSOM writes them in.
     let mut i = 0;
     while i < items.len() {
-        let set = match &items[i] {
-            Tree::Group(Out::Alt(set, _, _), _) => *set,
+        let (set, alts) = match &items[i] {
+            Tree::Group(Out::Alt(set, _, _, alts), _) => (*set, *alts),
             _ => {
                 i += 1;
                 continue;
             }
         };
         let mut j = i;
-        while matches!(items.get(j), Some(Tree::Group(Out::Alt(s, _, _), _)) if *s == set) {
+        while matches!(items.get(j), Some(Tree::Group(Out::Alt(s, ..), _)) if *s == set) {
             j += 1;
         }
-        items[i..j].sort_by_key(|t| match t {
-            Tree::Group(Out::Alt(_, idx, _), _) => *idx,
-            _ => 0,
-        });
+        if !keep_order {
+            items[i..j].sort_by_key(|t| match t {
+                Tree::Group(Out::Alt(_, idx, ..), _) => *idx,
+                _ => 0,
+            });
+        }
         // In a `||` group, what says only the default is left out, as the
         // shortest serialization does: `font: normal bold 1em x` is
-        // `bold 1em x`. If that's all of it, the first stays.
-        let any = matches!(&items[i], Tree::Group(Out::Alt(_, _, true), _));
-        if any && j - i > 1 {
+        // `bold 1em x`.
+        let any = matches!(&items[i], Tree::Group(Out::Alt(_, _, true, _), _));
+        if any {
             let defaults: Vec<bool> = items[i..j].iter().map(is_default).collect();
             if defaults.iter().any(|d| !d) {
                 let mut k = i;
@@ -97,83 +559,169 @@ fn flatten<'a>(items: Vec<Tree<'a>>, out: &mut Vec<Out<'a>>) {
                         k += 1;
                     }
                 }
+            } else if alone(&items, i, j) {
+                // All of it at defaults, and nothing else beside it: the
+                // first longhand the group can set says so, as `none` for
+                // `text-decoration: solid`.
+                let first = alts
+                    .iter()
+                    .position(|a| matches!(a, Grammar::Property(_)))
+                    .unwrap_or(usize::MAX);
+                let has = |t: &Tree<'_>| matches!(t, Tree::Group(Out::Alt(_, idx, ..), _) if *idx == first);
+                if let Some(keep) = items[i..j].iter().position(has) {
+                    items.drain(i + keep + 1..j);
+                    items.drain(i..i + keep);
+                    j = i + 1;
+                } else if let Some(Grammar::Property(r)) = alts.get(first)
+                    && let Some(p) = property(&r.name)
+                    && let Some(initial) = super::value::initial_components(&r.name)
+                {
+                    let value = initial.into_iter().map(|c| Tree::Leaf(Out::C(c))).collect();
+                    let group = vec![Tree::Group(Out::Start(p), value)];
+                    let group = Tree::Group(Out::Alt(set, first, true, alts), group);
+                    items.splice(i..j, [group]);
+                    j = i + 1;
+                } else {
+                    items.drain(i + 1..j);
+                    j = i + 1;
+                }
+            } else {
+                items.drain(i..j);
+                j = i;
             }
         }
+        // Past the run, or at what follows a run left out entirely.
         i = j;
     }
-    // `/ normal` for a line height left at its initial value, likewise.
-    let mut i = 0;
-    while i + 1 < items.len() {
-        if matches!(items[i], Tree::Leaf(Out::C(Component::Literal('/'))))
-            && let Tree::Group(Out::Start(p), inner) = &items[i + 1]
-            && is_initial(p, inner)
-            && text(inner) == "normal"
+    // `/ normal` for a line height left at its initial value, and the
+    // like: a last `/` part at its longhand's initial value.
+    let mut i = items.len();
+    while i >= 2 {
+        i -= 1;
+        if matches!(items[i - 1], Tree::Leaf(Out::C(Component::Literal('/'))))
+            && let Tree::Group(Out::Start(p), inner) = &items[i]
+            && SLASHED.contains(&p.name)
+            && is_initial(p.name, inner)
+            && !items[i + 1..]
+                .iter()
+                .any(|t| matches!(t, Tree::Leaf(Out::C(Component::Literal('/')))))
         {
-            items.drain(i..i + 2);
-            continue;
-        }
-        i += 1;
-    }
-    for t in items {
-        match t {
-            Tree::Leaf(o) => out.push(o),
-            Tree::Group(Out::Alt(..), inner) => flatten(inner, out),
-            Tree::Group(start, inner) => {
-                out.push(start);
-                flatten(inner, out);
-                out.push(Out::End);
-            }
+            items.drain(i - 1..=i);
+            i -= 1;
         }
     }
+    items
 }
 
-/// The values in a part of a match, written out.
-fn text(items: &[Tree<'_>]) -> String {
-    fn collect<'t, 'a>(items: &'t [Tree<'a>], out: &mut Vec<&'t Component<'a>>) {
-        for t in items {
-            match t {
-                Tree::Leaf(Out::C(c)) => out.push(c),
-                Tree::Group(_, inner) => collect(inner, out),
-                _ => {}
-            }
-        }
-    }
-    let mut cs = Vec::new();
-    collect(items, &mut cs);
-    let owned: Vec<Component<'_>> = cs.into_iter().cloned().collect();
-    let mut s = String::new();
-    super::value::write_components(&mut s, &owned).unwrap();
-    s
+/// Whether a longhand in a match has a shortest form to be written in.
+fn needs_form(p: &'static PropertyData) -> bool {
+    let f = forms(p);
+    f.0 || f.1
 }
 
-fn is_initial(property: &str, inner: &[Tree<'_>]) -> bool {
-    super::properties::property(property)
-        .and_then(|p| p.initial)
-        .is_some_and(|i| i.eq_ignore_ascii_case(&text(inner)))
-}
-
-/// Whether one alternative of a `||` group is its default, `normal`.
-fn is_default(t: &Tree<'_>) -> bool {
-    let Tree::Group(_, inner) = t else {
-        return false;
+/// Whether a longhand has a shortest form of its own, and whether its
+/// grammar repeats values a box shorthand's way, worked out once.
+fn forms(p: &'static PropertyData) -> (bool, bool) {
+    use std::sync::OnceLock;
+    static ALL: OnceLock<Vec<OnceLock<(bool, bool)>>> = OnceLock::new();
+    let all = ALL.get_or_init(|| {
+        super::properties::properties()
+            .iter()
+            .map(|_| OnceLock::new())
+            .collect()
+    });
+    let work = || {
+        (
+            super::canonical::has_form(p.name),
+            p.grammar().is_some_and(|g| {
+                matches!(
+                    g,
+                    Grammar::Repeat {
+                        min: 1,
+                        max: 2 | 4,
+                        commas: false,
+                        ..
+                    }
+                )
+            }),
+        )
     };
-    match &inner[..] {
-        [Tree::Leaf(Out::C(Component::Keyword("normal")))] => true,
-        // Only `normal`: other initial values, `auto` in `flex` or `none`
-        // in `list-style`, are written by browsers.
-        [Tree::Group(Out::Start(p), value)] => is_initial(p, value) && text(value) == "normal",
-        _ => false,
+    match p.position().and_then(|i| all.get(i)) {
+        Some(cell) => *cell.get_or_init(work),
+        None => work(),
     }
 }
 
-/// The match with every `||` and `&&` group in the grammar's order, and
-/// the markers for them gone.
-pub(crate) fn canonical(outs: Vec<Out<'_>>) -> Vec<Out<'_>> {
-    if !outs.iter().any(|o| matches!(o, Out::Alt(..))) {
-        return outs;
+/// The longhands after a `/` that the shortest form leaves out at their
+/// initial values.
+const SLASHED: &[&str] = &[
+    "line-height",
+    "column-height",
+    "offset-anchor",
+    "border-image-width",
+    "border-image-outset",
+    "mask-border-width",
+    "mask-border-outset",
+];
+
+/// Whether the run `i..j` is all there is between commas or slashes.
+fn alone(items: &[Tree<'_>], i: usize, j: usize) -> bool {
+    let comma = |t: &Tree<'_>| matches!(t, Tree::Leaf(Out::C(Component::Literal(',' | '/'))));
+    let before = items[..i].iter().rev().take_while(|t| !comma(t)).count();
+    let after = items[j..].iter().take_while(|t| !comma(t)).count();
+    before == 0 && after == 0
+}
+
+fn flatten<'a>(items: Vec<Tree<'a>>, out: &mut Vec<Out<'a>>) {
+    let mut stack = vec![items.into_iter()];
+    let mut ends: Vec<bool> = Vec::new();
+    while let Some(top) = stack.last_mut() {
+        match top.next() {
+            Some(Tree::Leaf(o)) => out.push(o),
+            Some(Tree::Group(o, inner)) => {
+                let marked = matches!(o, Out::Start(_));
+                if marked {
+                    out.push(o);
+                }
+                ends.push(marked);
+                stack.push(inner.into_iter());
+            }
+            None => {
+                stack.pop();
+                if let Some(marked) = ends.pop()
+                    && marked
+                {
+                    out.push(Out::End);
+                }
+            }
+        }
     }
-    let mut it = outs.into_iter().peekable();
-    let items = tree(&mut it);
+}
+
+/// The match with every `||` and `&&` group in the grammar's order, the
+/// shortest forms of types and longhands written, and the markers for
+/// groups gone; `keep_order` keeps groups in the order written.
+pub(crate) fn canonical(outs: Vec<Out<'_>>, keep_order: bool) -> Vec<Out<'_>> {
+    if !outs
+        .iter()
+        .any(|o| matches!(o, Out::Alt(..) | Out::Type(_)))
+    {
+        // Only longhands, as in `margin: 0 1px`: those without a shortest
+        // form of their own need no tree.
+        let plain = outs.iter().all(|o| match o {
+            Out::Start(p) => !needs_form(p),
+            _ => true,
+        });
+        if plain {
+            return outs;
+        }
+    }
+    let outs = match flat_owned(outs, keep_order) {
+        Ok(out) => return out,
+        Err(outs) => outs,
+    };
+    let mut it = outs.into_iter();
+    let items = process(tree(&mut it), keep_order);
     let mut out = Vec::new();
     flatten(items, &mut out);
     out
@@ -186,29 +734,46 @@ pub(crate) struct Matcher<'v, 'a> {
     depth: usize,
     groups: usize,
     /// Keywords a `<custom-ident>` can't be here.
-    reserved: Option<&'static std::collections::HashSet<&'static str>>,
+    reserved: Option<&'static super::properties::Keywords>,
+    /// Where the last comma in the input is.
+    last_comma: Option<usize>,
 }
 
 /// The values being matched, whitespace aside: the slice itself when
 /// there's none in it, as for most one-word values, so nothing's copied.
 enum Input<'v, 'a> {
     Slice(&'v [ComponentValue<'a>]),
+    /// Up to [`SHORT`] values, kept without an allocation.
+    Short([Option<&'v ComponentValue<'a>>; SHORT], usize),
     Filtered(Vec<&'v ComponentValue<'a>>),
 }
 
+/// How many values a value with whitespace in it can have and be matched
+/// without allocating: most have a few.
+const SHORT: usize = 12;
+
 impl<'v, 'a> Input<'v, 'a> {
     fn new(values: &'v [ComponentValue<'a>]) -> Input<'v, 'a> {
-        if values.iter().any(ComponentValue::is_whitespace) {
-            Input::Filtered(values.iter().filter(|v| !v.is_whitespace()).collect())
-        } else {
-            Input::Slice(values)
+        if !values.iter().any(ComponentValue::is_whitespace) {
+            return Input::Slice(values);
         }
+        let mut short = [None; SHORT];
+        let mut n = 0;
+        for v in values.iter().filter(|v| !v.is_whitespace()) {
+            if n == SHORT {
+                return Input::Filtered(values.iter().filter(|v| !v.is_whitespace()).collect());
+            }
+            short[n] = Some(v);
+            n += 1;
+        }
+        Input::Short(short, n)
     }
 
     #[inline]
     fn get(&self, i: usize) -> Option<&'v ComponentValue<'a>> {
         match self {
             Input::Slice(s) => s.get(i),
+            Input::Short(s, n) => s[..*n].get(i).copied().flatten(),
             Input::Filtered(v) => v.get(i).copied(),
         }
     }
@@ -216,31 +781,212 @@ impl<'v, 'a> Input<'v, 'a> {
     fn len(&self) -> usize {
         match self {
             Input::Slice(s) => s.len(),
+            Input::Short(_, n) => *n,
             Input::Filtered(v) => v.len(),
         }
     }
 }
 
+/// What a grammar's match can start with: a set of kinds of component
+/// value, and whether it can match nothing. Where the next value is of no
+/// kind it can start with, it isn't tried, which saves descending into
+/// grammars like `<position>` for `#fff`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct First {
+    kinds: u16,
+    empty: bool,
+}
+
+const IDENT: u16 = 1;
+const FUNCTION: u16 = 1 << 1;
+const NUMBER: u16 = 1 << 2;
+const PERCENTAGE: u16 = 1 << 3;
+const DIMENSION: u16 = 1 << 4;
+const STRING: u16 = 1 << 5;
+const URL: u16 = 1 << 6;
+const HASH: u16 = 1 << 7;
+const DELIM: u16 = 1 << 8;
+const COMMA: u16 = 1 << 9;
+const BLOCK: u16 = 1 << 10;
+const OTHER: u16 = 1 << 11;
+const ANY: u16 = u16::MAX;
+const NUMERIC: u16 = NUMBER | PERCENTAGE | DIMENSION | FUNCTION;
+
+fn kind(v: &ComponentValue<'_>) -> u16 {
+    match v {
+        ComponentValue::Function(_) => FUNCTION,
+        ComponentValue::Block(_) => BLOCK,
+        ComponentValue::Token(t, _) => match t {
+            Token::Ident(_) => IDENT,
+            Token::Number(_) => NUMBER,
+            Token::Percentage(_) => PERCENTAGE,
+            Token::Dimension { .. } => DIMENSION,
+            Token::String(_) => STRING,
+            Token::Url(_) => URL,
+            Token::Hash { .. } => HASH,
+            Token::Delim(_) => DELIM,
+            Token::Comma => COMMA,
+            _ => OTHER,
+        },
+    }
+}
+
+impl First {
+    const ALL: First = First {
+        kinds: ANY,
+        empty: true,
+    };
+
+    fn admits(self, v: Option<&ComponentValue<'_>>) -> bool {
+        self.empty || v.is_some_and(|v| self.kinds & kind(v) != 0)
+    }
+
+    /// Works out `g`'s, through the types and properties it names, without
+    /// their cached targets: one may be what's being worked out.
+    fn of(g: &'static Grammar, depth: usize) -> First {
+        if depth > MAX_DEPTH {
+            return First::ALL;
+        }
+        let one = |kinds| First {
+            kinds,
+            empty: false,
+        };
+        match g {
+            Grammar::Never => one(0),
+            Grammar::Keyword(_) => one(IDENT),
+            Grammar::Literal(',') => one(COMMA),
+            Grammar::Literal(':' | ';') => one(OTHER),
+            Grammar::Literal(_) => one(DELIM),
+            Grammar::Function(..) => one(FUNCTION),
+            Grammar::SquareBlock(_) | Grammar::ParenBlock(_) => one(BLOCK),
+            Grammar::Type(t) => First::of_type(&t.name, depth),
+            Grammar::Property(r) => match property(&r.name).and_then(|p| p.grammar()) {
+                Some(g) => First::of(g, depth + 1),
+                None => one(0),
+            },
+            Grammar::Sequence(items) => {
+                let mut f = First {
+                    kinds: 0,
+                    empty: true,
+                };
+                for item in items {
+                    let i = First::of(item, depth + 1);
+                    f.kinds |= i.kinds;
+                    // A comma can be left out with what's beside it.
+                    if !i.empty && *item != Grammar::Literal(',') {
+                        f.empty = false;
+                        break;
+                    }
+                }
+                f
+            }
+            Grammar::One(alts) | Grammar::Any(alts) => {
+                let mut f = one(0);
+                for a in alts {
+                    let i = First::of(a, depth + 1);
+                    f.kinds |= i.kinds;
+                    f.empty |= i.empty;
+                }
+                f
+            }
+            Grammar::All(alts) => {
+                let mut f = First {
+                    kinds: 0,
+                    empty: true,
+                };
+                for a in alts {
+                    let i = First::of(a, depth + 1);
+                    f.kinds |= i.kinds;
+                    f.empty &= i.empty;
+                }
+                f
+            }
+            Grammar::Repeat { item, min, .. } => {
+                let mut f = First::of(item, depth + 1);
+                f.empty |= *min == 0;
+                f
+            }
+            Grammar::NonEmpty(inner) => First {
+                empty: false,
+                ..First::of(inner, depth + 1)
+            },
+        }
+    }
+
+    fn of_type(name: &str, depth: usize) -> First {
+        let one = |kinds| First {
+            kinds,
+            empty: false,
+        };
+        match name {
+            "number"
+            | "integer"
+            | "percentage"
+            | "length"
+            | "angle"
+            | "time"
+            | "frequency"
+            | "resolution"
+            | "flex"
+            | "length-percentage"
+            | "angle-percentage"
+            | "time-percentage"
+            | "frequency-percentage" => one(NUMERIC),
+            "color" => one(IDENT | HASH | FUNCTION),
+            "string" => one(STRING),
+            "url" => one(URL | FUNCTION),
+            "ident" | "custom-ident" | "dashed-ident" | "custom-property-name" => one(IDENT),
+            "zero" => one(NUMBER),
+            "dimension" => one(DIMENSION),
+            "declaration-value" | "any-value" => First::ALL,
+            _ => {
+                let g = match name.strip_suffix("()") {
+                    Some(f) => function_grammar(f),
+                    None => type_grammar(name),
+                };
+                match g {
+                    Some(g) => First::of(g, depth + 1),
+                    None => one(0),
+                }
+            }
+        }
+    }
+}
+
+/// What came before an item in a sequence, for its commas.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Before {
+    Start,
+    Nothing,
+    Something,
+}
+
 type K<'k, 'v, 'a> = &'k mut dyn FnMut(&mut Matcher<'v, 'a>, usize) -> bool;
 
-const CSS_WIDE: [&str; 6] = [
+const CSS_WIDE: [&str; 7] = [
     "initial",
     "inherit",
     "unset",
     "revert",
     "revert-layer",
+    "revert-rule",
     "default",
 ];
 
 impl<'v, 'a> Matcher<'v, 'a> {
     pub fn new(values: &'v [ComponentValue<'a>]) -> Matcher<'v, 'a> {
+        let input = Input::new(values);
+        let last_comma = (0..input.len())
+            .rev()
+            .find(|&i| matches!(input.get(i), Some(ComponentValue::Token(Token::Comma, _))));
         Matcher {
-            input: Input::new(values),
+            input,
             out: Vec::with_capacity(8),
             steps: 0,
             depth: 0,
             groups: 0,
             reserved: None,
+            last_comma,
         }
     }
 
@@ -291,6 +1037,10 @@ impl<'v, 'a> Matcher<'v, 'a> {
             }
             Grammar::Type(t) => self.typed(t, pos, k),
             Grammar::Property(r) => {
+                let first = r.first.get_or_init(|| First::of(g, 0));
+                if !first.admits(self.input.get(pos)) {
+                    return false;
+                }
                 let found = r
                     .target
                     .get_or_init(|| property(&r.name).and_then(|p| Some((p, p.grammar()?))));
@@ -298,7 +1048,7 @@ impl<'v, 'a> Matcher<'v, 'a> {
                     return false;
                 };
                 self.nested(|s| {
-                    s.out.push(Out::Start(p.name));
+                    s.out.push(Out::Start(p));
                     let ok = s.m(g, pos, &mut |s, q| {
                         s.out.push(Out::End);
                         if k(s, q) {
@@ -323,17 +1073,10 @@ impl<'v, 'a> Matcher<'v, 'a> {
                 let Some(mut arguments) = self.inside(&f.arguments, inner) else {
                     return false;
                 };
-                if name.ends_with("gradient") {
-                    tidy_gradient(&mut arguments);
-                } else if **name == *"color-mix" || **name == *"palette-mix" {
-                    tidy_mix(&mut arguments, **name == *"color-mix");
-                } else if **name == *"color-layers"
-                    && arguments.first() == Some(&Component::Keyword("normal"))
-                    && arguments.get(1) == Some(&Component::Literal(','))
-                {
-                    // `normal` is the default blend mode.
-                    arguments.drain(..2);
+                if !super::restrict::function(name, &arguments) {
+                    return false;
                 }
+                let name = super::canonical::function(name, &mut arguments);
                 let c = Component::Function { name, arguments };
                 self.emit(c, pos + 1, k)
             }
@@ -357,7 +1100,7 @@ impl<'v, 'a> Matcher<'v, 'a> {
                 };
                 self.emit(c, pos + 1, k)
             }
-            Grammar::Sequence(items) => self.sequence(items, pos, true, k),
+            Grammar::Sequence(items) => self.sequence(items, pos, Before::Start, k),
             Grammar::One(alts) => {
                 for alt in alts {
                     let mark = self.out.len();
@@ -410,7 +1153,7 @@ impl<'v, 'a> Matcher<'v, 'a> {
         let ok = sub.whole(g);
         self.steps = sub.steps;
         ok.then(|| {
-            canonical(sub.out)
+            canonical(sub.out, false)
                 .into_iter()
                 .filter_map(|o| match o {
                     Out::C(c) => Some(c),
@@ -420,32 +1163,69 @@ impl<'v, 'a> Matcher<'v, 'a> {
         })
     }
 
-    /// Juxtaposed items, in order. A comma next to an item that matched
-    /// nothing may be left out, as Values 4 §2.6 says: `[ a? , b ]`
-    /// matches `b`.
+    /// Juxtaposed items, in order, with the commas Values 4 §2.6 says to
+    /// leave out: those with only omitted items before them, or after
+    /// them, or between them and another comma. `[ a? , b ]` matches `b`,
+    /// and not `, b`.
     fn sequence(
         &mut self,
         items: &'static [Grammar],
         pos: usize,
-        prev_empty: bool,
+        before: Before,
         k: K<'_, 'v, 'a>,
     ) -> bool {
         let Some((first, rest)) = items.split_first() else {
             return k(self, pos);
         };
+        // `<bg-layer>#? , <final-bg-layer>` with no comma left to match:
+        // what's before the comma can only be left out, which saves trying
+        // every way it could match.
+        if rest.first() == Some(&Grammar::Literal(','))
+            && !rest[1..].iter().all(optional)
+            && self.last_comma.is_none_or(|c| c < pos)
+        {
+            if !optional(first) {
+                return false;
+            }
+            let next = if before == Before::Something {
+                Before::Something
+            } else {
+                Before::Nothing
+            };
+            return self.sequence(rest, pos, next, k);
+        }
         if *first == Grammar::Literal(',') {
+            if before == Before::Nothing {
+                return self.sequence(rest, pos, Before::Nothing, k);
+            }
             let mark = self.out.len();
-            if self.m(first, pos, &mut |s, q| s.sequence(rest, q, false, k)) {
+            if self.m(first, pos, &mut |s, q| {
+                // Something has to follow it, if anything in the sequence does.
+                s.sequence(rest, q, Before::Nothing, &mut |s, r| {
+                    (r > q || rest.is_empty()) && k(s, r)
+                })
+            }) {
                 return true;
             }
             self.out.truncate(mark);
-            if prev_empty {
-                return self.sequence(rest, pos, true, k);
+            if before == Before::Start {
+                return self.sequence(rest, pos, Before::Nothing, k);
             }
-            // Before items that all match nothing.
-            return self.sequence(rest, pos, true, &mut |s, q| q == pos && k(s, q));
+            // After something, the comma goes only if all that follows
+            // matches nothing.
+            if rest.is_empty() {
+                return false;
+            }
+            return self.sequence(rest, pos, Before::Nothing, &mut |s, q| q == pos && k(s, q));
         }
-        self.m(first, pos, &mut |s, q| s.sequence(rest, q, q == pos, k))
+        self.m(first, pos, &mut |s, q| {
+            let next = match (q == pos, before) {
+                (false, _) => Before::Something,
+                (true, Before::Something) => Before::Something,
+                (true, _) => Before::Nothing,
+            };
+            s.sequence(rest, q, next, k)
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -464,7 +1244,7 @@ impl<'v, 'a> Matcher<'v, 'a> {
             }
             let mark = self.out.len();
             let next = used | (1 << i);
-            self.out.push(Out::Alt(set, i, !all));
+            self.out.push(Out::Alt(set, i, !all, alts));
             if self.m(alt, pos, &mut |s, q| {
                 if q <= pos {
                     return false;
@@ -534,6 +1314,9 @@ impl<'v, 'a> Matcher<'v, 'a> {
 
     fn typed(&mut self, t: &'static TypeRef, pos: usize, k: K<'_, 'v, 'a>) -> bool {
         let v = self.input.get(pos);
+        if !t.first.get_or_init(|| First::of_type(&t.name, 0)).admits(v) {
+            return false;
+        }
         let one = |c: Option<Component<'a>>| c.map(|c| (c, pos + 1));
         let found = match t.target.get_or_init(|| target(&t.name)) {
             Target::Numeric(n) => one(v.and_then(|v| n.matches(v, t.range))),
@@ -599,6 +1382,38 @@ impl<'v, 'a> Matcher<'v, 'a> {
                 return false;
             }
             Target::Grammar(g) => return self.nested(|s| s.m(g, pos, k)),
+            Target::Tidy(name, g) if !super::canonical::TYPES.contains(name) => {
+                // Only a restriction: checked on what it matched, unmarked.
+                let name: &'static str = name;
+                return self.nested(|s| {
+                    let mark = s.out.len();
+                    s.m(g, pos, &mut |s, q| {
+                        super::restrict::of_type(name, &s.out[mark..]) && k(s, q)
+                    })
+                });
+            }
+            Target::Tidy(name, g) => {
+                let name: &'static str = name;
+                return self.nested(|s| {
+                    let mark = s.out.len();
+                    s.out.push(Out::Type(name));
+                    let ok = s.m(g, pos, &mut |s, q| {
+                        if !super::restrict::of_type(name, &s.out[mark + 1..]) {
+                            return false;
+                        }
+                        s.out.push(Out::TypeEnd);
+                        if k(s, q) {
+                            return true;
+                        }
+                        s.out.pop();
+                        false
+                    });
+                    if !ok {
+                        s.out.truncate(mark);
+                    }
+                    ok
+                });
+            }
             Target::Missing => return false,
         };
         match found {
@@ -606,6 +1421,100 @@ impl<'v, 'a> Matcher<'v, 'a> {
             None => false,
         }
     }
+}
+
+/// A value of one token (not an identifier, a function or a block)
+/// matched against `g` without the matcher, where `g` is alternatives of
+/// keywords and primitive types: `Some(Some(_))` for a match, `Some(None)`
+/// for none, and `None` where an alternative needs the matcher.
+pub(crate) fn single<'a>(
+    g: &'static Grammar,
+    v: &ComponentValue<'a>,
+) -> Option<Option<Component<'a>>> {
+    single_at(g, v, 0)
+}
+
+fn single_at<'a>(
+    g: &'static Grammar,
+    v: &ComponentValue<'a>,
+    depth: usize,
+) -> Option<Option<Component<'a>>> {
+    if depth > MAX_DEPTH {
+        return None;
+    }
+    let alts = match g {
+        Grammar::One(alts) => &alts[..],
+        other => std::slice::from_ref(other),
+    };
+    for alt in alts {
+        let found = match alt {
+            Grammar::Keyword(_) | Grammar::Function(..) => continue,
+            // One token is one of a repeat's items.
+            Grammar::Repeat {
+                item, min: 0 | 1, ..
+            } => single_at(item, v, depth + 1)?,
+            // Or the first of a sequence whose others can be left out.
+            Grammar::Sequence(items)
+                if items.len() > 1 && items[1..].iter().all(|i| optional(i) && !has_comma(i)) =>
+            {
+                single_at(&items[0], v, depth + 1)?
+            }
+            // Or one of a `||` group's, unless it's a longhand's initial
+            // value, which the shortest form may write otherwise.
+            Grammar::Any(items) => {
+                let mut found = None;
+                for item in items {
+                    if let Some(c) = single_at(item, v, depth + 1)? {
+                        if let Grammar::Property(r) = item
+                            && super::value::initial_cached(&r.name)
+                                .is_some_and(|i| i.len() == 1 && i[0] == c)
+                        {
+                            return None;
+                        }
+                        found = Some(c);
+                        break;
+                    }
+                }
+                found
+            }
+            // A longhand's grammar, where it has no shortest form to keep.
+            Grammar::Property(r) => {
+                let p = property(&r.name)?;
+                if needs_form(p) {
+                    return None;
+                }
+                single_at(p.grammar()?, v, depth + 1)?
+            }
+            Grammar::Type(t) => {
+                if !t
+                    .first
+                    .get_or_init(|| First::of_type(&t.name, 0))
+                    .admits(Some(v))
+                {
+                    continue;
+                }
+                match t.target.get_or_init(|| target(&t.name)) {
+                    Target::Numeric(n) => n.matches(v, t.range),
+                    Target::Color => Color::parse(v).map(Component::Color),
+                    Target::String => match v {
+                        ComponentValue::Token(Token::String(s), _) => {
+                            Some(Component::String(s.clone()))
+                        }
+                        _ => None,
+                    },
+                    Target::Url => url(v),
+                    Target::Missing => None,
+                    Target::Grammar(g) => single_at(g, v, depth + 1)?,
+                    _ => return None,
+                }
+            }
+            _ => return None,
+        };
+        if found.is_some() {
+            return Some(found);
+        }
+    }
+    Some(None)
 }
 
 /// What a type reference names, worked out once per reference.
@@ -624,6 +1533,9 @@ pub(crate) enum Target {
     Tokens,
     /// A type or function the specs give a grammar for.
     Grammar(&'static Grammar),
+    /// One with a shortest form or a restriction of its own, marked in the
+    /// match for it.
+    Tidy(&'static str, &'static Grammar),
     /// Defined in prose only, so nothing matches it.
     Missing,
 }
@@ -658,8 +1570,32 @@ fn target(name: &str) -> Target {
                 Some(f) => function_grammar(f),
                 None => type_grammar(name),
             };
-            g.map_or(Target::Missing, Target::Grammar)
+            match g {
+                Some(g) => match super::canonical::TYPES
+                    .iter()
+                    .chain(super::restrict::TYPES)
+                    .find(|t| **t == name)
+                {
+                    Some(t) => Target::Tidy(t, g),
+                    None => Target::Grammar(g),
+                },
+                None => Target::Missing,
+            }
         }
+    }
+}
+
+/// Whether a grammar has a comma of its own, which can't be left out
+/// beside a value that's there.
+fn has_comma(g: &Grammar) -> bool {
+    match g {
+        Grammar::Literal(',') => true,
+        Grammar::Sequence(items)
+        | Grammar::All(items)
+        | Grammar::Any(items)
+        | Grammar::One(items) => items.iter().any(has_comma),
+        Grammar::Repeat { item, .. } | Grammar::NonEmpty(item) => has_comma(item),
+        _ => false,
     }
 }
 
@@ -757,139 +1693,5 @@ impl Numeric {
             _ => 0.0,
         };
         in_range(value).then_some(c)
-    }
-}
-
-/// A gradient's arguments as CSS Images 4 writes them: the default color
-/// interpolation left out (sRGB when every stop is a legacy color, Oklab
-/// otherwise), `shorter hue` left out as the default, `xyz` as `xyz-d65`,
-/// and `ellipse` left out before two sizes, which say it.
-fn tidy_gradient(args: &mut Vec<Component<'_>>) {
-    let end = args
-        .iter()
-        .position(|c| *c == Component::Literal(','))
-        .unwrap_or(args.len());
-    let legacy = args[end..].iter().all(|c| match c {
-        Component::Color(Color::Channels(ch)) => {
-            matches!(
-                ch.model,
-                super::color::Model::Rgb | super::color::Model::Hsl | super::color::Model::Hwb
-            )
-        }
-        _ => true,
-    });
-    let mut end = end;
-    if let Some(i) = args[..end]
-        .iter()
-        .position(|c| *c == Component::Keyword("in"))
-    {
-        if args.get(i + 1) == Some(&Component::Keyword("xyz")) {
-            args[i + 1] = Component::Keyword("xyz-d65");
-        }
-        if args.get(i + 2) == Some(&Component::Keyword("shorter"))
-            && args.get(i + 3) == Some(&Component::Keyword("hue"))
-        {
-            args.drain(i + 2..i + 4);
-            end -= 2;
-        }
-        let default = if legacy { "srgb" } else { "oklab" };
-        let hue = matches!(args.get(i + 3), Some(Component::Keyword("hue")));
-        if !hue && args.get(i + 1) == Some(&Component::Keyword(default)) {
-            args.drain(i..i + 2);
-            end -= 2;
-        }
-    }
-    if let Some(i) = args[..end]
-        .iter()
-        .position(|c| *c == Component::Keyword("ellipse"))
-        && args[i + 1..end]
-            .iter()
-            .take(2)
-            .filter(|c| {
-                matches!(
-                    c,
-                    Component::Percentage(_) | Component::Dimension(..) | Component::Math(_)
-                )
-            })
-            .count()
-            == 2
-    {
-        args.remove(i);
-        end -= 1;
-    }
-    // Nothing left before the stops: no comma either.
-    if end == 0 && args.first() == Some(&Component::Literal(',')) {
-        args.remove(0);
-    }
-}
-
-/// `color-mix()`'s and `palette-mix()`'s arguments as CSS Color 5 and
-/// CSS Fonts write them: `in xyz` as `in xyz-d65`, `shorter hue` left out
-/// as the default, and for `color-mix()` `in oklab` too; and the
-/// percentages filled in: those left out share what the others leave of
-/// 100%, and two at 50% are left out.
-fn tidy_mix(args: &mut Vec<Component<'_>>, color_mix: bool) {
-    if args.first() == Some(&Component::Keyword("in")) {
-        if args.get(1) == Some(&Component::Keyword("xyz")) {
-            args[1] = Component::Keyword("xyz-d65");
-        }
-        if args.get(2) == Some(&Component::Keyword("shorter"))
-            && args.get(3) == Some(&Component::Keyword("hue"))
-        {
-            args.drain(2..4);
-        }
-        let hue = matches!(args.get(3), Some(Component::Keyword("hue")));
-        if color_mix && !hue && args.get(1) == Some(&Component::Keyword("oklab")) {
-            args.drain(0..2);
-            if args.first() == Some(&Component::Literal(',')) {
-                args.remove(0);
-            }
-        }
-    }
-    let start = match args.first() {
-        Some(Component::Keyword("in")) => {
-            match args.iter().position(|c| *c == Component::Literal(',')) {
-                Some(i) => i + 1,
-                None => return,
-            }
-        }
-        _ => 0,
-    };
-    let parts: Vec<Vec<Component<'_>>> = args[start..]
-        .split(|c| *c == Component::Literal(','))
-        .map(<[_]>::to_vec)
-        .collect();
-    let mut items = Vec::new();
-    for p in parts {
-        match &p[..] {
-            [c, Component::Percentage(v)] => items.push((c.clone(), Some(*v))),
-            [c] => items.push((c.clone(), None)),
-            // Math or anything else: leave the whole thing as it is.
-            _ => return,
-        }
-    }
-    let given: f64 = items.iter().filter_map(|(_, p)| *p).sum();
-    let missing = items.iter().filter(|(_, p)| p.is_none()).count();
-    if missing == items.len() {
-        return;
-    }
-    if missing > 0 {
-        let share = ((100.0 - given) / missing as f64).max(0.0);
-        for (_, p) in &mut items {
-            p.get_or_insert(share);
-        }
-    }
-    if items.len() == 2 && items.iter().all(|(_, p)| *p == Some(50.0)) {
-        for (_, p) in &mut items {
-            *p = None;
-        }
-    }
-    args.truncate(start);
-    for (i, (c, p)) in items.into_iter().enumerate() {
-        if i > 0 {
-            args.push(Component::Literal(','));
-        }
-        args.push(c);
-        args.extend(p.map(Component::Percentage));
     }
 }

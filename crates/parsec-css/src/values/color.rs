@@ -973,7 +973,23 @@ impl fmt::Display for RelativeChannel {
 
 impl fmt::Display for Relative {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}(from {}", self.function, self.origin)?;
+        write!(f, "{}(from ", self.function)?;
+        match &self.origin {
+            // An origin with no alpha, as with no channel, is written in
+            // `color()`, as WPT has it: the legacy form has no `none`.
+            Color::Channels(c) if c.model == Model::Rgb && c.alpha == Channel::None => {
+                f.write_str("color(srgb")?;
+                for ch in &c.channels {
+                    f.write_char(' ')?;
+                    match ch {
+                        Channel::Number(v) => write_number(f, v / 255.0)?,
+                        ch => write_channel(f, ch, false)?,
+                    }
+                }
+                f.write_str(" / none)")?;
+            }
+            origin => write!(f, "{origin}")?,
+        }
         if let Some(space) = self.space {
             write!(f, " {}", space.name())?;
         }
