@@ -106,6 +106,12 @@ jobs:
           ref: ${{ steps.pin.outputs.commit }}
           path: netweir
           persist-credentials: false
+      # The sync formats each copied Rust file with rustfmt, so the check
+      # needs the same rustfmt as the lint job.
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          components: rustfmt
       - run: scripts/sync-from-netweir.sh --check netweir
       - name: Every Rust file states its licence and copyright
         run: scripts/check-headers.sh

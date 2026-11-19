@@ -41,7 +41,10 @@ rename() {
       awk 'BEGIN { top = 1 }
            top && /^\/\/ (SPDX-License-Identifier|Copyright)/ { dropped = 1; next }
            top && dropped && /^$/ { top = 0; next }
-           { top = 0; print }' "$1" | names
+           { top = 0; print }' "$1" | names |
+        # A rename can shorten a line enough for rustfmt to join it, so
+        # the copy is formatted again as cargo fmt would leave it.
+        rustfmt --edition 2024 --emit stdout
       ;;
     *) names < "$1" ;;
   esac

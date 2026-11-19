@@ -156,9 +156,5 @@ fn errors_have_their_names_and_places() {
             ("unexpected-end-tag", 2, 13, "<"),
         ]
     );
-    assert!(
-        parsec::parse("<p a=1 a=2>", false)
-            .errors()
-            .is_empty()
-    );
+    assert!(parsec::parse("<p a=1 a=2>", false).errors().is_empty());
 }
