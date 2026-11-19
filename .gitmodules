@@ -4,3 +4,6 @@
 [submodule "bench/lexbor"]
 	path = bench/lexbor
 	url = https://github.com/lexbor/lexbor
+[submodule "bench/ada"]
+	path = bench/ada
+	url = https://github.com/ada-url/ada

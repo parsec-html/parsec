@@ -195,6 +195,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-url"
+version = "0.1.0"
+dependencies = [
+ "idna",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

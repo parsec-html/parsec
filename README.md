@@ -77,6 +77,14 @@ assert_eq!(doc.text(hits[0]), "one");
   time in proportion to their length.
 - **One dependency** (`memchr`) and one `unsafe` block, with its reasoning
   written beside it.
+- **WHATWG URL**, in `crates/parsec-url`: every getter and setter the
+  `URL` interface has, `URLSearchParams`, IDNA and Punycode, built on
+  Servo's `url` crate. `cargo test` runs the web-platform-tests URL suite,
+  and 3,690 of its 4,565 cases pass; Lexbor publishes no count at all.
+  Most of the 875 failures, 795 of them, are one IDNA rule the standard
+  changed in June 2026 and the `url` crate hasn't caught up with yet. The
+  wiki's [URL](https://github.com/parsec-html/parsec/wiki/URL) page names
+  every failing case and why it fails.
 - **A Python package** in `bindings/python`, with selectolax's API:
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
@@ -109,6 +117,12 @@ second on dense GBK, where Parsec reaches 501, so on that one Lexbor is
 ahead until you count the conversion. A UTF-8 page Parsec only validates
 and then parses where it is, at about 60 GB a second.
 
+URLs as well. Over the 83,113 `href` and `src` values on those 13 pages,
+each resolved against its page, Parsec takes 180 ns a URL and Lexbor 240,
+so Parsec is 1.3 times as fast. Ada, the C++ parser in Node.js, takes
+143 ns, 1.25 times as fast as Parsec. That gap is why a URL parser of
+Parsec's own is next on the roadmap.
+
 It doesn't win everywhere. Of the eight hostile inputs, two go Lexbor's
 way: 300 open `<b>` tags followed by 3,000 paragraphs, where Lexbor is
 1.8 times faster, and a dozen formatting tags reopened in every
@@ -118,7 +132,7 @@ round, 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2 seconds.
 
 `bench/` builds Lexbor 3.0.1 from source and runs all three on the same
 strings, on an Apple M2 Max here, then times the selectors over the
-same documents. The wiki's
+same documents, and URLs against Lexbor and Ada. The wiki's
 [Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks) page
 has the method, every number and how to run it yourself.
 
@@ -143,7 +157,7 @@ every module Lexbor has, and then go past it:
 | A tree depth limit | no | yes |
 | XPath | no | planned |
 | WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |
-| WHATWG URL | yes | planned, with WPT pass counts published |
+| WHATWG URL | yes, no WPT count published | yes, with WPT pass counts published |
 | CSS parser and CSSOM | yes | planned, with `var()`, media queries and computed values |
 | C API | yes | planned, with prebuilt libraries for Linux, macOS and Windows |
 | Python | through selectolax | yes, free-threaded too |

@@ -90,6 +90,15 @@ WHATWG URL, `URLSearchParams`, IDNA, Punycode and Unicode normalization,
 with the web-platform-tests URL pass counts published. Then a benchmark
 against Lexbor's URL parser and Ada.
 
+- Done: `crates/parsec-url`, with URL, `URLSearchParams`, IDNA and
+  Punycode on Servo's `url` crate, and the WPT URL suite in `cargo test`
+  with its counts in every CI run's summary.
+- Done: the benchmark against Lexbor's URL parser and Ada, in `bench/`.
+- Still to come: Unicode normalization, and a URL parser of Parsec's own
+  behind the same API. The `url` crate trails the standard (795 of its
+  875 WPT failures are one IDNA rule from June 2026) and trails Ada on
+  speed, so this one is needed to win.
+
 ## M7. CSS
 
 The CSS Syntax parser, passing `css-parsing-tests` with positions on every
