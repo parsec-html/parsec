@@ -219,25 +219,24 @@ fn scripting(flags: u32) -> Result<bool, parsec_status> {
 
 fn parsed(
     r: Result<Document, ParseError>,
-    out: *mut *mut parsec_document,
+    out: &mut *mut parsec_document,
 ) -> Result<(), parsec_status> {
     let doc = r.map_err(|e| match e {
         ParseError::TooLarge { .. } => PARSEC_ERR_TOO_LARGE,
         ParseError::Timeout { .. } => PARSEC_ERR_TIMEOUT,
     })?;
-    // SAFETY: the callers checked `out` isn't NULL.
-    unsafe { out.write(Box::into_raw(Box::new(parsec_document(doc)))) };
+    *out = Box::into_raw(Box::new(parsec_document(doc)));
     Ok(())
 }
 
-/// Clears `*out` first, so it's NULL on every error.
-unsafe fn clear<T>(out: *mut *mut T) -> Result<(), parsec_status> {
-    if out.is_null() {
-        return Err(PARSEC_ERR_NULL);
-    }
-    // SAFETY: checked non-NULL.
-    unsafe { out.write(ptr::null_mut()) };
-    Ok(())
+/// The out pointer as a reference, with `*out` cleared first so it's NULL
+/// on every error.
+unsafe fn clear<'a, T>(out: *mut *mut T) -> Result<&'a mut *mut T, parsec_status> {
+    // SAFETY: the caller passes NULL or a pointer to writable space for a
+    // pointer, which nothing else touches during the call.
+    let out = unsafe { out.as_mut() }.ok_or(PARSEC_ERR_NULL)?;
+    *out = ptr::null_mut();
+    Ok(out)
 }
 
 // ---- the library -----------------------------------------------------------
@@ -328,7 +327,7 @@ pub unsafe extern "C" fn parsec_parse_with(
     guard(PARSEC_ERR_PANIC, || {
         status((|| {
             // SAFETY: as the header says for every argument.
-            unsafe { clear(out)? };
+            let out = unsafe { clear(out)? };
             let html = unsafe { text(html, len)? };
             let options = Options {
                 scripting: scripting(flags)?,
@@ -357,7 +356,7 @@ pub unsafe extern "C" fn parsec_parse_fragment(
     guard(PARSEC_ERR_PANIC, || {
         status((|| {
             // SAFETY: as the header says for every argument.
-            unsafe { clear(out)? };
+            let out = unsafe { clear(out)? };
             let html = unsafe { text(html, len)? };
             let context = unsafe { text(context, context_len)? };
             let options = Options {
@@ -836,14 +835,12 @@ pub unsafe extern "C" fn parsec_selector_compile(
         status((|| {
             // SAFETY: `out` and `message` NULL or writable; `selector` has
             // `len` bytes.
-            unsafe {
-                put(message, ptr::null_mut());
-                clear(out)?;
-            }
+            unsafe { put(message, ptr::null_mut()) };
+            let out = unsafe { clear(out)? };
             let selector = unsafe { text(selector, len)? };
             match SelectorList::parse(&selector) {
                 Ok(list) => {
-                    unsafe { out.write(Box::into_raw(Box::new(parsec_selector(list)))) };
+                    *out = Box::into_raw(Box::new(parsec_selector(list)));
                     Ok(())
                 }
                 Err(e) => {
