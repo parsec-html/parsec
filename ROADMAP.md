@@ -58,9 +58,10 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M3. Selectors that match what a page can decide
 
-- `:lang()`, `:dir()`, `:default`, `:indeterminate`, `:valid`, `:invalid`,
+- Done: `:lang()`, `:dir()`, `:default`, `:indeterminate`, `:valid`,
+  `:invalid` (with `pattern=`, Unicode property escapes included),
   `:in-range`, `:out-of-range`, `:defined` and `:blank`.
-- `:target` and `:local-link`, given a URL.
+- Done: `:target` and `:local-link`, given a URL.
 - `:nth-col()`, `:nth-last-col()` and the column combinator.
 - Namespace prefixes.
 - Specificity, lazy queries that stop at the first match, and the
