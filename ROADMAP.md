@@ -65,7 +65,8 @@ Every CI run publishes the conformance counts in its summary.
 - Done: `:nth-col()`, `:nth-last-col()` and the column combinator, by the
   HTML table model (`colspan`, `rowspan`, `colgroup`), linear on hostile
   tables.
-- Namespace prefixes.
+- Done: namespace prefixes, declared through `SelectorList::parse_with`
+  the way `@namespace` rules would declare them.
 - Done: specificity, lazy queries that stop at the first match, and the
   web-platform-tests selector cases that don't need layout (every case
   that runs without a browser passes).
