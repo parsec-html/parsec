@@ -17,6 +17,7 @@ mod unicode;
 
 pub use dom::{AttrNs, Document, Kind, MAX_INPUT, NodeId, Ns, Quirks};
 pub use edit::EditError;
+pub use serialize::SerializeOptions;
 pub use tree::{Options, ParseError, parse, parse_fragment, parse_fragment_with, parse_with};
 
 // A parsed document and a parsed selector can be read from many threads at
