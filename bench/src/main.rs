@@ -21,7 +21,8 @@
 //! After the pages comes a table of selectors over the real pages, Parsec
 //! against Lexbor (html5ever has no selector engine of its own). Name
 //! `selectors` to run only that table, or `encoding` for decoding
-//! throughput against Lexbor's encoding module (not part of a full run).
+//! throughput against Lexbor's encoding module and streamed bytes against
+//! whole ones (not part of a full run).
 //!
 //! Last comes URL parsing, Parsec against Lexbor and Ada, over the links on
 //! the real pages and WPT's URL test inputs. Name `urls` to run only that.

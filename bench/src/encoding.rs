@@ -245,7 +245,52 @@ pub fn run(pages: &[Page]) {
             );
         }
     }
+    streaming(pages);
     wpt_pages();
+}
+
+/// The same transcoded pages into documents: `parse_bytes` on the whole
+/// page against `ByteParser` fed 4 KB at a time, as from a socket. With
+/// the encoding given as by an HTTP header, and sniffed, where the
+/// streaming parser keeps every byte in case a `<meta>` changes it.
+fn streaming(pages: &[Page]) {
+    use parsec_encoding::{ByteParser, Options, parse_bytes};
+    println!(
+        "\nBytes to a document, MB/s of input: whole, then in 4 KB pieces\n{:<34} {:>8}  {:>17}  {:>17}",
+        "", "size", "encoding given", "sniffed"
+    );
+    let real = ["wikipedia-population", "nytimes"];
+    for encoding in [UTF_8, SHIFT_JIS, WINDOWS_1251, GBK] {
+        println!("{}", encoding.name());
+        for page in pages.iter().filter(|p| real.contains(&p.name.as_str())) {
+            let bytes = encoding.encode(&page.html).0.into_owned();
+            let mb = bytes.len() as f64 / 1e6;
+            let mut cells = String::new();
+            for transport in [Some(encoding), None] {
+                let options = Options {
+                    transport,
+                    ..Options::default()
+                };
+                let whole = || parse_bytes(&bytes, options).unwrap();
+                let pieces = || {
+                    let mut parser = ByteParser::new(options);
+                    for piece in bytes.chunks(4096) {
+                        parser.feed(piece);
+                    }
+                    parser.finish().unwrap()
+                };
+                let (a, b) = (whole(), pieces());
+                assert_eq!(
+                    a.document.outer_html(a.document.root()),
+                    b.document.outer_html(b.document.root())
+                );
+                let w = median(|| whole().document.len());
+                let p = median(|| pieces().document.len());
+                cells += &format!("  {:>7.0} {:>7.0}  ", mb / w, mb / p);
+            }
+            println!("  {:<32} {mb:>5.2} MB{cells}", page.name);
+        }
+    }
 }
 
 /// Lexbor's decoders over each character of the web-platform-tests

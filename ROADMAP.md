@@ -89,9 +89,11 @@ Every CI run publishes the conformance counts in its summary.
 Done. The WHATWG Encoding Standard's 40 encodings, decoding and
 encoding, in `crates/parsec-encoding` on top of encoding_rs, with the
 web-platform-tests encoding data in CI: every label, every single-byte
-table, and 62,352 multi-byte characters, all passing. Decoding a stream
-works now, through encoding_rs's `Decoder`; feeding it into the parser
-chunk by chunk arrives with chunked input in M2.
+table, and 62,352 multi-byte characters, all passing. Bytes stream
+straight into the parser too: `ByteParser` sniffs the encoding from the
+first bytes, decodes each piece through encoding_rs's `Decoder` and feeds
+it to the chunked parser, with the same result as `parse_bytes` however
+the input is cut.
 
 ## M6. URL
 

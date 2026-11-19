@@ -3,6 +3,7 @@
 
 //! Bytes into Parsec. [`parse_bytes`] finds a page's encoding the way the
 //! HTML Standard says a browser does, decodes it and parses it.
+//! [`ByteParser`] does the same with the bytes as they arrive.
 //!
 //! The decoding is [`encoding_rs`], Firefox's implementation of the WHATWG
 //! Encoding Standard, re-exported here. It has every encoding the web
@@ -27,6 +28,8 @@ use parsec::{AttrNs, Document, Kind, NodeId, Ns, ParseError};
 
 mod prescan;
 pub use prescan::prescan;
+mod stream;
+pub use stream::ByteParser;
 
 /// How sure the parser is of an encoding, in the HTML Standard's terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

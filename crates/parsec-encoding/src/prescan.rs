@@ -23,8 +23,9 @@ pub fn prescan(bytes: &[u8]) -> Option<&'static Encoding> {
 }
 
 /// The prescan's steps. `None` is running out of bytes; the loop has no
-/// other way to end.
-fn scan(b: &[u8]) -> Option<&'static Encoding> {
+/// other way to end. A `Some` comes from the first six bytes or a
+/// `<meta>` read to its `>`, so more bytes can't change it.
+pub(crate) fn scan(b: &[u8]) -> Option<&'static Encoding> {
     if b.starts_with(&[0x3C, 0, 0x3F, 0, 0x78, 0]) {
         return Some(UTF_16LE);
     }
