@@ -5,6 +5,7 @@
 //! math functions, CSS Color Level 4's colors, and the value definition
 //! syntax every property's grammar is written in.
 
+mod canonical;
 mod color;
 mod convert;
 mod custom;
@@ -12,7 +13,9 @@ mod generated;
 mod grammar;
 mod matcher;
 mod math;
+mod path;
 mod properties;
+mod restrict;
 mod units;
 mod value;
 

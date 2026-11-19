@@ -133,6 +133,10 @@ pub enum MathFunction {
     Exp,
     Abs,
     Sign,
+    /// `sibling-index()` and `sibling-count()`, CSS Values 5 §8: numbers
+    /// only the element's place in the tree can give.
+    SiblingIndex,
+    SiblingCount,
 }
 
 impl MathFunction {
@@ -159,6 +163,8 @@ impl MathFunction {
             Exp => "exp",
             Abs => "abs",
             Sign => "sign",
+            SiblingIndex => "sibling-index",
+            SiblingCount => "sibling-count",
         }
     }
 
@@ -185,6 +191,8 @@ impl MathFunction {
             Exp,
             Abs,
             Sign,
+            SiblingIndex,
+            SiblingCount,
         ];
         all.into_iter()
             .find(|f| f.name().eq_ignore_ascii_case(name))
@@ -200,6 +208,7 @@ impl MathFunction {
             Mod | Rem | Atan2 | Pow => (2, 2),
             Log => (1, 2),
             Sin | Cos | Tan | Asin | Acos | Atan | Sqrt | Exp | Abs | Sign => (1, 1),
+            SiblingIndex | SiblingCount => (0, 0),
         }
     }
 }
@@ -436,6 +445,7 @@ fn type_of(node: &Node, percent: Option<Kind>, depth: usize) -> Option<Type> {
                     same(args)?;
                     Type::one(kind_index(Kind::Angle))
                 }
+                SiblingIndex | SiblingCount => number,
                 Pow | Sqrt | Log | Exp => {
                     if same(args)? != number {
                         return None;
@@ -477,6 +487,9 @@ fn parse_function(f: &Function<'_>, depth: usize, kw: Keywords) -> Option<Node> 
                 groups.remove(0);
             }
         }
+    }
+    if groups.len() == 1 && groups[0].iter().all(ComponentValue::is_whitespace) {
+        groups.clear();
     }
     let (min, max) = kind.arity();
     if groups.len() < min || groups.len() > max {
@@ -710,6 +723,9 @@ fn product_of(mut nodes: Vec<Node>) -> Node {
 /// A function of values known well enough to work out, worked out.
 fn compute(f: MathFunction, args: &[Node]) -> Option<Leaf> {
     use MathFunction::*;
+    if matches!(f, SiblingIndex | SiblingCount) {
+        return None;
+    }
     let leaves: Vec<Leaf> = args
         .iter()
         .map(|a| match a {
@@ -731,6 +747,7 @@ fn compute(f: MathFunction, args: &[Node]) -> Option<Leaf> {
         _ => None,
     };
     match f {
+        SiblingIndex | SiblingCount => None,
         Min | Max | Clamp | Hypot | Round(_) | Mod | Rem | Abs if !alike => None,
         Min => Some(first.with_value(v.iter().copied().fold(f64::INFINITY, nan_min))),
         Max => Some(first.with_value(v.iter().copied().fold(f64::NEG_INFINITY, nan_max))),

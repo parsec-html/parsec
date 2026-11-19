@@ -68,9 +68,26 @@ fn fuzzy_same(got: &str, want: &str, epsilon: f64) -> bool {
                     || (matches!(c, '-' | '.')
                         && rest[1..].starts_with(|d: char| d.is_ascii_digit())));
             if starts {
-                let len = rest
-                    .find(|d: char| !(d.is_ascii_digit() || d == '.' || d == '-' || d == 'e'))
-                    .unwrap_or(rest.len());
+                // Digits, a point, a sign, and `e` only as an exponent:
+                // `1em` is the number 1 and a unit.
+                let b = rest.as_bytes();
+                let mut len = 1;
+                while len < b.len() {
+                    let d = b[len];
+                    let exponent = d == b'e'
+                        && b.get(len + 1).is_some_and(|n| {
+                            n.is_ascii_digit()
+                                || (matches!(n, b'-' | b'+')
+                                    && b.get(len + 2).is_some_and(u8::is_ascii_digit))
+                        });
+                    if exponent {
+                        len += 2;
+                    } else if d.is_ascii_digit() || d == b'.' {
+                        len += 1;
+                    } else {
+                        break;
+                    }
+                }
                 numbers.push(rest[..len].parse().unwrap_or(f64::NAN));
                 text.push('#');
                 rest = &rest[len..];
@@ -125,9 +142,16 @@ fn run(case: &Value) -> (bool, String) {
                 .map(|(n, v)| (n.to_string(), v.to_string()))
                 .collect();
             let want = case["longhands"].as_object().unwrap();
+            // A test may name a longhand by a legacy alias, `grid-row-gap`.
+            let canonical = |name: &str| {
+                let n = css_name(name);
+                parsec_css::values::property(&n)
+                    .and_then(|p| p.alias_of)
+                    .map_or(n, String::from)
+            };
             let ok = want
                 .iter()
-                .all(|(name, v)| got.get(&css_name(name)).map(String::as_str) == v.as_str());
+                .all(|(name, v)| got.get(&canonical(name)).map(String::as_str) == v.as_str());
             (ok, serde_json::to_string(&got).unwrap())
         }
         other => panic!("unknown case kind {other}"),
