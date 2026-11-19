@@ -12,20 +12,28 @@
 //! while holding it, since that can need every other thread to pause.
 
 use std::borrow::Cow;
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
+use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 use std::time::Duration;
 
 use parsec::css::{MatchOptions, SelectorList};
 use parsec::{AttrNs, Document, Kind, NodeId, Ns, Options, ParseError};
+use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath, XValue};
 use pyo3::exceptions::{PyKeyError, PyTimeoutError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
+use pyo3::types::{PyBool, PyBytes, PyDict, PyFloat, PyList, PyString, PyTuple};
 
 pyo3::create_exception!(
     parsec_html,
     SelectorError,
     PyValueError,
     "A CSS selector that doesn't parse."
+);
+
+pyo3::create_exception!(
+    parsec_html,
+    XPathError,
+    PyValueError,
+    "An XPath expression that doesn't parse, or that can't be evaluated."
 );
 
 #[pyclass(frozen, module = "parsec_html", name = "HTMLParser")]
@@ -35,6 +43,10 @@ struct HtmlParser {
     scripting: bool,
     /// The page's address, for `:target` and `:local-link`.
     url: Option<String>,
+    /// The XPath index of the tree as it is, built by the first query
+    /// after a change. `write` drops it, under the write lock, so a query
+    /// (which holds the read lock) never sees one of an older tree.
+    index: Mutex<Option<Arc<Index>>>,
 }
 
 #[pyclass(frozen, module = "parsec_html")]
@@ -277,6 +289,85 @@ fn build(doc: &mut Document, steps: &[Step]) -> Vec<NodeId> {
     roots
 }
 
+/// Every node with no parent: the document first, then any subtree that
+/// was removed or made apart from it, so a query can start anywhere.
+fn roots(doc: &Document) -> Vec<NodeId> {
+    (0..doc.len() as NodeId)
+        .filter(|&n| doc.parent(n).is_none())
+        .collect()
+}
+
+/// An XPath result, copied out of the document.
+enum Found {
+    Nodes(Vec<Hit>),
+    Str(String),
+    Num(f64),
+    Bool(bool),
+}
+
+enum Hit {
+    Node(NodeId),
+    Str(String),
+}
+
+impl Found {
+    fn into_py(self, py: Python<'_>, parser: &Py<HtmlParser>) -> PyResult<Py<PyAny>> {
+        Ok(match self {
+            Found::Nodes(hits) => {
+                let list = PyList::empty(py);
+                for hit in hits {
+                    match hit {
+                        Hit::Node(id) => list.append(node(py, parser, id))?,
+                        Hit::Str(s) => list.append(s)?,
+                    }
+                }
+                list.into_any().unbind()
+            }
+            Found::Str(s) => PyString::new(py, &s).into_any().unbind(),
+            Found::Num(n) => PyFloat::new(py, n).into_any().unbind(),
+            Found::Bool(b) => PyBool::new(py, b).to_owned().into_any().unbind(),
+        })
+    }
+}
+
+/// lxml's `xpath(query, **variables)`: each keyword a `$variable`.
+fn variables(given: Option<&Bound<'_, PyDict>>) -> PyResult<Vec<(String, XValue)>> {
+    let mut out = Vec::new();
+    for (k, v) in given.into_iter().flat_map(|d| d.iter()) {
+        // bool before the numbers, since a bool is an int in Python.
+        let value = if let Ok(b) = v.cast::<PyBool>() {
+            XValue::Bool(b.is_true())
+        } else if let Some(s) = text_of(&v)? {
+            XValue::Str(s.into_owned())
+        } else if let Ok(n) = v.extract::<f64>() {
+            XValue::Num(n)
+        } else {
+            return Err(PyTypeError::new_err(format!(
+                "${k}: an XPath variable is a str, a number or a bool"
+            )));
+        };
+        out.push((k.extract()?, value));
+    }
+    Ok(out)
+}
+
+/// The place among an element's attributes of the one `key` names, found
+/// as `Attributes` finds it.
+fn attr_index(doc: &Document, id: NodeId, key: &str) -> Option<usize> {
+    let html = matches!(doc.kind(id), Kind::Element { ns: Ns::Html, .. });
+    doc.attrs_written(id).position(|(_, n, _)| {
+        if html {
+            n.eq_ignore_ascii_case(key)
+        } else {
+            n == key
+        }
+    })
+}
+
+fn pair(r: std::ops::Range<usize>) -> (usize, usize) {
+    (r.start, r.end)
+}
+
 impl HtmlParser {
     /// The document to read. It waits for a writer detached from the
     /// interpreter, then takes the lock attached, so a thread holding it can
@@ -292,13 +383,61 @@ impl HtmlParser {
     }
 
     fn write(&self, py: Python<'_>) -> RwLockWriteGuard<'_, Document> {
-        loop {
+        let guard = loop {
             match self.doc.try_write() {
-                Ok(guard) => return guard,
-                Err(TryLockError::Poisoned(p)) => return p.into_inner(),
+                Ok(guard) => break guard,
+                Err(TryLockError::Poisoned(p)) => break p.into_inner(),
                 Err(TryLockError::WouldBlock) => py.detach(|| drop(self.doc.write())),
             }
-        }
+        };
+        // Whatever the caller changes, the next query indexes the tree again.
+        self.index
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        guard
+    }
+
+    /// Runs `query` from `scope`, detached from the interpreter as `select`
+    /// is, and copies the result out before the lock is let go.
+    fn run_xpath(
+        &self,
+        py: Python<'_>,
+        query: &str,
+        scope: NodeId,
+        vars: &[(String, XValue)],
+    ) -> PyResult<Found> {
+        let compiled = XPath::new(query).map_err(|e| XPathError::new_err(e.to_string()))?;
+        py.detach(|| {
+            let doc = self.doc.read().unwrap_or_else(PoisonError::into_inner);
+            let index = self
+                .index
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .get_or_insert_with(|| Arc::new(Index::build(&doc, &roots(&doc))))
+                .clone();
+            let value =
+                compiled.evaluate(Doc::html(&doc, &index), scope, vars, &[], &NoExtensions)?;
+            Ok(match value {
+                Value::Nodes(items) => Found::Nodes(
+                    items
+                        .into_iter()
+                        .map(|item| match item {
+                            // As lxml gives them: text and attributes as strings.
+                            Item::Node(n) => match doc.kind(n) {
+                                Kind::Text(t) | Kind::Cdata(t) => Hit::Str(t.to_string()),
+                                _ => Hit::Node(n),
+                            },
+                            Item::Attr { value, .. } => Hit::Str(value.to_string()),
+                        })
+                        .collect(),
+                ),
+                Value::Str(s) => Found::Str(s.into_owned()),
+                Value::Num(n) => Found::Num(n),
+                Value::Bool(b) => Found::Bool(b),
+            })
+        })
+        .map_err(|e: parsec_xpath::XPathError| XPathError::new_err(e.to_string()))
     }
 
     fn options(&self) -> MatchOptions<'_> {
@@ -476,8 +615,11 @@ impl HtmlParser {
     /// a fragment inside `fragment_tag` when `is_fragment`. `budget` is a
     /// time limit in seconds and `max_depth` caps the tree's depth; `url`
     /// is the page's address, for `:target` and `:local-link`.
+    ///
+    /// `positions` records where each node and attribute was written, for
+    /// `Node.source_range` and the like.
     #[new]
-    #[pyo3(signature = (html, is_fragment = false, fragment_tag = "div", fragment_namespace = "html", scripting = false, budget = None, max_depth = None, url = None))]
+    #[pyo3(signature = (html, is_fragment = false, fragment_tag = "div", fragment_namespace = "html", scripting = false, budget = None, max_depth = None, url = None, positions = false))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
@@ -489,6 +631,7 @@ impl HtmlParser {
         budget: Option<f64>,
         max_depth: Option<usize>,
         url: Option<String>,
+        positions: bool,
     ) -> PyResult<Self> {
         let Some(html) = text_of(html)? else {
             return Err(PyTypeError::new_err("html must be str or bytes"));
@@ -503,7 +646,7 @@ impl HtmlParser {
             scripting,
             budget,
             max_depth,
-            ..Options::default()
+            spans: positions,
         };
         let ns = namespace(fragment_namespace)?;
         let doc = py
@@ -520,7 +663,30 @@ impl HtmlParser {
             fragment: is_fragment,
             scripting,
             url,
+            index: Mutex::new(None),
         })
+    }
+
+    /// Runs an XPath 1.0 expression over the document, as lxml's
+    /// `tree.xpath()` does: a list for a node-set (elements and comments
+    /// as nodes, text and attributes as strings), else a `str`, `float`
+    /// or `bool`. Keywords bind `$variables`.
+    #[pyo3(signature = (query, **variables))]
+    fn xpath(
+        slf: &Bound<'_, Self>,
+        query: &str,
+        variables: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let vars = self::variables(variables)?;
+        slf.get()
+            .run_xpath(slf.py(), query, 0, &vars)?
+            .into_py(slf.py(), slf.as_unbound())
+    }
+
+    /// The line and column of a byte offset into the UTF-8 input, both
+    /// from 1, the column in characters.
+    fn line_col(&self, py: Python<'_>, offset: usize) -> (usize, usize) {
+        self.read(py).line_col(offset)
     }
 
     /// The `<html>` element; a fragment's first node.
@@ -993,6 +1159,52 @@ impl Node {
             .into_any())
     }
 
+    /// Runs an XPath 1.0 expression with this node as the context, as
+    /// lxml's `element.xpath()` does; see `HTMLParser.xpath`.
+    #[pyo3(signature = (query, **variables))]
+    fn xpath(
+        &self,
+        py: Python<'_>,
+        query: &str,
+        variables: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let vars = self::variables(variables)?;
+        self.p()
+            .run_xpath(py, query, self.id, &vars)?
+            .into_py(py, &self.parser)
+    }
+
+    /// Where the node was written, as `(start, end)` byte offsets into the
+    /// input (UTF-8, as `str` input is encoded): an element's start tag,
+    /// or a whole text node or comment. `None` unless parsed with
+    /// `positions=True`, and for nodes the parser implied or an edit made.
+    #[getter]
+    fn source_range(&self, py: Python<'_>) -> Option<(usize, usize)> {
+        self.p().read(py).span(self.id).map(pair)
+    }
+
+    /// Where an element's end tag was written, if it had one.
+    #[getter]
+    fn end_tag_range(&self, py: Python<'_>) -> Option<(usize, usize)> {
+        self.p().read(py).end_span(self.id).map(pair)
+    }
+
+    /// The line and column where the node starts, both from 1, as an
+    /// editor counts them; `None` when `source_range` is.
+    #[getter]
+    fn position(&self, py: Python<'_>) -> Option<(usize, usize)> {
+        let doc = self.p().read(py);
+        doc.span(self.id).map(|r| doc.line_col(r.start))
+    }
+
+    /// Where the attribute named `name` was written, from its name to the
+    /// end of its value.
+    fn attribute_range(&self, py: Python<'_>, name: &str) -> Option<(usize, usize)> {
+        let doc = self.p().read(py);
+        let i = attr_index(&doc, self.id, name)?;
+        doc.attr_span(self.id, i).map(pair)
+    }
+
     /// The node, if it matches, then the matches under it.
     fn css(&self, py: Python<'_>, query: &str) -> PyResult<Vec<Node>> {
         let found = self.p().select(py, &compile(query)?, self.id, true);
@@ -1313,6 +1525,7 @@ fn parsec_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Node>()?;
     m.add_class::<Attributes>()?;
     m.add("SelectorError", m.py().get_type::<SelectorError>())?;
+    m.add("XPathError", m.py().get_type::<XPathError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

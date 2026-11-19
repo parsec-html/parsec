@@ -21,6 +21,7 @@ doctest = false
 
 [dependencies]
 parsec-html = { path = "../../crates/parsec" }
+parsec-xpath = { path = "../../crates/parsec-xpath" }
 pyo3 = "0.30.1"
 
 [features]

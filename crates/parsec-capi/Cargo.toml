@@ -16,5 +16,7 @@ crate-type = ["cdylib", "staticlib"]
 doctest = false
 
 [dependencies]
-# Renamed, since this crate's own library is called parsec.
+# Renamed, since this crate's own library is called parsec and its
+# XPath handle parsec_xpath.
 html = { package = "parsec-html", path = "../parsec" }
+xpath = { package = "parsec-xpath", path = "../parsec-xpath" }

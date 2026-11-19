@@ -29,6 +29,36 @@ test("options and fragments", () => {
   assert.equal(parseFragment("<td>1", "tr").html, "<td>1</td>");
 });
 
+test("spans", () => {
+  const src = "<p class=x>h\u00e9llo</p>\n<div>x</div>";
+  const doc = parse(src, { spans: true });
+  const p = doc.selectFirst("p");
+  const bytes = new TextEncoder().encode(src);
+  const text = (s) => new TextDecoder().decode(bytes.subarray(s.start, s.end));
+  assert.equal(text(p.span), "<p class=x>");
+  assert.equal(text(p.endSpan), "</p>");
+  assert.equal(text(p.attributeSpan("CLASS")), "class=x");
+  // Byte offsets: the accented e takes two.
+  assert.deepEqual([p.firstChild.span.start, p.firstChild.span.end], [11, 17]);
+  const div = doc.selectFirst("div").span;
+  assert.deepEqual([div.line, div.column], [2, 1]);
+  assert.equal(doc.body.span, undefined);
+  assert.equal(parse(src).selectFirst("p").span, undefined);
+});
+
+test("xpath", () => {
+  const doc = parse("<ul id=l><li class=a>one<li>two</ul>");
+  const items = doc.xpath("//li");
+  assert.deepEqual(items.map((n) => n.textContent), ["one", "two"]);
+  assert.deepEqual(doc.xpath("//@id | //@class"), ["l", "a"]);
+  assert.equal(doc.xpath("//li/text()")[1].nodeType, 3);
+  assert.equal(doc.xpath("count(//li)"), 2);
+  assert.equal(doc.xpath("name(//*[@class])"), "li");
+  assert.equal(doc.xpath("boolean(//ul)"), true);
+  assert.equal(items[1].xpath("string(preceding-sibling::li)"), "one");
+  assert.throws(() => doc.xpath("//li["), /XPath/);
+});
+
 test("CommonJS require works too", () => {
   const require = createRequire(import.meta.url);
   const { parse } = require("parsec-html");
@@ -47,4 +77,6 @@ test("the types ship with it", async () => {
   const types = await readFile(new URL("../node_modules/parsec-html/parsec_html.d.ts", import.meta.url), "utf8");
   assert.match(types, /export function parse\(html: string, options\?: ParseOptions \| null\): Document;/);
   assert.match(types, /selectFirst\(selector: string\): Node \| undefined;/);
+  assert.match(types, /xpath\(expr: string\): XPathResult;/);
+  assert.match(types, /readonly span: Span \| undefined;/);
 });

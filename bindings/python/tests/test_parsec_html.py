@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from parsec_html import HTMLParser, Node, SelectorError
+from parsec_html import HTMLParser, Node, SelectorError, XPathError
 
 PAGE = (
     "<!doctype html><title>T</title>"
@@ -227,6 +227,87 @@ def test_one_document_shared_by_threads():
         t.join()
     assert counts == [2000] * 400
     assert p.css_first("ul").attrs["data-n"] == "199"
+
+
+def test_positions():
+    src = "<p class=x id=a>h\u00e9llo</p>\n<div>x<br></div>"
+    p = HTMLParser(src, positions=True)
+    para = p.css_first("p")
+    start, end = para.source_range
+    data = src.encode()
+    assert data[start:end] == b"<p class=x id=a>"
+    assert data[slice(*para.end_tag_range)] == b"</p>"
+    assert data[slice(*para.attribute_range("ID"))] == b"id=a"
+    assert para.attribute_range("nope") is None
+    # Byte offsets, so the text after the two-byte \u00e9 ends one later.
+    assert data[slice(*para.first_child.source_range)] == "h\u00e9llo".encode()
+    div = p.css_first("div")
+    assert div.position == (2, 1)
+    assert p.css_first("br").end_tag_range is None
+    assert p.line_col(len(data)) == (2, 17)
+    # Implied by the parser, so written nowhere.
+    assert p.body.source_range is None and p.body.position is None
+    # Off unless asked, and nothing an edit makes has one.
+    assert HTMLParser(src).css_first("p").source_range is None
+    para.insert_child("new")
+    assert para.last_child.source_range is None
+
+
+def test_xpath_results_are_shaped_as_lxml_gives_them():
+    p = HTMLParser(PAGE)
+    assert [n.tag for n in p.xpath("//div | //p")] == ["div", "p"]
+    assert p.xpath("//b/text()") == ["two"]
+    assert p.xpath("//div/@class") == ["x y"]
+    assert p.xpath("count(//*)") == 7.0
+    assert p.xpath("string(//title)") == "T"
+    assert p.xpath("boolean(//p)") is True
+    assert p.xpath("//div/comment()")[0].comment_content == "c"
+    assert p.xpath("//p[. = $want]", want="p1")[0].tag == "p"
+    assert p.xpath("$n + 1", n=2) == 3.0 and p.xpath("$b", b=False) is False
+    with pytest.raises(XPathError):
+        p.xpath("//p[")
+    with pytest.raises(XPathError, match=r"\$missing"):
+        p.xpath("$missing")
+    with pytest.raises(TypeError):
+        p.xpath("$x", x=[1])
+
+
+def test_xpath_from_a_node_and_after_edits():
+    p = HTMLParser("<ul><li>a</li><li>b</li></ul><ol><li>c</li></ol>")
+    ul = p.css_first("ul")
+    assert ul.xpath("li/text()") == ["a", "b"]
+    assert len(ul.xpath("//li")) == 3
+    assert [li.text() for li in ul.xpath("following::li")] == ["c"]
+    # Each edit drops the index, so the next query sees the change.
+    ul.insert_child(p.create_node("li"))
+    assert p.xpath("count(//ul/li)") == 3.0
+    ul.decompose()
+    assert p.xpath("count(//li)") == 1.0
+    # A removed subtree can still be queried, as its own tree.
+    assert ul.xpath("count(//li)") == 3.0
+    assert p.css_first("li").xpath("ancestor::ol")[0].tag == "ol"
+
+
+def test_xpath_from_many_threads_while_one_edits():
+    p = HTMLParser("<ul>" + "<li class=i>x</li>" * 2000 + "</ul>")
+    counts = []
+
+    def read():
+        for _ in range(30):
+            counts.append(p.xpath("count(//li[@class='i'])"))
+
+    def write():
+        ul = p.css_first("ul")
+        for _ in range(100):
+            ul.insert_child("t")
+
+    threads = [threading.Thread(target=read) for _ in range(8)] + [threading.Thread(target=write)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert counts == [2000.0] * 240
+    assert len(p.xpath("//ul/text()")) == 100
 
 
 @pytest.mark.skipif(
