@@ -42,10 +42,12 @@ assert_eq!(doc.text(hits[0]), "one");
   is, SVG and MathML included.
 - **CSS selectors, Level 4**: `:has()`, `:is()`, `:where()`, `:not()` with
   lists, `:nth-child(… of S)`, `:scope`, attribute flags, and the form states
-  (`:checked`, `:disabled`, `:required`, `:valid`, `:in-range` and friends). `:lang()` and `:dir()`
-  match the way the document decides them, and `:target` and `:local-link`
-  match once you pass the page's URL, where Lexbor parses all four and never
-  matches them.
+  (`:checked`, `:disabled`, `:required`, `:valid`, `:in-range` and friends),
+  with `pattern=` run by Parsec's own JavaScript regex engine, Unicode
+  property escapes like `\p{L}` included. `:lang()` and `:dir()` match the
+  way the document decides them, and `:target` and `:local-link` match once
+  you pass the page's URL, where Lexbor parses all four and never matches
+  them.
 - **A tree you can edit**: create, insert, move and remove nodes, set and
   rename attributes, then serialize as `innerHTML`, `outerHTML` or text.
 - **Bytes in, with the encoding found the way browsers find it.**
@@ -185,7 +187,7 @@ every module Lexbor has, and then go past it:
 | Thread-safe documents | no | planned, checked at compile time |
 | `:scope`, `:lang()`, `:dir()`, `:target`, `:local-link` | parsed, never match | yes |
 | `:valid`, `:invalid`, `:in-range`, `:out-of-range`, `:default`, `:indeterminate` | parsed, never match | yes |
-| `:blank`, `:defined` | parsed, never match | planned |
+| `:blank`, `:defined` | parsed, never match | yes |
 | Queries that stop at the first match | no ([#32](https://github.com/lexbor/lexbor/issues/32)) | yes, `select_first` and `select_iter` |
 | A tree depth limit | no | yes |
 | XPath | no | planned |
