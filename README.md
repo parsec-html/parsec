@@ -123,12 +123,12 @@ so Parsec is 1.3 times as fast. Ada, the C++ parser in Node.js, takes
 143 ns, 1.25 times as fast as Parsec. That gap is why a URL parser of
 Parsec's own is next on the roadmap.
 
-It doesn't win everywhere. Of the eight hostile inputs, two go Lexbor's
-way: 300 open `<b>` tags followed by 3,000 paragraphs, where Lexbor is
-1.8 times faster, and a dozen formatting tags reopened in every
-paragraph, where it's 1.2 times faster
-([#68](https://github.com/parsec-html/parsec/issues/68)). The other way
-round, 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2 seconds.
+Hostile inputs, the ones built to make a parser crawl, go Parsec's way
+on all eight. 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2
+seconds. The closest, a dozen formatting tags reopened in every
+paragraph, is 1.1 times; with 300 open `<b>` tags before 3,000
+paragraphs, Parsec is 2.3 times as fast. Those two used to be Lexbor's
+([#68](https://github.com/parsec-html/parsec/issues/68)).
 
 `bench/` builds Lexbor 3.0.1 from source and runs all three on the same
 strings, on an Apple M2 Max here, then times the selectors over the
