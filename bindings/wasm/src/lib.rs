@@ -133,7 +133,7 @@ export interface ParseOptions {
 /**
  * How to parse bytes. Their encoding is the one a browser would pick: a
  * byte order mark's, else `transportEncoding`, else a `<meta>`'s, else
- * `defaultEncoding`. Spans and error offsets are byte offsets into the
+ * UTF-8 if the bytes are valid UTF-8, else `defaultEncoding`. Spans and error offsets are byte offsets into the
  * bytes.
  */
 export interface ByteParseOptions extends ParseOptions {
@@ -141,8 +141,9 @@ export interface ByteParseOptions extends ParseOptions {
      * HTTP `Content-Type`: any label the Encoding Standard knows. One it
      * doesn't is passed over, as browsers do. */
     transportEncoding?: string;
-    /** The encoding when nothing names one: `"windows-1252"` unless
-     * given, as in browsers set to English. */
+    /** The encoding when nothing names one and the bytes aren't valid
+     * UTF-8: `"windows-1252"` unless given, as in browsers set to
+     * English. */
     defaultEncoding?: string;
 }
 

@@ -517,10 +517,14 @@ static void bytes_and_encodings(void) {
     CHECK(strcmp(enc, "UTF-8") == 0);
     CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xc3\xa9"));
     parsec_document_free(doc);
-    /* With nothing to go on, windows-1252, as in browsers. */
+    /* With nothing to go on, valid UTF-8 is taken for UTF-8, and other
+     * bytes for windows-1252, as in browsers. */
     CHECK(parsec_parse_bytes("<p>\xc3\xa9", 5, NULL, 0, 0, &doc, NULL) == PARSEC_OK);
+    CHECK(strcmp(parsec_document_encoding(doc), "UTF-8") == 0);
+    parsec_document_free(doc);
+    CHECK(parsec_parse_bytes("<p>\xe9", 4, NULL, 0, 0, &doc, NULL) == PARSEC_OK);
     CHECK(strcmp(parsec_document_encoding(doc), "windows-1252") == 0);
-    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xc3\x83\xc2\xa9"));
+    CHECK(owned_is(parsec_text(doc, parsec_root(), &len), &len, "\xc3\xa9"));
     parsec_document_free(doc);
     /* A label that names no encoding is passed over, as browsers do. */
     CHECK(parsec_parse_bytes("<p>\xe9", 4, "nope", 4, 0, &doc, &enc) == PARSEC_OK);

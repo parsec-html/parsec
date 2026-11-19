@@ -23,7 +23,7 @@
 use std::time::Instant;
 
 pub use encoding_rs::{self, Encoding};
-use encoding_rs::{UTF_16BE, UTF_16LE};
+use encoding_rs::{UTF_8, UTF_16BE, UTF_16LE};
 use parsec::{AttrNs, Document, Kind, NodeId, Ns, ParseError};
 
 mod prescan;
@@ -36,7 +36,8 @@ pub use offsets::Offsets;
 /// How sure the parser is of an encoding, in the HTML Standard's terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Confidence {
-    /// A guess: from the prescan or the fallback. A `<meta>` the parser
+    /// A guess: from the prescan, the UTF-8 autodetection or the
+    /// fallback. A `<meta>` the parser
     /// meets can still change it.
     Tentative,
     /// From a byte order mark, the transport layer, or a `<meta>` that
@@ -53,8 +54,8 @@ pub struct Options {
     /// HTTP `Content-Type`: look it up with [`Encoding::for_label`]. A byte
     /// order mark still wins over it, as in browsers.
     pub transport: Option<&'static Encoding>,
-    /// The encoding when nothing in or around the page names one:
-    /// windows-1252 by default, as in browsers set to English.
+    /// The encoding when nothing in or around the page names one and its
+    /// bytes aren't valid UTF-8: windows-1252 by default, as in browsers set to English.
     /// [`locale_default`] gives the one a browser in another language
     /// would use.
     pub fallback: &'static Encoding,
@@ -81,7 +82,13 @@ pub struct Parsed {
 
 /// The HTML Standard's encoding sniffing algorithm, for a parser that has
 /// every byte: the byte order mark, then `transport`, then the prescan of
-/// the first 1,024 bytes, then `fallback`.
+/// the first 1,024 bytes, then autodetection, then `fallback`.
+///
+/// The spec lets a browser guess from the bytes before falling back, and
+/// browsers do: Firefox's chardetng and Chrome's CED both recognise
+/// UTF-8. Parsec's guess is that one only, and deterministic: bytes with
+/// something beyond ASCII that are all valid UTF-8 are UTF-8, tentative,
+/// so a later `<meta>` can still change it. Anything else falls back.
 ///
 /// ```
 /// use parsec_encoding::{Confidence, sniff};
@@ -94,6 +101,17 @@ pub fn sniff(
     transport: Option<&'static Encoding>,
     fallback: &'static Encoding,
 ) -> (&'static Encoding, Confidence) {
+    guess(bytes, transport, fallback, true)
+}
+
+/// [`sniff`] for `bytes` that are the whole input when `complete`, or
+/// only its start, where a UTF-8 sequence cut off at the end still counts.
+pub(crate) fn guess(
+    bytes: &[u8],
+    transport: Option<&'static Encoding>,
+    fallback: &'static Encoding,
+    complete: bool,
+) -> (&'static Encoding, Confidence) {
     if let Some((bom, _)) = Encoding::for_bom(bytes) {
         return (bom, Confidence::Certain);
     }
@@ -102,7 +120,21 @@ pub fn sniff(
     }
     match prescan(&bytes[..bytes.len().min(1024)]) {
         Some(declared) => (declared, Confidence::Tentative),
+        None if looks_like_utf8(bytes, complete) => (UTF_8, Confidence::Tentative),
         None => (fallback, Confidence::Tentative),
+    }
+}
+
+/// The autodetection step: something beyond ASCII, and every byte valid
+/// UTF-8. Pure ASCII says nothing, so it's left to the fallback.
+fn looks_like_utf8(bytes: &[u8], complete: bool) -> bool {
+    if bytes.is_ascii() {
+        return false;
+    }
+    match std::str::from_utf8(bytes) {
+        Ok(_) => true,
+        // `error_len` is None for a sequence the end cut short.
+        Err(e) => !complete && e.error_len().is_none(),
     }
 }
 
@@ -337,6 +369,30 @@ mod tests {
             ..Options::default()
         };
         assert_eq!(parse_bytes(&page, options).unwrap().encoding, WINDOWS_1251);
+    }
+
+    #[test]
+    fn valid_utf8_is_detected() {
+        let p = parse("<p>caf\u{e9}".as_bytes());
+        assert_eq!((p.encoding, p.confidence), (UTF_8, Confidence::Tentative));
+        assert_eq!(p.document.text(p.document.root()), "caf\u{e9}");
+        // Not valid UTF-8, or nothing but ASCII: the fallback.
+        assert_eq!(parse(b"<p>caf\xe9").encoding, WINDOWS_1252);
+        assert_eq!(parse(b"<p>cafe").encoding, WINDOWS_1252);
+        // Cut off at the end of the whole input isn't valid.
+        assert_eq!(parse(b"<p>\xe6\x97").encoding, WINDOWS_1252);
+        // A transport encoding or a <meta> comes first.
+        let page = "<meta charset=windows-1251><p>\u{e9}".as_bytes();
+        assert_eq!(parse(page).encoding, WINDOWS_1251);
+        // And a late <meta> can still change the guess.
+        let mut page = "<title>\u{e9}".as_bytes().to_vec();
+        page.extend(std::iter::repeat_n(b'x', 1100));
+        page.extend(b"</title><meta charset=windows-1251>");
+        let p = parse(&page);
+        assert_eq!(
+            (p.encoding, p.confidence),
+            (WINDOWS_1251, Confidence::Certain)
+        );
     }
 
     #[test]

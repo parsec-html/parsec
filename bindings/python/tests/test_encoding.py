@@ -27,6 +27,20 @@ def test_nothing_named_is_windows_1252_and_tentative():
     assert (p.encoding, p.encoding_confidence) == ("windows-1252", "tentative")
 
 
+def test_valid_utf8_with_nothing_named_is_utf8():
+    p = HTMLParser("<p>café 日本".encode())
+    assert p.css_first("p").text() == "café 日本"
+    assert (p.encoding, p.encoding_confidence) == ("UTF-8", "tentative")
+    # ASCII says nothing either way.
+    assert HTMLParser(b"<p>cafe").encoding == "windows-1252"
+    # Past the first 1,024 bytes too, streamed or not.
+    page = b"<p>" + b"x" * 2000 + "é".encode()
+    s = StreamParser()
+    for i in range(0, len(page), 100):
+        s.feed(page[i : i + 100])
+    assert s.close().encoding == HTMLParser(page).encoding == "UTF-8"
+
+
 def test_transport_encoding_beats_meta_and_a_bom_beats_both():
     page = b"<meta charset=euc-jp><p>\xc3\xa9"
     p = HTMLParser(page, transport_encoding="utf-8")

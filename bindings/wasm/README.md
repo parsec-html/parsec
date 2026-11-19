@@ -70,8 +70,8 @@ units. An error's `offset` indexes the string the same way.
 Hand over what `fetch` gave you and Parsec finds the encoding the way a
 browser does: a byte order mark first, then the `charset` from the
 `Content-Type`, which you pass as `transportEncoding`, then a `<meta>`
-in the page, then `defaultEncoding`, windows-1252 unless you say
-otherwise.
+in the page, then UTF-8 if the bytes are valid UTF-8, then
+`defaultEncoding`, windows-1252 unless you say otherwise.
 
 ```js
 const res = await fetch(url);
@@ -106,8 +106,8 @@ Not there yet: setting `innerHTML`, and creating nodes.
 
 ## Size
 
-The WebAssembly is 1,070 KB, 504 KB gzipped; XPath and spans are 110 KB
-of that, parse errors 21 KB, and the decoders for bytes 199 KB (141 KB
+The WebAssembly is 1,071 KB, 504 KB gzipped; XPath and spans are 110 KB
+of that, parse errors 21 KB, and the decoders for bytes 201 KB (142 KB
 gzipped), most of it the tables of the Chinese, Japanese and Korean
 encodings. It's built for speed per byte
 (`opt-level = "s"`, then `wasm-opt -Os`): building for size alone (`"z"`)

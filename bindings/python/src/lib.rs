@@ -733,8 +733,9 @@ impl HtmlParser {
     /// encoding a browser would pick: a byte order mark's, else
     /// `transport_encoding` (the `charset` of an HTTP `Content-Type`,
     /// passed over if it names no encoding, as browsers do), else a
-    /// `<meta>` naming one, else `default_encoding` (windows-1252 unless
-    /// given). The names are html5lib's.
+    /// `<meta>` naming one, else UTF-8 if the bytes are valid UTF-8, else
+    /// `default_encoding` (windows-1252 unless given). The names are
+    /// html5lib's.
     ///
     /// `positions` records where each node and attribute was written, for
     /// `Node.source_range` and the like; `errors` keeps the parse errors,

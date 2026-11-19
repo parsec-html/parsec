@@ -186,7 +186,7 @@ def test_fragments_and_bytes():
     svg = HTMLParser("<circle/>", is_fragment=True, fragment_tag="svg", fragment_namespace="svg")
     assert svg.html == "<circle></circle>"
     # bytes are decoded as a browser would: windows-1252 when nothing in
-    # or around them names an encoding.
+    # or around them names an encoding and they aren't UTF-8.
     assert HTMLParser(b"<p>\xff</p>").body.html == "<body><p>\u00ff</p></body>"
     assert HTMLParser(b"<p>\xff</p>", transport_encoding="utf-8").body.html == "<body><p>\ufffd</p></body>"
     with pytest.raises(TypeError):

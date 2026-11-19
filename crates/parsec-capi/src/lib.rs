@@ -516,7 +516,8 @@ pub unsafe extern "C" fn parsec_parse_fragment(
 /// `transport_len` bytes naming any of the Encoding Standard's labels,
 /// such as "shift_jis" or "latin1"; NULL with a length of 0 for none, and
 /// one that's no label is passed over, as browsers do), else of a
-/// `<meta>` in the page, else windows-1252. `flags` are
+/// `<meta>` in the page, else UTF-8 if the bytes are valid UTF-8, else
+/// windows-1252. `flags` are
 /// `parsec_parse`'s, and spans and error offsets are byte offsets into
 /// these bytes, whatever their encoding.
 ///

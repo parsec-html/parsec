@@ -49,7 +49,8 @@ class HTMLParser:
     ) -> None:
         """A str is parsed as it is. bytes are decoded in the encoding a
         browser would pick: a byte order mark's, else transport_encoding,
-        else a <meta>'s, else default_encoding (windows-1252)."""
+        else a <meta>'s, else UTF-8 if they're valid UTF-8, else
+        default_encoding (windows-1252)."""
     @property
     def encoding(self) -> Optional[str]:
         """The Encoding Standard's name for what bytes were decoded from,

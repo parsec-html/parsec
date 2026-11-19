@@ -38,14 +38,21 @@ use crate::{Confidence, Options, Parsed, changed, declared, prescan};
 ///   layer's encoding, if you gave one. Otherwise the prescan does, which
 ///   the spec lets a browser wait up to 1,024 bytes for: this waits until
 ///   the prescan finds a whole `<meta>` naming an encoding, or there are
-///   1,024 bytes, or the input ends.
+///   1,024 bytes, or the input ends. With no `<meta>`, the bytes held back
+///   go through the autodetection ([`sniff`](crate::sniff)): non-ASCII
+///   and valid UTF-8, with a character cut off at the end allowed, is
+///   UTF-8; otherwise it's the fallback.
 /// - From then on each piece goes through encoding_rs's [`Decoder`],
 ///   which keeps a character cut between pieces for the next one, and on
 ///   into [`parsec::Parser`].
 /// - When the encoding was only a guess, a `<meta>` the parser meets later
 ///   can name another. The spec has the browser start again in that one.
 ///   Here that's at [`ByteParser::finish`]: one more decode and parse,
-///   of every byte, once at most, as `parse_bytes` does.
+///   of every byte, once at most, as `parse_bytes` does. So is a guess
+///   the whole input wouldn't make (UTF-8 that starts after 1,024 bytes
+///   of ASCII, or bytes after the first 1,024 that aren't UTF-8): with
+///   every byte kept, `finish` checks and, if so, parses as
+///   `parse_bytes` would.
 ///
 /// Memory: while the encoding is a guess (no byte order mark, no
 /// transport encoding), every byte is kept for that second parse, so the
@@ -121,6 +128,21 @@ impl ByteParser {
             self.run(encoding, confidence);
         }
         let mut running = self.state.take().expect("set just above");
+        // The guess was made from the first bytes; `parse_bytes` makes it
+        // from all of them. Where the UTF-8 autodetection gives another
+        // answer for the whole (UTF-8 past the first 1,024 bytes of ASCII,
+        // or bytes later on that aren't UTF-8), parse again as it would,
+        // as rarely as a late `<meta>` does. Guesses keep every byte.
+        if running.keep {
+            let (whole, _) =
+                crate::sniff(&self.bytes, self.options.transport, self.options.fallback);
+            if whole != running.encoding {
+                let mut options = self.options;
+                let spent = self.spent + start.map_or(Duration::ZERO, |t| t.elapsed());
+                options.html.budget = options.html.budget.map(|b| b.saturating_sub(spent));
+                return crate::parse_bytes(&self.bytes, options);
+            }
+        }
         running.decode(&[], true);
         let mut document = running.parser.finish()?;
         let (mut encoding, mut confidence) = (running.encoding, running.confidence);
@@ -159,7 +181,8 @@ impl ByteParser {
             return Some((given, Confidence::Certain));
         }
         if b.len() >= 1024 {
-            return Some(crate::sniff(b, None, self.options.fallback));
+            // More may come, so UTF-8 cut off at the end still counts.
+            return Some(crate::guess(b, None, self.options.fallback, false));
         }
         // A `<meta>` the scan read to its `>` says the same whatever comes
         // after it, so there's no need to wait for the rest.
@@ -301,6 +324,48 @@ mod tests {
             (SHIFT_JIS, Confidence::Certain)
         );
         assert!(parsed.document.text(0).ends_with("日本"));
+    }
+
+    #[test]
+    fn utf8_is_detected_from_the_bytes_held_back() {
+        let mut p = ByteParser::new(Options::default());
+        let mut page = b"<p>".to_vec();
+        page.extend(std::iter::repeat_n(b'x', 1018));
+        // 1,021 bytes, then the first two of a three-byte character.
+        page.extend("\u{65e5}".as_bytes());
+        p.feed(&page[..1023]);
+        assert_eq!(decided(&p), None);
+        p.feed(&page[1023..]);
+        assert_eq!(decided(&p), Some((UTF_8, Confidence::Tentative, true)));
+        let parsed = p.finish().unwrap();
+        assert_eq!(parsed.encoding, UTF_8);
+        assert!(parsed.document.text(0).ends_with('\u{65e5}'));
+    }
+
+    #[test]
+    fn a_guess_the_whole_wouldnt_make_is_parsed_again() {
+        // ASCII for the first 1,024 bytes guesses windows-1252; the UTF-8
+        // after them makes it UTF-8, as parse_bytes says.
+        let mut page = std::iter::repeat_n(b'x', 1100).collect::<Vec<u8>>();
+        page.extend("caf\u{e9}".as_bytes());
+        let mut p = ByteParser::new(Options::default());
+        p.feed(&page[..1024]);
+        assert_eq!(decided(&p).map(|d| d.0), Some(WINDOWS_1252));
+        p.feed(&page[1024..]);
+        let parsed = p.finish().unwrap();
+        assert_eq!(parsed.encoding, UTF_8);
+        assert!(parsed.document.text(0).ends_with("caf\u{e9}"));
+        // UTF-8 at first, then a byte that isn't: windows-1252 after all.
+        let mut page = "\u{e9}".as_bytes().to_vec();
+        page.extend(std::iter::repeat_n(b'x', 1100));
+        page.push(0xe9);
+        let mut p = ByteParser::new(Options::default());
+        p.feed(&page[..1024]);
+        assert_eq!(decided(&p).map(|d| d.0), Some(UTF_8));
+        p.feed(&page[1024..]);
+        let parsed = p.finish().unwrap();
+        assert_eq!(parsed.encoding, WINDOWS_1252);
+        assert!(parsed.document.text(0).starts_with("\u{c3}\u{a9}"));
     }
 
     #[test]

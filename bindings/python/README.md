@@ -52,9 +52,9 @@ What you get over selectolax:
 - **Bytes in any encoding.** Hand `HTMLParser` the `bytes` you
   downloaded and it decodes them as a browser would: a byte order mark
   first, then the HTTP `charset`, which you pass as `transport_encoding`,
-  then a `<meta>`, then `default_encoding` (windows-1252 unless you say
-  otherwise; `encoding_for_locale("ja")` gives the one a Japanese
-  browser uses). `page.encoding` says which it was, and
+  then a `<meta>`, then UTF-8 if the bytes are valid UTF-8, then
+  `default_encoding` (windows-1252 unless you say otherwise;
+  `encoding_for_locale("ja")` gives the one a Japanese browser uses). `page.encoding` says which it was, and
   `page.encoding_confidence` whether it's `"certain"` or `"tentative"`.
   Positions stay byte offsets into your bytes, whatever the encoding.
 
@@ -81,10 +81,11 @@ What you get over selectolax:
   The names are those of lxml's feed parser and the standard library's
   `html.parser`; the keywords are html5lib's.
 
-  **This changed.** `bytes` used to be read as UTF-8. Now a UTF-8 page
-  with no byte order mark and no `<meta charset>` decodes as
-  windows-1252, as it would in a browser. If you know your bytes are
-  UTF-8, say so with `transport_encoding="utf-8"`, or pass a `str`.
+  **A small change.** `bytes` used to be read as UTF-8 whatever they
+  were. UTF-8 still comes out as UTF-8, declared or not. Bytes that
+  aren't valid UTF-8 and don't say what they are used to get U+FFFD in
+  place of each bad byte; now they decode as windows-1252, as in a
+  browser. Pass `transport_encoding` if you know better.
 
 ## Installing
 

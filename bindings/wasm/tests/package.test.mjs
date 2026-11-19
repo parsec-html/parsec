@@ -119,13 +119,16 @@ test("bytes, sniffed as a browser sniffs them", () => {
   assert.equal(doc.characterSet, "Shift_JIS");
   assert.equal(doc.encodingConfidence, "certain");
   const e9 = new Uint8Array([0x3c, 0x70, 0x3e, 0xc3, 0xa9]); // <p>é in UTF-8
-  assert.equal(parseBytes(e9).text, "Ã©");
+  // Valid UTF-8 with no declaration is taken for UTF-8, tentatively.
+  assert.deepEqual([parseBytes(e9).text, parseBytes(e9).characterSet], ["é", "UTF-8"]);
+  // Bytes that aren't UTF-8 fall back to windows-1252.
+  assert.equal(parseBytes(new Uint8Array([0x3c, 0x70, 0x3e, 0xe9])).text, "é");
   assert.equal(parseBytes(e9).encodingConfidence, "tentative");
   const utf8 = parseBytes(e9, { transportEncoding: "utf-8" });
   assert.deepEqual([utf8.text, utf8.characterSet, utf8.encodingConfidence], ["é", "UTF-8", "certain"]);
   assert.equal(parseBytes(sjis.slice(19), { defaultEncoding: "shift_jis" }).text, "日本");
   // A label that names no encoding is passed over, as browsers do.
-  assert.equal(parseBytes(e9, { transportEncoding: "nope" }).characterSet, "windows-1252");
+  assert.equal(parseBytes(new Uint8Array([0xe9]), { transportEncoding: "nope" }).characterSet, "windows-1252");
   assert.throws(() => parseBytes(e9, { defaultEncoding: "nope" }), /defaultEncoding/);
   assert.equal(parse("<p>").characterSet, "UTF-8");
   assert.equal(parse("<p>").encodingConfidence, undefined);

@@ -86,7 +86,9 @@ assert_eq!(doc.text(hits[0]), "one");
 - **Bytes in, with the encoding found the way browsers find it.**
   `parsec_encoding::parse_bytes` checks for a byte order mark, then the
   `charset` you got from HTTP if you pass one, then the HTML Standard's
-  `<meta>` prescan of the first 1,024 bytes, then falls back to
+  `<meta>` prescan of the first 1,024 bytes, then takes bytes that are
+  valid UTF-8 for UTF-8 (the spec's autodetection step, narrowed to what
+  Firefox's and Chrome's detectors both do), then falls back to
   windows-1252 (or the default for a language you name). If the parser
   later meets a `<meta>` that disagrees with a guess, it decodes and parses
   once more in the declared encoding, as a browser reloads. You get the
@@ -217,18 +219,18 @@ assert_eq!(doc.text(hits[0]), "one");
   `bytes` and it finds their encoding as a browser would (pass the HTTP
   `charset` as `transport_encoding=`), tells you which in
   `parser.encoding`, and keeps offsets in your bytes; `StreamParser`
-  does the same as the bytes arrive. That's a change: until now `bytes`
-  were read as UTF-8, so a UTF-8 page that doesn't say so now decodes as
-  windows-1252, as in a browser, unless you pass
-  `transport_encoding="utf-8"`. From Python, it parses the 13 pages below in 66 ms to selectolax's 106, and
-  runs the 32 selectors in 283 ms to its 781.
+  does the same as the bytes arrive. That's a small change: `bytes` that
+  aren't valid UTF-8 and don't name their encoding used to come out with
+  U+FFFD and now decode as windows-1252, as in a browser. From Python, it
+  parses the 13 pages below in 66 ms to selectolax's 106, and runs the 32
+  selectors in 283 ms to its 781.
 - **WebAssembly for JavaScript** in `bindings/wasm`, the npm package
   `parsec-html` with TypeScript types: `parse`, `parseFragment`,
   `select`, `selectFirst`, `xpath`, the tree, attributes, `textContent`,
   `innerHTML` and `outerHTML`, spans and parse errors, in Node and in
   browsers. `parseBytes` and `ByteParser` take a `Uint8Array`, whole or in
-  pieces, and find its encoding as a browser does. It's 1,070 KB, 504 KB
-  gzipped; the decoders' tables are 199 KB of that, 141 KB gzipped.
+  pieces, and find its encoding as a browser does. It's 1,071 KB, 504 KB
+  gzipped; the decoders' tables are 201 KB of that, 142 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
