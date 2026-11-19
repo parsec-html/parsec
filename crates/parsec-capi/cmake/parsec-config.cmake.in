@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# find_package(parsec) gives two targets:
+#   parsec::parsec         the shared library
+#   parsec::parsec_static  the static library, with the system libraries
+#                          Rust's standard library needs
+# Paths are worked out from where this file is, so the package can be
+# unpacked anywhere.
+
+get_filename_component(_parsec_prefix "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+
+if(NOT TARGET parsec::parsec)
+  add_library(parsec::parsec SHARED IMPORTED)
+  set_target_properties(parsec::parsec PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${_parsec_prefix}/include")
+  if(WIN32)
+    set_target_properties(parsec::parsec PROPERTIES
+      IMPORTED_LOCATION "${_parsec_prefix}/bin/parsec.dll"
+      IMPORTED_IMPLIB "${_parsec_prefix}/lib/parsec.dll.lib")
+  elseif(APPLE)
+    set_target_properties(parsec::parsec PROPERTIES
+      IMPORTED_LOCATION "${_parsec_prefix}/lib/libparsec.dylib"
+      IMPORTED_SONAME "@rpath/libparsec.dylib")
+  else()
+    set_target_properties(parsec::parsec PROPERTIES
+      IMPORTED_LOCATION "${_parsec_prefix}/lib/libparsec.so"
+      IMPORTED_NO_SONAME TRUE)
+  endif()
+endif()
+
+if(NOT TARGET parsec::parsec_static)
+  add_library(parsec::parsec_static STATIC IMPORTED)
+  if(WIN32)
+    set(_parsec_static "${_parsec_prefix}/lib/parsec.lib")
+  else()
+    set(_parsec_static "${_parsec_prefix}/lib/libparsec.a")
+  endif()
+  set_target_properties(parsec::parsec_static PROPERTIES
+    IMPORTED_LOCATION "${_parsec_static}"
+    INTERFACE_INCLUDE_DIRECTORIES "${_parsec_prefix}/include"
+    INTERFACE_LINK_LIBRARIES "@CMAKE_PRIVATE@")
+  unset(_parsec_static)
+endif()
+
+unset(_parsec_prefix)

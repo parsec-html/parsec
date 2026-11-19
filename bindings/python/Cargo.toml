@@ -1,0 +1,36 @@
+[package]
+name = "parsec-html-python"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/parsec-html/parsec"
+description = "Python bindings for Parsec, built with PyO3 and maturin."
+publish = false
+
+# Its own workspace, as bench/ is: `cargo test --workspace` at the root
+# then needs no Python, and the root lock file stays the core's.
+[workspace]
+
+[lib]
+name = "parsec_html"
+crate-type = ["cdylib"]
+# The tests are pytest's; a Rust test binary would need libpython linked.
+test = false
+doctest = false
+
+[dependencies]
+parsec-html = { path = "../../crates/parsec" }
+pyo3 = "0.30.1"
+
+[features]
+# A wheel built with this works on every CPython from 3.15, free-threaded
+# too (the abi3t stable ABI). The release builds one wheel per version up
+# to 3.15 and this one only for the versions after: calls through the
+# stable ABI cost more, and making 400,000 nodes took 31 ms that way
+# against 22 ms built for the version.
+abi3t = ["pyo3/abi3t-py315"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1

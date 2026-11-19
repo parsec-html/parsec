@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Before 1.0 a minor release can change the API, so find_package(parsec X.Y)
+# accepts X.Y.Z for any Z at or above the one asked for, and nothing else.
+
+set(PACKAGE_VERSION "@VERSION@")
+if(PACKAGE_FIND_VERSION_MAJOR EQUAL "@MAJOR@"
+   AND PACKAGE_FIND_VERSION_MINOR EQUAL "@MINOR@"
+   AND NOT PACKAGE_FIND_VERSION VERSION_GREATER PACKAGE_VERSION)
+  set(PACKAGE_VERSION_COMPATIBLE TRUE)
+  if(PACKAGE_FIND_VERSION VERSION_EQUAL PACKAGE_VERSION)
+    set(PACKAGE_VERSION_EXACT TRUE)
+  endif()
+elseif(NOT PACKAGE_FIND_VERSION)
+  set(PACKAGE_VERSION_COMPATIBLE TRUE)
+else()
+  set(PACKAGE_VERSION_COMPATIBLE FALSE)
+endif()

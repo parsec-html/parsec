@@ -58,6 +58,19 @@ gh attestation verify parsec-html-0.1.0.crate --repo parsec-html/parsec \
   --signer-workflow parsec-html/parsec/.github/workflows/release.yml
 ```
 
+**The C libraries** (`parsec-capi-VERSION-TARGET.tar.gz` or `.zip`, one
+per platform, listed in `parsec-capi-SHA256SUMS`) are built and attested
+the same way, by their own workflow:
+
+```sh
+gh attestation verify parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz \
+  --repo parsec-html/parsec \
+  --signer-workflow parsec-html/parsec/.github/workflows/release-capi.yml
+```
+
+They're attached only once the tag's signature has checked out. Unlike
+the crate, they aren't yet checked to rebuild byte for byte.
+
 **A rebuild** gives the same file, byte for byte. At the tag, run
 
 ```sh

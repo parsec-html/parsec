@@ -20,11 +20,21 @@
 //!
 //! After the pages comes a table of selectors over the real pages, Parsec
 //! against Lexbor (html5ever has no selector engine of its own). Name
-//! `selectors` to run only that table.
+//! `selectors` to run only that table, or `encoding` for decoding
+//! throughput against Lexbor's encoding module (not part of a full run).
+//!
+//! Last comes URL parsing, Parsec against Lexbor and Ada, over the links on
+//! the real pages and WPT's URL test inputs. Name `urls` to run only that.
+//!
+//! Then CSS: tokenizing and parsing real stylesheets, Parsec against
+//! Lexbor's CSS module and Servo's cssparser. Name `css` to run only that.
 
+mod css;
+mod encoding;
 mod lexbor;
 mod pages;
 mod selectors;
+mod urls;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -212,9 +222,24 @@ fn main() {
         println!("{} {}", r.secs, r.peak);
         return;
     }
+    if args.iter().any(|a| a == "encoding") {
+        header();
+        encoding::run(&real_pages());
+        return;
+    }
     if args.iter().any(|a| a == "selectors") {
         header();
         selectors::run(&real_pages());
+        return;
+    }
+    if args.iter().any(|a| a == "css") {
+        header();
+        css::run(&real_pages());
+        return;
+    }
+    if args.iter().any(|a| a == "urls") {
+        header();
+        urls::run(&real_pages());
         return;
     }
     let pages = pages::chosen(&args);
@@ -283,6 +308,8 @@ fn main() {
     }
     if args.is_empty() {
         selectors::run(&real_pages());
+        urls::run(&real_pages());
+        css::run(&real_pages());
     }
 }
 
@@ -296,9 +323,10 @@ fn real_pages() -> Vec<pages::Page> {
 /// The versions and the machine.
 fn header() {
     println!(
-        "Lexbor {}, html5ever {}, Parsec {}; {} {}, {} threads available\n",
+        "Lexbor {}, html5ever {}, Ada {}, Parsec {}; {} {}, {} threads available\n",
         env!("LEXBOR_VERSION"),
         env!("HTML5EVER_VERSION"),
+        env!("ADA_VERSION"),
         env!("PARSEC_COMMIT"),
         std::env::consts::OS,
         std::env::consts::ARCH,

@@ -1,0 +1,20 @@
+[package]
+name = "parsec-capi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Parsec's C API: shared and static libraries with a header, pkg-config and CMake files."
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+# libparsec.so, libparsec.dylib, parsec.dll; libparsec.a, parsec.lib.
+name = "parsec"
+crate-type = ["cdylib", "staticlib"]
+# The C test in tests/c.rs is the test; there's nothing for rustdoc.
+doctest = false
+
+[dependencies]
+# Renamed, since this crate's own library is called parsec.
+html = { package = "parsec-html", path = "../parsec" }

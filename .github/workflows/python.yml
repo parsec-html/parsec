@@ -1,0 +1,80 @@
+name: python
+
+# bindings/python, the parsec-html package on PyPI: linted, built as a
+# wheel for each Python below and tested with pytest, free-threaded builds
+# included.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: python-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      # The abi3t build needs a 3.15 to build against.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.15"
+      - run: cargo fmt --manifest-path bindings/python/Cargo.toml --check
+      - run: cargo clippy --manifest-path bindings/python/Cargo.toml -- -D warnings
+      - run: cargo clippy --manifest-path bindings/python/Cargo.toml --features abi3t -- -D warnings
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-deny
+      - run: cargo deny --manifest-path bindings/python/Cargo.toml check licenses bans sources
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.9", "3.14", "3.14t"]
+        abi3t: [false]
+        # Ubuntu 26.04 has no CPython 3.9 to install; 24.04 still does.
+        exclude:
+          - { os: ubuntu-latest, python: "3.9" }
+        include:
+          - { os: ubuntu-24.04, python: "3.9", abi3t: false }
+          - { os: ubuntu-latest, python: "3.15", abi3t: false }
+          # The stable-ABI wheel for later versions, on both 3.15 builds.
+          - { os: ubuntu-latest, python: "3.15", abi3t: true }
+          - { os: ubuntu-latest, python: "3.15t", abi3t: true }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install --require-hashes -r bindings/python/ci-requirements.txt
+      - run: maturin build --release --out dist --interpreter python --manifest-path bindings/python/Cargo.toml ${{ matrix.abi3t && '--features abi3t' || '' }}
+      - run: python -m pip install --no-deps dist/*.whl
+      - run: python -m pytest -v bindings/python/tests

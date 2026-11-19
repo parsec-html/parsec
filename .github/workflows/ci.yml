@@ -171,3 +171,81 @@ jobs:
           name: conformance
           path: conformance/
           if-no-files-found: error
+
+  # The C API on each OS: crates/parsec-capi/package.sh builds the package a
+  # release ships (macOS as one universal library, as released), and
+  # tests/capi.c is built against it through find_package(parsec), shared
+  # and static, and run.
+  capi:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: universal-apple-darwin
+            rust-targets: aarch64-apple-darwin, x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.rust-targets }}
+      - name: Package the C libraries
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: crates/parsec-capi/package.sh "$RUNNER_TEMP/parsec" "$TARGET"
+      - name: Build and run tests/capi.c against the package
+        shell: bash
+        run: |
+          cmake -S crates/parsec-capi/tests -B "$RUNNER_TEMP/capi-test" -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/parsec" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/capi-test" --config Release
+          ctest --test-dir "$RUNNER_TEMP/capi-test" -C Release --output-on-failure
+
+  # The checked-in header against what cbindgen makes from the source, and
+  # the C test, built through pkg-config, under AddressSanitizer (with
+  # LeakSanitizer, on by default on Linux) and UndefinedBehaviorSanitizer.
+  # Rust's allocations go through malloc, so a document or string the API
+  # fails to free shows up as a leak.
+  capi-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cbindgen@0.29.4
+      - name: include/parsec.h matches the source
+        run: |
+          cbindgen --quiet --config crates/parsec-capi/cbindgen.toml --crate parsec-capi --output "$RUNNER_TEMP/parsec.h"
+          diff -u crates/parsec-capi/include/parsec.h "$RUNNER_TEMP/parsec.h" || {
+            echo "include/parsec.h is out of date: run the cbindgen command in crates/parsec-capi/cbindgen.toml" >&2
+            exit 1
+          }
+      - name: The header compiles as C++ too
+        run: echo '#include <parsec.h>' | c++ -x c++ -std=c++11 -Wall -Werror -fsyntax-only -I crates/parsec-capi/include -
+      - run: crates/parsec-capi/package.sh "$RUNNER_TEMP/parsec"
+      - name: tests/capi.c under ASan, LSan and UBSan
+        env:
+          PKG_CONFIG_PATH: ${{ runner.temp }}/parsec/lib/pkgconfig
+          LD_LIBRARY_PATH: ${{ runner.temp }}/parsec/lib
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: |
+          # shellcheck disable=SC2046 # pkg-config's flags are words
+          clang -std=c99 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer \
+            crates/parsec-capi/tests/capi.c $(pkg-config --cflags --libs parsec) -o "$RUNNER_TEMP/capi"
+          "$RUNNER_TEMP/capi"

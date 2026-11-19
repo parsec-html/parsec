@@ -21,9 +21,10 @@ the order can change when users show us something more urgent.
 | M2. HTML, past Lexbor | early 2027 |
 | M3. Selectors | early 2027, alongside M2 |
 | M4. Every way in, then 0.1.0 | spring 2027 |
-| M5. Encoding and M6. URL | summer 2027 |
+| M5. Encoding | done, November 2026 |
+| M6. URL | done, November 2026 |
 | M8. XPath | summer 2027 |
-| M7. CSS | late 2027 into 2028, in parts |
+| M7. CSS | late 2027 into 2028, in parts; syntax, values and the cascade done, November 2026 |
 
 ## M0. Foundations
 
@@ -42,22 +43,25 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M2. HTML, past Lexbor
 
-- Bytes in, with the encoding sniffed from the BOM and `<meta>`, as browsers
-  do, and the html5lib encoding tests passing.
+- Done: bytes in, with the encoding sniffed from the BOM and `<meta>`, as
+  browsers do, and the html5lib encoding tests passing
+  (`parsec_encoding::parse_bytes`, all 82 cases that don't need
+  JavaScript).
 - Chunked input that builds exactly the tree whole input does.
 - Parse errors with their spec names, line and column.
 - Source positions on every node and attribute.
-- The pretty-printing and html5lib serializer formats, with the html5lib
-  serializer tests.
+- Done: the pretty-printing and html5lib serializer formats, with the
+  html5lib serializer tests (229 passed, 1 skipped).
 - A depth limit alongside the time budget.
 - Documents that are `Send` and `Sync`, enforced at compile time.
 - Node handles that can tell when the node they named was removed.
 
 ## M3. Selectors that match what a page can decide
 
-- `:lang()`, `:dir()`, `:default`, `:indeterminate`, `:valid`, `:invalid`,
+- Done: `:lang()`, `:dir()`, `:default`, `:indeterminate`, `:valid`,
+  `:invalid` (with `pattern=`, Unicode property escapes included),
   `:in-range`, `:out-of-range`, `:defined` and `:blank`.
-- `:target` and `:local-link`, given a URL.
+- Done: `:target` and `:local-link`, given a URL.
 - `:nth-col()`, `:nth-last-col()` and the column combinator.
 - Namespace prefixes.
 - Specificity, lazy queries that stop at the first match, and the
@@ -65,23 +69,42 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M4. Every way in
 
-- A C API with a generated header, pkg-config and CMake files, and
-  prebuilt libraries for Linux, macOS and Windows on x86-64 and ARM.
-- A guide for moving from Lexbor, call by call.
-- Python wheels, including free-threaded builds.
+- Done: a C API with a generated header, pkg-config and CMake files, and
+  prebuilt libraries for Linux, macOS and Windows on x86-64 and ARM,
+  attached to each release.
+- Done: a guide for moving from Lexbor, call by call, on the wiki.
+- Python wheels, including free-threaded builds. The package is done, in
+  `bindings/python`; its wheels go to PyPI with 0.1.0.
 - WebAssembly for npm.
 
 ## M5. Encoding
 
-The WHATWG Encoding Standard's 40 encodings, decoding and encoding,
-streaming into the parser, with the web-platform-tests encoding cases in
-CI.
+Done. The WHATWG Encoding Standard's 40 encodings, decoding and
+encoding, in `crates/parsec-encoding` on top of encoding_rs, with the
+web-platform-tests encoding data in CI: every label, every single-byte
+table, and 62,352 multi-byte characters, all passing. Decoding a stream
+works now, through encoding_rs's `Decoder`; feeding it into the parser
+chunk by chunk arrives with chunked input in M2.
 
 ## M6. URL
 
-WHATWG URL, `URLSearchParams`, IDNA, Punycode and Unicode normalization,
-with the web-platform-tests URL pass counts published. Then a benchmark
-against Lexbor's URL parser and Ada.
+Done. WHATWG URL, `URLSearchParams`, IDNA, Punycode and Unicode
+normalization in `crates/parsec-url`, a parser of Parsec's own written
+from the URL Standard's current text, with the web-platform-tests URL
+pass counts published and a benchmark against Lexbor's URL parser and
+Ada.
+
+- Done: `crates/parsec-url`, with URL, `URLSearchParams`, IDNA and
+  Punycode, and the WPT URL suite in `cargo test` with its counts in
+  every CI run's summary.
+- Done: the benchmark against Lexbor's URL parser and Ada, in `bench/`.
+- Done: Unicode normalization, NFC and NFD from the Unicode 18.0
+  character data, as `parsec_url::normalize`, passing all of Unicode's
+  NormalizationTest in `cargo test`.
+- Done: a URL parser of Parsec's own behind the same API, in place of
+  the `url` crate ([#82](https://github.com/parsec-html/parsec/issues/82)).
+  It passes all 4,565 WPT cases, where the `url` crate passed 3,690, and
+  on the links in the benchmark pages it's 1.33 times as fast as Ada.
 
 ## M7. CSS
 
@@ -89,6 +112,35 @@ The CSS Syntax parser, passing `css-parsing-tests` with positions on every
 rule. Then the CSS Object Model, every property in the spec's index,
 custom properties and `var()`, `calc()`, media queries evaluated against an
 environment you give it, and computed values with inheritance.
+
+- Done: `crates/parsec-css`, CSS Syntax Level 3 as the current draft has
+  it, with spans on every rule, declaration and token, and
+  css-parsing-tests and the CSS tokenizer tests in `cargo test`. 293 of
+  the suite's 305 syntax cases pass; the other 12 are where it predates
+  the draft. Benchmarked against Lexbor's CSS module and Servo's
+  cssparser in `bench/`.
+- Done: `parse_stylesheet_deep`, a whole stylesheet with every block's
+  contents in one pass, straight from the tokenizer. It parses at 211
+  MB/s to cssparser's 196 and Lexbor's 112
+  ([#88](https://github.com/parsec-html/parsec/issues/88)).
+- Done: typed values
+  ([#29](https://github.com/parsec-html/parsec/issues/29)). Every
+  property in the specs, generated from w3c/webref, its value parsed
+  against its grammar; Values 4's units and math functions; CSS Color 4
+  and most of 5;
+  shorthands into longhands; custom properties with cycles and `var()`.
+  css-parsing-tests' color files run (4,803 of 8,061 pass, the rest
+  checked against how CSS Color changed), and 13,907 of WPT's 14,893
+  static CSS parsing cases pass.
+- Done: the cascade, media queries and computed values
+  ([#30](https://github.com/parsec-html/parsec/issues/30)). Origins,
+  layers, specificity, `!important` and `style=""`; `@media` and
+  `@supports` evaluated against an environment you give; inheritance,
+  `revert`, `var()` and computed values as `getComputedStyle()` writes
+  them. WPT: 1,370 of 1,370 media query cases, 10,974 of 12,041
+  computed-value cases, 104 of 123 cascade cases.
+- Still to come: `@container` and `@scope`, `@property`, and the values
+  that need layout (`width: 50%` as pixels).
 
 ## M8. XPath
 
