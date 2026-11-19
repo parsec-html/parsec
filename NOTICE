@@ -30,6 +30,10 @@ International License.
 Parsec's tests use test data that is not part of the library and is
 licensed under its own terms:
 
+- libxml2's XPath expression tests (https://gitlab.gnome.org/GNOME/libxml2),
+  in crates/parsec-xpath/tests/libxml2, Copyright (C) 1998-2012 Daniel
+  Veillard and the Libxml2 Contributors, under the MIT License; see the
+  Copyright file in that directory.
 - html5lib-tests (https://github.com/html5lib/html5lib-tests), in
   crates/parsec/tests/html5lib-tests, Copyright (c) 2006-2013 James
   Graham, Geoffrey Sneddon, and other contributors, under the MIT

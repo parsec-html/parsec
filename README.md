@@ -53,6 +53,23 @@ assert_eq!(doc.text(hits[0]), "one");
   and doctype has its byte range in the input you passed, CRLFs and a byte
   order mark accounted for, and `line_col` turns one into a line and
   column. Nodes the parser invents, like an implied `<tbody>`, have none.
+- **XPath 1.0** in `crates/parsec-xpath`, which Lexbor doesn't have at all
+  (nokolexbor ported libxml2's to get it): every axis and the core
+  function library, steps from many nodes worked out once for the whole
+  set, and a work limit for the queries that stay quadratic. It passes
+  libxml2's 231 expression tests, skipping only its own extensions.
+
+  ```rust
+  use parsec_xpath::{Doc, Index, NoExtensions, XPath};
+
+  let doc = parsec::parse("<ul><li>a<li class=x>b<li>c</ul>", false);
+  let index = Index::build(&doc, &[doc.root()]);
+  let query = XPath::new("count(//li[@class='x']/following-sibling::li)").unwrap();
+  let n = query.evaluate(Doc::html(&doc, &index), doc.root(), &[], &[], &NoExtensions);
+  ```
+
+  Build the `Index` once per document and keep it. To see inside
+  `<template>`, call `doc.adopt_template_contents()` first, as lxml has it.
 - **A tree you can edit**: create, insert, move and remove nodes, set and
   rename attributes, then serialize as `innerHTML`, `outerHTML` or text,
   pretty-printed without changing the tree, in the html5lib test format,
@@ -254,7 +271,7 @@ every module Lexbor has, and then go past it:
 | `:blank`, `:defined` | parsed, never match | yes |
 | Queries that stop at the first match | no ([#32](https://github.com/lexbor/lexbor/issues/32)) | yes, `select_first` and `select_iter` |
 | A tree depth limit | no | yes |
-| XPath | no | planned |
+| XPath | no | yes, XPath 1.0, all of libxml2's expression tests but its own extensions |
 | WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |
 | WHATWG URL | yes, no WPT count published | yes, all 4,565 WPT cases passing |
 | Unicode normalization | yes | yes, all of NormalizationTest passing |

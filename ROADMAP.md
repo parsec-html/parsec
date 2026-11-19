@@ -155,7 +155,9 @@ environment you give it, and computed values with inheritance.
 
 ## M8. XPath
 
-XPath 1.0 over Parsec's tree, shared with Netweir.
+Done. XPath 1.0 over Parsec's tree, shared with Netweir: `crates/parsec-xpath`,
+with libxml2's expression tests in `cargo test` and queries that would be
+quadratic stopped by a work limit.
 
 ## 0.1.0
 
