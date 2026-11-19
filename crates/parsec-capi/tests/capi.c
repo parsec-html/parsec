@@ -2,9 +2,9 @@
  * Copyright 2026 James Conway
  *
  * The C API from C: parse, select, read, edit, serialize, bytes in any
- * encoding, and every error path a binding could hit. Given the
- * html5lib-tests encoding/ folder as its argument, it runs those cases
- * too. Built and run by tests/c.rs, by CI on Linux, macOS and Windows
+ * encoding, and every error path a binding could hit. Built with
+ * HTML5LIB_ENCODING defined as the html5lib-tests encoding/ folder, it
+ * runs those cases too. Built and run by tests/c.rs, by CI on Linux, macOS and Windows
  * through CMake, and on Linux under AddressSanitizer, LeakSanitizer and
  * UndefinedBehaviorSanitizer. Exits 0 when every check passes; the first
  * failure prints its line.
@@ -606,7 +606,7 @@ static void html5lib_encoding(const char *dir) {
             const char *label = tail + 11;
             char want[64] = {0};
             size_t w = 0;
-            while (label + w < stop && label[w] != '\n' && w < sizeof want - 1) {
+            while (w < sizeof want - 1 && label + w < stop && label[w] != '\n') {
                 want[w] = label[w];
                 w++;
             }
@@ -636,7 +636,7 @@ static void html5lib_encoding(const char *dir) {
     printf("html5lib encoding: %zu of %zu passed, whole and in pieces\n", passed, cases);
 }
 
-int main(int argc, char **argv) {
+int main(void) {
     parse_select_read();
     edit_and_serialize();
     fragments_and_options();
@@ -645,12 +645,13 @@ int main(int argc, char **argv) {
     syntax_errors();
     xpath();
     bytes_and_encodings();
-    /* tests/c.rs and the sanitizer job pass the html5lib-tests encoding
-     * folder; the CMake runs, from a package, have none. */
-    if (argc > 1)
-        html5lib_encoding(argv[1]);
-    else
-        printf("html5lib encoding: not run, as no folder was given\n");
+    /* tests/c.rs and the sanitizer job build this with the html5lib-tests
+     * encoding folder defined; the CMake runs, from a package, have none. */
+#ifdef HTML5LIB_ENCODING
+    html5lib_encoding(HTML5LIB_ENCODING);
+#else
+    printf("html5lib encoding: not run, as no folder was given\n");
+#endif
     if (failures) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;

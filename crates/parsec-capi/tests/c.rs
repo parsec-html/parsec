@@ -21,6 +21,11 @@ fn the_c_test_program_passes() {
         .args(["-std=c99", "-Wall", "-Wextra", "-Werror", "-pedantic"])
         .arg("-I")
         .arg(here.join("include"))
+        .arg(format!(
+            "-DHTML5LIB_ENCODING=\"{}\"",
+            here.join("../parsec/tests/html5lib-tests/encoding")
+                .display()
+        ))
         .arg(here.join("tests/capi.c"))
         .arg("-L")
         .arg(lib_dir)
@@ -31,8 +36,7 @@ fn the_c_test_program_passes() {
         .status()
         .unwrap_or_else(|e| panic!("couldn't run {cc}: {e}; set CC to a C compiler"));
     assert!(built.success(), "{cc} couldn't build tests/capi.c");
-    let html5lib = here.join("../parsec/tests/html5lib-tests/encoding");
-    let run = Command::new(&out).arg(html5lib).output().unwrap();
+    let run = Command::new(&out).output().unwrap();
     print!("{}", String::from_utf8_lossy(&run.stdout));
     assert!(
         run.status.success(),
