@@ -24,7 +24,7 @@ the order can change when users show us something more urgent.
 | M5. Encoding | done, November 2026 |
 | M6. URL | summer 2027 |
 | M8. XPath | summer 2027 |
-| M7. CSS | late 2027 into 2028, in parts |
+| M7. CSS | late 2027 into 2028, in parts; the syntax parser done, November 2026 |
 
 ## M0. Foundations
 
@@ -106,6 +106,15 @@ The CSS Syntax parser, passing `css-parsing-tests` with positions on every
 rule. Then the CSS Object Model, every property in the spec's index,
 custom properties and `var()`, `calc()`, media queries evaluated against an
 environment you give it, and computed values with inheritance.
+
+- Done: `crates/parsec-css`, CSS Syntax Level 3 as the current draft has
+  it, with spans on every rule, declaration and token, and
+  css-parsing-tests and the CSS tokenizer tests in `cargo test`. 293 of
+  the suite's 305 syntax cases pass; the other 12 are where it predates
+  the draft. Benchmarked against Lexbor's CSS module and Servo's
+  cssparser in `bench/`.
+- Still to come: every longhand, shorthands, custom properties, `var()`
+  and `calc()`; then the cascade, media queries and computed values.
 
 ## M8. XPath
 

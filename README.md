@@ -93,6 +93,18 @@ assert_eq!(doc.text(hits[0]), "one");
   changed in June 2026 and the `url` crate hasn't caught up with yet. The
   wiki's [URL](https://github.com/parsec-html/parsec/wiki/URL) page names
   every failing case and why it fails.
+- **CSS Syntax Level 3**, in `crates/parsec-css`: the tokenizer and the
+  parser with every entry point of the current draft, nesting included,
+  An+B, `<urange>`, `@charset` decoding, and serialization that parses
+  back to the same values. Every rule, declaration and token carries its
+  byte span, and you can ask for a line and column, which Lexbor's users
+  asked it for in [lexbor#374](https://github.com/lexbor/lexbor/issues/374).
+  `cargo test` runs css-parsing-tests, the suite Servo and tinycss2 use,
+  and passes 293 of its 305 syntax cases; the 12 it doesn't are where the
+  suite predates the draft, and the wiki's
+  [CSS](https://github.com/parsec-html/parsec/wiki/CSS) page names each
+  one. It passes all 287 of Romain Menke's tokenizer tests too, positions
+  included. Lexbor runs its own CSS tests, not an outside suite.
 - **A Python package** in `bindings/python`, with selectolax's API:
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
@@ -131,6 +143,16 @@ so Parsec is 1.3 times as fast. Ada, the C++ parser in Node.js, takes
 143 ns, 1.25 times as fast as Parsec. That gap is why a URL parser of
 Parsec's own is next on the roadmap.
 
+And CSS. On ten real stylesheets, 1.87 MB of Bootstrap, Bulma, Font
+Awesome, normalize.css and the `<style>` elements of five of the 13
+pages, Parsec tokenizes 378 MB a second to Lexbor's 217, 1.75 times as
+fast, and parses 148 to Lexbor's 115, 1.3 times, ahead on every sheet.
+Lexbor's parse does read selectors and the properties it knows as well.
+Servo's cssparser, which builds no tree of its own, parses at 196, so it
+is a third faster than Parsec; Parsec keeps every block, with its
+spans, and parses its contents from there. Parsec's tokenizer is 1.3
+times as fast as cssparser's.
+
 Hostile inputs, the ones built to make a parser crawl, go Parsec's way
 on all eight. 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2
 seconds. The closest, a dozen formatting tags reopened in every
@@ -140,7 +162,8 @@ paragraphs, Parsec is 2.3 times as fast. Those two used to be Lexbor's
 
 `bench/` builds Lexbor 3.0.1 from source and runs all three on the same
 strings, on an Apple M2 Max here, then times the selectors over the
-same documents, and URLs against Lexbor and Ada. The wiki's
+same documents, URLs against Lexbor and Ada, and stylesheets against
+Lexbor and cssparser. The wiki's
 [Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks) page
 has the method, every number and how to run it yourself.
 
@@ -166,7 +189,8 @@ every module Lexbor has, and then go past it:
 | XPath | no | planned |
 | WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |
 | WHATWG URL | yes, no WPT count published | yes, with WPT pass counts published |
-| CSS parser and CSSOM | yes | planned, with `var()`, media queries and computed values |
+| CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
+| CSSOM, typed properties | yes, 105 properties | planned, with `var()`, media queries and computed values |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |
 | WebAssembly | through bindings | planned, built here |
