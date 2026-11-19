@@ -122,8 +122,17 @@ environment you give it, and computed values with inheritance.
   contents in one pass, straight from the tokenizer. It parses at 211
   MB/s to cssparser's 196 and Lexbor's 112
   ([#88](https://github.com/parsec-html/parsec/issues/88)).
-- Still to come: every longhand, shorthands, custom properties, `var()`
-  and `calc()`; then the cascade, media queries and computed values.
+- Done: typed values
+  ([#29](https://github.com/parsec-html/parsec/issues/29)). Every
+  property in the specs, generated from w3c/webref, its value parsed
+  against its grammar; Values 4's units and math functions; CSS Color 4
+  and most of 5;
+  shorthands into longhands; custom properties with cycles and `var()`.
+  css-parsing-tests' color files run (4,803 of 8,061 pass, the rest
+  checked against how CSS Color changed), and 13,899 of WPT's 14,893
+  static CSS parsing cases pass.
+- Still to come: the cascade, media queries and computed values
+  ([#30](https://github.com/parsec-html/parsec/issues/30)).
 
 ## M8. XPath
 
