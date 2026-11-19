@@ -11,3 +11,4 @@
 /bindings/wasm/pkg
 /bindings/wasm/node_modules
 __pycache__/
+/bindings/wasm/target
