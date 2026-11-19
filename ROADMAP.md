@@ -62,7 +62,9 @@ Every CI run publishes the conformance counts in its summary.
   `:invalid` (with `pattern=`, Unicode property escapes included),
   `:in-range`, `:out-of-range`, `:defined` and `:blank`.
 - Done: `:target` and `:local-link`, given a URL.
-- `:nth-col()`, `:nth-last-col()` and the column combinator.
+- Done: `:nth-col()`, `:nth-last-col()` and the column combinator, by the
+  HTML table model (`colspan`, `rowspan`, `colgroup`), linear on hostile
+  tables.
 - Namespace prefixes.
 - Specificity, lazy queries that stop at the first match, and the
   web-platform-tests selector cases that don't need layout.
