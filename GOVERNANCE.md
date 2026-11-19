@@ -3,9 +3,10 @@
 ## Today
 
 James Conway ([@jamesconwaydev](https://github.com/jamesconwaydev)) started
-Parsec, holds its copyright and makes the final call on decisions while the
-project is small. Decisions happen in public, in issues, Discussions and
-pull requests.
+Parsec and holds its copyright. Parsec has two maintainers, listed below.
+Decisions happen in public, in issues, Discussions and pull requests; the
+maintainers reach them together, and James makes the final call when they
+can't agree.
 
 ## Licensing
 
@@ -34,3 +35,10 @@ author.
 The list of maintainers lives in this file:
 
 - James Conway ([@jamesconwaydev](https://github.com/jamesconwaydev))
+- foothillsdigital ([@foothillsdigital](https://github.com/foothillsdigital)),
+  since November 2026
+
+Their public signing keys are in
+[`.github/allowed_signers`](.github/allowed_signers), and the release
+workflow refuses a tag that isn't signed by one of them. Only repository
+admins can create `v*` tags.
