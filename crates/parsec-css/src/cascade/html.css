@@ -66,6 +66,20 @@ del, s, strike { text-decoration: line-through; }
 q::before { content: open-quote; }
 q::after { content: close-quote; }
 
+dialog::backdrop { background: rgba(0, 0, 0, 0.1); }
+
+/* Not the HTML Standard's: CSS Lists 3 §3.1.1 (with text-indent, which a
+   marker doesn't take from its list item in browsers) and CSS Position 4
+   §6.2. */
+::marker {
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  text-transform: none;
+  text-indent: 0;
+}
+::backdrop { position: fixed; inset: 0; }
+
 br { display-outside: newline; }
 nobr { white-space: nowrap; }
 wbr { display-outside: break-opportunity; }

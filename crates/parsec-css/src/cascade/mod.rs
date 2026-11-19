@@ -33,11 +33,22 @@
 //! [`Styler::at_rules`] gives the `@keyframes`, `@counter-style` and
 //! `@property` rules that win.
 //!
+//! Pseudo-elements are styled too, CSS Pseudo-Elements 4: a rule whose
+//! selector ends in `::before`, `::after`, `::marker`, `::placeholder`,
+//! `::first-line`, `::first-letter`, `::selection`, `::backdrop`,
+//! `::file-selector-button` or `::highlight()` applies to that
+//! pseudo-element of the elements the rest of it matches, and
+//! [`Styled::get_pseudo`] gives its computed values, inherited from the
+//! originating element, with only the properties that apply to it
+//! counted, and `content` worked out. They're computed when asked for,
+//! not before.
+//!
 //! What it doesn't do is layout: a value that needs boxes to work out,
 //! `width: 50%` as pixels say, stays as its computed value, and a
 //! container's size is the caller's to give.
 
 mod compute;
+mod pseudo;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -54,6 +65,8 @@ use crate::tokenizer::Token;
 use crate::values::{CssWide, Specified, expand, property};
 
 pub use compute::Computed;
+pub use pseudo::Pseudo;
+use pseudo::{PseudoRule, PseudoStyles, Split, split_pseudo};
 
 /// Where a stylesheet comes from, which decides what wins between them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -148,6 +161,11 @@ struct Entry<'s> {
     /// The `@container` rules it's in, each a list of queries any of
     /// which may hold.
     containers: Vec<Arc<Vec<ContainerQuery>>>,
+    /// The pseudo-element a rule styles, whose originating element
+    /// `selector` matches.
+    pseudo: Option<Pseudo>,
+    /// Whether the selector is `*`, which every element matches.
+    any: bool,
 }
 
 /// An `@scope` a rule is in.
@@ -168,6 +186,7 @@ enum ScopeStart {
 /// Every element's computed values.
 pub struct Styled {
     styles: HashMap<NodeId, Computed>,
+    pseudo: PseudoStyles,
 }
 
 impl Styled {
@@ -480,7 +499,36 @@ impl Styler {
             .collect();
         let mut scope_cache = ScopeCache::default();
         let mut index = Index::default();
+        let mut pseudo = PseudoStyles {
+            env: self.env.clone(),
+            root: doc_element(doc),
+            ..PseudoStyles::default()
+        };
+        // Each pseudo-element rule's place in `pseudo.rules`.
+        let mut rule_of: HashMap<usize, usize> = HashMap::new();
         for (i, e) in entries.iter().enumerate() {
+            if let Some(p) = &e.pseudo {
+                let needs_attrs = e
+                    .declarations
+                    .iter()
+                    .any(|(n, v, _)| n.eq_ignore_ascii_case("content") && pseudo::has_attr(v));
+                pseudo.rules.push(PseudoRule {
+                    pseudo: p.clone(),
+                    declarations: e
+                        .declarations
+                        .iter()
+                        .map(|(n, v, imp)| (n.to_string(), crate::to_css(v), *imp))
+                        .collect(),
+                    needs_attrs,
+                });
+                let r = pseudo.rules.len() - 1;
+                // On every element alike: kept once, not per element.
+                if e.any && e.scope.is_none() && e.containers.is_empty() && !needs_attrs {
+                    pseudo.always.push((r, self.key(e, &ranks, 0)));
+                    continue;
+                }
+                rule_of.insert(i, r);
+            }
             match &e.bucket {
                 Bucket::Id(x) => index.ids.entry(x.clone()).or_default().push(i),
                 Bucket::Class(x) => index.classes.entry(x.clone()).or_default().push(i),
@@ -537,42 +585,21 @@ impl Styler {
             }
             candidates.sort_unstable();
             candidates.dedup();
+            let mut pseudo_candidates = Vec::new();
             for &i in &candidates {
                 let e = &entries[i];
-                if !e
-                    .containers
-                    .iter()
-                    .all(|c| self.container_holds(c, doc, el, &styles))
-                {
+                if e.pseudo.is_some() {
+                    // Once this element's style is known: a pseudo-element's
+                    // container may be its originating element.
+                    pseudo_candidates.push(i);
                     continue;
                 }
-                let proximity = match &e.scope {
-                    None => {
-                        if !e.selector.matches(doc, el, None) {
-                            continue;
-                        }
-                        0
-                    }
-                    Some(scope) => {
-                        let levels = scope_roots(scope, doc, el, &mut scope_cache);
-                        let roots = levels.last().map_or(&[][..], |r| &r[..]);
-                        match roots
-                            .iter()
-                            .find(|(r, _)| e.selector.matches(doc, el, Some(*r)))
-                        {
-                            Some((_, hops)) => u32::MAX - hops,
-                            None => continue,
-                        }
-                    }
+                let Some(proximity) =
+                    self.entry_matches(e, doc, el, &styles, &mut scope_cache, false)
+                else {
+                    continue;
                 };
-                let key = Key {
-                    origin: e.origin as u8,
-                    attached: false,
-                    layer: ranks[e.layer],
-                    specificity: e.specificity,
-                    proximity,
-                    order: e.order,
-                };
+                let key = self.key(e, &ranks, proximity);
                 for (name, value, important) in &e.declarations {
                     add(&mut declared, &mut custom, name, value, *important, key);
                 }
@@ -605,7 +632,8 @@ impl Styler {
             for list in custom.values_mut() {
                 list.sort_by_key(|d| d.0);
             }
-            let parent = doc.parent(el).and_then(|p| styles.get(&p));
+            let parent_id = doc.parent(el).filter(|p| styles.contains_key(p));
+            let parent = parent_id.and_then(|p| styles.get(&p));
             let root_style = if Some(el) == root {
                 None
             } else {
@@ -636,9 +664,75 @@ impl Styler {
                     computed.cq_children.1 = height;
                 }
             }
+            computed.parent = parent_id;
             styles.insert(el, computed);
+            let mut matched = Vec::new();
+            for i in pseudo_candidates {
+                let e = &entries[i];
+                if let Some(proximity) =
+                    self.entry_matches(e, doc, el, &styles, &mut scope_cache, true)
+                {
+                    let r = rule_of[&i];
+                    if pseudo.rules[r].needs_attrs && !pseudo.attrs.contains_key(&el) {
+                        let attrs = doc
+                            .attrs(el)
+                            .map(|(_, n, v)| (n.to_string(), v.to_string()))
+                            .collect();
+                        pseudo.attrs.insert(el, attrs);
+                    }
+                    matched.push((r, self.key(e, &ranks, proximity)));
+                }
+            }
+            if !matched.is_empty() {
+                pseudo.matched.insert(el, matched);
+            }
         }
-        Styled { styles }
+        pseudo.registered = registered;
+        Styled { styles, pseudo }
+    }
+
+    /// Where a rule's declarations go in the cascade's order.
+    fn key(&self, e: &Entry<'_>, ranks: &[u32], proximity: u32) -> Key {
+        Key {
+            origin: e.origin as u8,
+            attached: false,
+            layer: ranks[e.layer],
+            specificity: e.specificity,
+            proximity,
+            order: e.order,
+        }
+    }
+
+    /// Whether a rule applies to `el`, with its scoping proximity if so.
+    /// `inclusive` is for a pseudo-element's rule, whose containers start
+    /// at `el`, the originating element, which must be styled already.
+    fn entry_matches(
+        &self,
+        e: &Entry<'_>,
+        doc: &Document,
+        el: NodeId,
+        styles: &HashMap<NodeId, Computed>,
+        scope_cache: &mut ScopeCache,
+        inclusive: bool,
+    ) -> Option<u32> {
+        if !e
+            .containers
+            .iter()
+            .all(|c| self.container_holds(c, doc, el, styles, inclusive))
+        {
+            return None;
+        }
+        match &e.scope {
+            None => e.selector.matches(doc, el, None).then_some(0),
+            Some(scope) => {
+                let levels = scope_roots(scope, doc, el, scope_cache);
+                let roots = levels.last().map_or(&[][..], |r| &r[..]);
+                roots
+                    .iter()
+                    .find(|(r, _)| e.selector.matches(doc, el, Some(*r)))
+                    .map(|(_, hops)| u32::MAX - hops)
+            }
+        }
     }
 }
 
@@ -757,11 +851,12 @@ impl Styler {
         doc: &Document,
         el: NodeId,
         styles: &HashMap<NodeId, Computed>,
+        inclusive: bool,
     ) -> bool {
         queries.iter().any(|q| {
             let axes = q.axes();
             let sized = axes.inline || axes.block;
-            let mut at = doc.parent(el);
+            let mut at = if inclusive { Some(el) } else { doc.parent(el) };
             while let Some(a) = at {
                 at = doc.parent(a);
                 let Some(c) = styles.get(&a) else { continue };
@@ -1288,10 +1383,26 @@ impl<'s> Collect<'_, 's> {
             let Ok(list) = SelectorList::parse(s) else {
                 continue;
             };
+            // A pseudo-element's rule matches its originating element, and
+            // counts the pseudo-element in its specificity.
+            let specificity = list.specificity();
+            let mut origin_any = false;
+            let (bucket, list, pseudo) = match split_pseudo(s) {
+                Split::No => (bucket(s), list, None),
+                // Only after a state, or as part of another pseudo-element.
+                Split::Unstyled => continue,
+                Split::Pseudo(origin, p) => match SelectorList::parse(&origin) {
+                    Ok(l) => {
+                        origin_any = origin == "*";
+                        (bucket(&origin), l, Some(p))
+                    }
+                    Err(_) => continue,
+                },
+            };
             *self.order += 1;
             self.entries.push(Entry {
-                bucket: bucket(s),
-                specificity: list.specificity(),
+                bucket,
+                specificity,
                 selector: list,
                 origin: self.origin,
                 layer,
@@ -1299,6 +1410,8 @@ impl<'s> Collect<'_, 's> {
                 declarations: declarations.clone(),
                 scope: self.scope.clone(),
                 containers: self.containers.clone(),
+                any: origin_any,
+                pseudo,
             });
         }
     }

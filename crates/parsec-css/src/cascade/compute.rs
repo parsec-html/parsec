@@ -40,6 +40,8 @@ pub struct Computed {
     /// What they are for the children: this element's own size on the
     /// axes it's a size container for, [`Computed::cq`] otherwise.
     pub(super) cq_children: (f64, f64),
+    /// The parent element, when it was styled too.
+    pub(super) parent: Option<parsec::NodeId>,
 }
 
 impl Computed {
@@ -214,6 +216,7 @@ pub(super) fn compute(input: Input<'_, '_>) -> Computed {
         env: input.env.clone(),
         cq: input.cq,
         cq_children: input.cq,
+        parent: None,
     };
     // Inherited values first: what isn't declared keeps them.
     if let Some(p) = parent {
@@ -1046,5 +1049,61 @@ fn fix_up(out: &mut Computed, _is_root: bool, _parent: Option<&Computed>) {
         Some("none" | "hidden")
     ) {
         out.values.insert("column-rule-width", "0px".into());
+    }
+}
+
+/// What a pseudo-element's values are beyond the cascade's: `content:
+/// normal` is `none` on `::before` and `::after`, CSS Content 3 §1; a
+/// marker's `display` is its list item's position, CSS Lists 3 §3.1.1; and
+/// a highlight's own properties inherit from its parent element's
+/// highlight whether they're inherited properties or not, while those
+/// that don't apply to it are its originating element's, CSS Pseudo 4
+/// §3.5.
+pub(super) fn pseudo_fix_up(
+    out: &mut Computed,
+    p: &super::Pseudo,
+    originating: &Computed,
+    parent_highlight: Option<&Computed>,
+) {
+    use super::Pseudo;
+    match p {
+        Pseudo::Before | Pseudo::After => {
+            if out.get("content").as_deref() == Some("normal") {
+                out.values.insert("content", "none".into());
+            }
+        }
+        Pseudo::Marker => {
+            let inside = originating.get("list-style-position").as_deref() == Some("inside");
+            out.values
+                .insert("display", if inside { "inline" } else { "block" }.into());
+        }
+        Pseudo::Selection | Pseudo::Highlight(_) => {
+            for q in crate::values::properties() {
+                if q.is_shorthand() || q.alias_of.is_some() {
+                    continue;
+                }
+                let name = q.name;
+                let value = if super::pseudo::highlight_applies(name) {
+                    if out.keys.contains_key(name) {
+                        continue;
+                    }
+                    // The root's inherits `color` from the element; the
+                    // rest start over.
+                    match parent_highlight {
+                        Some(h) => h.values.get(name).cloned(),
+                        None if name == "color" => continue,
+                        None => None,
+                    }
+                } else {
+                    originating.values.get(name).cloned()
+                };
+                match value {
+                    Some(v) => out.values.insert(name, v),
+                    None => out.values.remove(name),
+                };
+            }
+            out.font_size = originating.font_size;
+        }
+        _ => {}
     }
 }

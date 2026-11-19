@@ -158,7 +158,7 @@ fuzz_target!(|data: &[u8]| {
     let _ = list.to_string();
     let _ = list.matches(&media::Environment::default());
     let _ = supports::supports(&values);
-    let page = parsec::parse("<div id=a class=b style='container-type: size; writing-mode: vertical-rl'><style>@scope { p { color: blue } }</style><p style='color: red'>x</p><span></span></div>", false);
+    let page = parsec::parse("<div id=a class=b style='container-type: size; writing-mode: vertical-rl'><style>@scope { p { color: blue } }</style><p style='color: red' title=t>x</p><ul><li><span></span></ul><input></div>", false);
     // Every at-rule as each kind it could be, written back.
     for rule in &deep.rules {
         if let Rule::At(a) = rule {
@@ -192,6 +192,31 @@ fuzz_target!(|data: &[u8]| {
     for p in ["color", "display", "margin", "font-size", "--x", "background"] {
         if let Some(root) = page.children(page.root()).next() {
             let _ = styled.get(root, p);
+        }
+    }
+    // Every pseudo-element of a few elements, and the input's name as one.
+    let pseudos = [
+        cascade::Pseudo::Before,
+        cascade::Pseudo::After,
+        cascade::Pseudo::Marker,
+        cascade::Pseudo::Placeholder,
+        cascade::Pseudo::FirstLine,
+        cascade::Pseudo::FirstLetter,
+        cascade::Pseudo::Selection,
+        cascade::Pseudo::Backdrop,
+        cascade::Pseudo::FileSelectorButton,
+        cascade::Pseudo::Highlight("x".into()),
+    ];
+    let named = cascade::Pseudo::parse(css);
+    let some = parsec::css::SelectorList::parse("p, li, input").unwrap();
+    for el in some.select(&page, page.root()) {
+        for p in pseudos.iter().chain(&named) {
+            let _ = styled.pseudo_exists(el, p);
+            if let Some(c) = styled.computed_pseudo(el, p) {
+                for property in ["content", "color", "display", "--x"] {
+                    let _ = c.get(property);
+                }
+            }
         }
     }
     let resolved = custom.resolve(None);
