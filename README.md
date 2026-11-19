@@ -173,14 +173,22 @@ assert_eq!(doc.text(hits[0]), "one");
   element's computed value as `getComputedStyle()` gives it: inheritance,
   the CSS-wide keywords with `revert` and `revert-layer`, `var()`,
   absolute lengths, and colours worked out, mixes and relative colours
-  included. `@keyframes` and `@counter-style` are parsed and given back
+  included. Pseudo-elements get computed values too:
+  `styled.get_pseudo(el, &Pseudo::Before, "color")` for `::before`,
+  `::after`, `::marker`, `::placeholder`, `::first-line`,
+  `::first-letter`, `::selection`, `::highlight()`, `::backdrop` and
+  `::file-selector-button`, each with only the properties that apply to
+  it, `content` worked out (`attr()` substituted), and
+  `styled.pseudo_exists()` telling you whether a `::before`, `::after` or
+  `::marker` box is there. They're worked out when you ask, so a page
+  costs no more to style for having them. `@keyframes` and `@counter-style` are parsed and given back
   (`parsec_css::rules`), whichever wins for each name. Lexbor has no media
   query evaluation and no computed values
   ([discussion #265](https://github.com/lexbor/lexbor/discussions/265)).
   `cargo test` runs WPT's media query cases (1,370 of 1,370), its
-  computed-value cases (11,287 of 12,041) and its static cascade and
-  at-rule cases, `@scope`, `@container`, `@property` and
-  `@counter-style` among them (1,198 of 1,345);
+  computed-value cases (11,356 of 12,111) and its static cascade,
+  at-rule and pseudo-element cases, `@scope`, `@container`, `@property`,
+  `@counter-style` and css-pseudo among them (1,343 of 1,474);
   [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade) on the
   wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:
@@ -284,7 +292,7 @@ every module Lexbor has, and then go past it:
 | Unicode normalization | yes | yes, all of NormalizationTest passing |
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
-| Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import` and `@property`; WPT counts published |
+| Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |
 | WebAssembly | through bindings | yes, on npm with 0.1.0 |

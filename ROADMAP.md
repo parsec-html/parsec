@@ -159,9 +159,18 @@ environment you give it, and computed values with inheritance.
   nearest container and the small viewport without one
   ([#100](https://github.com/parsec-html/parsec/issues/100)). WPT: 1,198
   of 1,345 static cascade and at-rule cases.
+- Done: pseudo-elements' computed values
+  ([#111](https://github.com/parsec-html/parsec/issues/111)). `::before`,
+  `::after`, `::marker`, `::placeholder`, `::first-line`,
+  `::first-letter`, `::selection`, `::highlight()`, `::backdrop` and
+  `::file-selector-button`, inherited from the originating element (and
+  highlights from the parent's highlight), each with the properties that
+  apply to it, `content` computed, and whether `::before`, `::after` and
+  `::marker` exist. WPT: 1,343 of 1,474 static cascade, at-rule and
+  pseudo-element cases, 11,356 of 12,111 computed-value cases.
 - Still to come: shadow DOM for `@scope` and container lookups, which
-  needs declarative shadow roots in the tree builder first; pseudo-element
-  styles; and the values that need layout (`width: 50%` as pixels).
+  needs declarative shadow roots in the tree builder first; and the
+  values that need layout (`width: 50%` as pixels).
 
 ## M8. XPath
 
