@@ -30,6 +30,8 @@ mod prescan;
 pub use prescan::prescan;
 mod stream;
 pub use stream::ByteParser;
+mod offsets;
+pub use offsets::Offsets;
 
 /// How sure the parser is of an encoding, in the HTML Standard's terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,7 +123,9 @@ pub fn sniff(
 /// assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 /// ```
 pub fn parse_bytes(bytes: &[u8], options: Options) -> Result<Parsed, ParseError> {
-    let start = Instant::now();
+    // The clock is read only for a budget, so that WebAssembly, which has
+    // none, still works.
+    let start = options.html.budget.map(|_| Instant::now());
     let (mut encoding, mut confidence) = sniff(bytes, options.transport, options.fallback);
     let mut document = decode_and_parse(bytes, encoding, options.html)?;
     if confidence == Confidence::Tentative
@@ -131,7 +135,8 @@ pub fn parse_bytes(bytes: &[u8], options: Options) -> Result<Parsed, ParseError>
         if let Some(new) = changed(encoding, declared) {
             encoding = new;
             let mut html = options.html;
-            html.budget = html.budget.map(|b| b.saturating_sub(start.elapsed()));
+            let spent = start.map_or(Default::default(), |t| t.elapsed());
+            html.budget = html.budget.map(|b| b.saturating_sub(spent));
             document = decode_and_parse(bytes, encoding, html)?;
         }
     }
