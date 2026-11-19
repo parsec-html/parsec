@@ -166,7 +166,7 @@ impl Url {
     }
 
     pub fn set_username(&mut self, value: &str) {
-        self.set_userinfo(value, false);
+        self.set_userinfo(value, |p| &mut p.username);
     }
 
     pub fn password(&self) -> &str {
@@ -179,7 +179,7 @@ impl Url {
     }
 
     pub fn set_password(&mut self, value: &str) {
-        self.set_userinfo(value, true);
+        self.set_userinfo(value, |p| &mut p.password);
     }
 
     /// The host and, if there is one, the port.

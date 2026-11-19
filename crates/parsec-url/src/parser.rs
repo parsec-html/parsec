@@ -846,17 +846,18 @@ impl Url {
         }
     }
 
-    pub(crate) fn set_userinfo(&mut self, value: &str, password: bool) {
+    /// The username and password setters; `field` picks which part the
+    /// encoded value goes to.
+    pub(crate) fn set_userinfo(
+        &mut self,
+        value: &str,
+        field: for<'a, 'b> fn(&'a mut Parts<'b>) -> &'a mut Cow<'b, str>,
+    ) {
         if self.cannot_have_credentials() {
             return;
         }
         let mut parts = self.parts();
-        let encoded = Cow::Owned(encode(value, USERINFO));
-        if password {
-            parts.password = encoded;
-        } else {
-            parts.username = encoded;
-        }
+        *field(&mut parts) = Cow::Owned(encode(value, USERINFO));
         if let Some(url) = Url::assemble(&parts) {
             *self = url;
         }
