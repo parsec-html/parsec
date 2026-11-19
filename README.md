@@ -48,6 +48,11 @@ assert_eq!(doc.text(hits[0]), "one");
   way the document decides them, and `:target` and `:local-link` match once
   you pass the page's URL, where Lexbor parses all four and never matches
   them.
+- **Where everything came from**: with `Options { spans: true, .. }`,
+  every element's start and end tag, every attribute, text run, comment
+  and doctype has its byte range in the input you passed, CRLFs and a byte
+  order mark accounted for, and `line_col` turns one into a line and
+  column. Nodes the parser invents, like an implied `<tbody>`, have none.
 - **A tree you can edit**: create, insert, move and remove nodes, set and
   rename attributes, then serialize as `innerHTML`, `outerHTML` or text,
   pretty-printed without changing the tree, in the html5lib test format,
@@ -241,7 +246,7 @@ every module Lexbor has, and then go past it:
 | Bytes in, encoding sniffed | yes | yes, `parse_bytes` |
 | Chunked input | yes | planned |
 | Parse errors with line and column | pointers only | planned |
-| Source positions on nodes and attributes | no | planned |
+| Source positions on nodes and attributes | no ([lexbor#374](https://github.com/lexbor/lexbor/issues/374)) | yes, byte ranges into your input with line and column |
 | Linear worst case | no ([#340](https://github.com/lexbor/lexbor/issues/340)) | planned |
 | Thread-safe documents | no | planned, checked at compile time |
 | `:scope`, `:lang()`, `:dir()`, `:target`, `:local-link` | parsed, never match | yes |

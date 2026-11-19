@@ -69,6 +69,7 @@ fn run(
         max_depth: options
             .and_then(ParseOptions::max_depth)
             .map(|d| d as usize),
+        ..Options::default()
     };
     let doc = match context {
         Some(context) => {

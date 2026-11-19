@@ -503,6 +503,7 @@ impl HtmlParser {
             scripting,
             budget,
             max_depth,
+            ..Options::default()
         };
         let ns = namespace(fragment_namespace)?;
         let doc = py

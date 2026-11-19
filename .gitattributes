@@ -3,3 +3,4 @@ crates/parsec-encoding/tests/wpt/** -text
 crates/parsec-css/tests/css-parsing-tests/** -text
 crates/parsec-css/tests/css-tokenizer-tests/** -text
 crates/parsec-css/tests/urange/** -text
+crates/parsec/tests/tree-construction/*.dat -text

@@ -333,6 +333,7 @@ pub unsafe extern "C" fn parsec_parse_with(
                 scripting: scripting(flags)?,
                 budget: (budget_us != 0).then(|| std::time::Duration::from_micros(budget_us)),
                 max_depth: (max_depth != 0).then_some(max_depth as usize),
+                ..Options::default()
             };
             parsed(html::parse_with(&html, options), out)
         })())
