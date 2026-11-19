@@ -234,23 +234,56 @@ def test_positions():
     p = HTMLParser(src, positions=True)
     para = p.css_first("p")
     start, end = para.source_range
-    data = src.encode()
-    assert data[start:end] == b"<p class=x id=a>"
-    assert data[slice(*para.end_tag_range)] == b"</p>"
-    assert data[slice(*para.attribute_range("ID"))] == b"id=a"
+    assert src[start:end] == "<p class=x id=a>"
+    assert src[slice(*para.end_tag_range)] == "</p>"
+    assert src[slice(*para.attribute_range("ID"))] == "id=a"
     assert para.attribute_range("nope") is None
-    # Byte offsets, so the text after the two-byte \u00e9 ends one later.
-    assert data[slice(*para.first_child.source_range)] == "h\u00e9llo".encode()
+    assert src[slice(*para.first_child.source_range)] == "h\u00e9llo"
     div = p.css_first("div")
     assert div.position == (2, 1)
     assert p.css_first("br").end_tag_range is None
-    assert p.line_col(len(data)) == (2, 17)
+    assert p.line_col(len(src)) == (2, 17)
     # Implied by the parser, so written nowhere.
     assert p.body.source_range is None and p.body.position is None
     # Off unless asked, and nothing an edit makes has one.
     assert HTMLParser(src).css_first("p").source_range is None
     para.insert_child("new")
     assert para.last_child.source_range is None
+
+
+WIDE = "<p>caf\u00e9</p><b>\u65e5\u672c</b><i title='\U0001f600'>\U0001f600x</i>"
+
+
+def test_positions_slice_what_was_passed_in():
+    # A str gives code point indexes.
+    p = HTMLParser(WIDE, positions=True)
+    for tag, start, end in [("p", "<p>", "</p>"), ("b", "<b>", "</b>"), ("i", "<i title='\U0001f600'>", "</i>")]:
+        n = p.css_first(tag)
+        assert WIDE[slice(*n.source_range)] == start
+        assert WIDE[slice(*n.end_tag_range)] == end
+    i = p.css_first("i")
+    assert WIDE[slice(*i.attribute_range("title"))] == "title='\U0001f600'"
+    assert WIDE[slice(*i.first_child.source_range)] == "\U0001f600x"
+    assert p.line_col(i.source_range[0]) == (1, i.source_range[0] + 1)
+    # bytes give byte offsets into those bytes.
+    data = WIDE.encode()
+    q = HTMLParser(data, positions=True)
+    assert data[slice(*q.css_first("b").source_range)] == b"<b>"
+    assert data[slice(*q.css_first("i").first_child.source_range)] == "\U0001f600x".encode()
+    # Even when they aren't all UTF-8: each bad byte is read as a U+FFFD,
+    # three bytes long, but the offsets stay in the bytes given.
+    bad = b"<p>\xff\xfe</p><b>x</b>"
+    r = HTMLParser(bad, positions=True, errors=True)
+    assert bad[slice(*r.css_first("b").source_range)] == b"<b>"
+    assert bad[slice(*r.css_first("p").end_tag_range)] == b"</p>"
+    assert r.line_col(bad.index(b"<b>")) == (1, 10)
+
+
+def test_error_offsets_are_in_the_inputs_units():
+    src = "\u65e5\u672c</b>"
+    e = HTMLParser(src, errors=True).errors[1]
+    assert e.code == "unexpected-end-tag" and src[e.offset:].startswith("</b>")
+    assert e.column == 3
 
 
 def test_errors():

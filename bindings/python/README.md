@@ -41,7 +41,9 @@ What you get over selectolax:
   `str`, and a number, string or boolean as `float`, `str` or `bool`.
 - **Where everything was written.** Parse with `positions=True` and every
   node knows its place in your input: `node.source_range` and
-  `node.end_tag_range` are `(start, end)` byte offsets, `node.position` is
+  `node.end_tag_range` are `(start, end)` indexes into what you passed
+  (code points into a `str`, bytes into `bytes`), so `src[start:end]` is
+  the tag as you wrote it; `node.position` is
   its `(line, column)`, and `node.attribute_range("href")` finds one
   attribute.
 - **Parse errors.** With `errors=True`, `page.errors` lists each one with

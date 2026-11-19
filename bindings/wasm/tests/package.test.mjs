@@ -33,17 +33,34 @@ test("spans", () => {
   const src = "<p class=x>h\u00e9llo</p>\n<div>x</div>";
   const doc = parse(src, { spans: true });
   const p = doc.selectFirst("p");
-  const bytes = new TextEncoder().encode(src);
-  const text = (s) => new TextDecoder().decode(bytes.subarray(s.start, s.end));
+  const text = (s) => src.slice(s.start, s.end);
   assert.equal(text(p.span), "<p class=x>");
   assert.equal(text(p.endSpan), "</p>");
   assert.equal(text(p.attributeSpan("CLASS")), "class=x");
-  // Byte offsets: the accented e takes two.
-  assert.deepEqual([p.firstChild.span.start, p.firstChild.span.end], [11, 17]);
+  assert.equal(text(p.firstChild.span), "h\u00e9llo");
   const div = doc.selectFirst("div").span;
   assert.deepEqual([div.line, div.column], [2, 1]);
   assert.equal(doc.body.span, undefined);
   assert.equal(parse(src).selectFirst("p").span, undefined);
+});
+
+test("spans slice the string that was parsed, past the BMP too", () => {
+  const src = "<p>caf\u00e9</p><b>\u65e5\u672c</b><i title='\u{1F600}'>\u{1F600}x</i>";
+  const doc = parse(src, { spans: true });
+  const slice = (s) => src.slice(s.start, s.end);
+  for (const [tag, start, end] of [["p", "<p>", "</p>"], ["b", "<b>", "</b>"], ["i", "<i title='\u{1F600}'>", "</i>"]]) {
+    const n = doc.selectFirst(tag);
+    assert.equal(slice(n.span), start);
+    assert.equal(slice(n.endSpan), end);
+  }
+  const i = doc.selectFirst("i");
+  assert.equal(slice(i.attributeSpan("title")), "title='\u{1F600}'");
+  assert.equal(slice(i.firstChild.span), "\u{1F600}x");
+  // The column counts each of the two emoji once, where the index counts
+  // each twice.
+  assert.equal(i.endSpan.column, i.endSpan.start + 1 - 2);
+  const errors = parse("\u{1F600}</b>", { errors: true }).errors;
+  assert.equal("\u{1F600}</b>".slice(errors[1].offset), "</b>");
 });
 
 test("errors", () => {

@@ -9,12 +9,15 @@
 //! A node is its document plus an index, so it stays valid after edits:
 //! a removed node can still be read, and put back.
 
+mod units;
+
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use parsec::css::SelectorList;
 use parsec::{AttrNs, Kind, NodeId, Ns, Options};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
+use units::Counted;
 use wasm_bindgen::prelude::*;
 
 type Shared = Rc<Tree>;
@@ -24,6 +27,9 @@ type Shared = Rc<Tree>;
 struct Tree {
     doc: RefCell<parsec::Document>,
     index: RefCell<Option<Rc<Index>>>,
+    /// Turns the core's byte offsets into UTF-16 indexes of the input;
+    /// None when they're the same, for ASCII, or when nothing reads them.
+    units: Option<Counted>,
 }
 
 impl Tree {
@@ -35,6 +41,11 @@ impl Tree {
     fn borrow_mut(&self) -> RefMut<'_, parsec::Document> {
         self.index.take();
         self.doc.borrow_mut()
+    }
+
+    /// A core offset as an index into the JavaScript string.
+    fn out(&self, offset: usize) -> u32 {
+        self.units.as_ref().map_or(offset, |u| u.to_units(offset)) as u32
     }
 
     fn index(&self) -> Rc<Index> {
@@ -53,9 +64,10 @@ impl Tree {
     }
 }
 
-/// Where something was written: `start` to `end` as byte offsets into the
-/// UTF-8 input, and the `line` and `column` of `start`, both from 1, the
-/// column in characters.
+/// Where something was written: `start` to `end` as indexes into the
+/// string that was parsed, so `html.slice(start, end)` is its source, and
+/// the `line` and `column` of `start`, both from 1, the column counting
+/// characters (code points, so an emoji is one).
 #[wasm_bindgen]
 #[derive(Clone, Copy)]
 pub struct Span {
@@ -76,7 +88,7 @@ pub struct ParseError {
     /// one tree construction finds (`unexpected-end-tag`).
     #[wasm_bindgen(readonly, getter_with_clone)]
     pub code: String,
-    /// A byte offset into the UTF-8 input.
+    /// An index into the string that was parsed, as `Span` counts.
     #[wasm_bindgen(readonly)]
     pub offset: u32,
     #[wasm_bindgen(readonly)]
@@ -86,12 +98,12 @@ pub struct ParseError {
     pub column: u32,
 }
 
-fn span(doc: &parsec::Document, r: Option<std::ops::Range<usize>>) -> Option<Span> {
+fn span(tree: &Tree, doc: &parsec::Document, r: Option<std::ops::Range<usize>>) -> Option<Span> {
     let r = r?;
     let (line, column) = doc.line_col(r.start);
     Some(Span {
-        start: r.start as u32,
-        end: r.end as u32,
+        start: tree.out(r.start),
+        end: tree.out(r.end),
         line: line as u32,
         column: column as u32,
     })
@@ -173,10 +185,13 @@ fn run(
         None => parsec::parse_with(html, parse),
     }
     .map_err(|e| JsError::new(&e.to_string()))?;
+    let units = ((parse.spans || parse.errors) && !html.is_ascii())
+        .then(|| Counted::new(html, units::utf16));
     Ok(Document {
         doc: Rc::new(Tree {
             doc: RefCell::new(doc),
             index: RefCell::new(None),
+            units,
         }),
     })
 }
@@ -294,7 +309,7 @@ impl Document {
             .iter()
             .map(|e| ParseError {
                 code: e.code.to_string(),
-                offset: e.offset as u32,
+                offset: self.doc.out(e.offset),
                 line: e.line as u32,
                 column: e.column as u32,
             })
@@ -460,14 +475,14 @@ impl Node {
     #[wasm_bindgen(getter)]
     pub fn span(&self) -> Option<Span> {
         let doc = self.doc.borrow();
-        span(&doc, doc.span(self.id))
+        span(&self.doc, &doc, doc.span(self.id))
     }
 
     /// Where an element's end tag was written, if it had one.
     #[wasm_bindgen(getter, js_name = endSpan)]
     pub fn end_span(&self) -> Option<Span> {
         let doc = self.doc.borrow();
-        span(&doc, doc.end_span(self.id))
+        span(&self.doc, &doc, doc.end_span(self.id))
     }
 
     /// Where the attribute `name` was written, from its name to the end
@@ -483,7 +498,7 @@ impl Node {
                 n == name
             }
         })?;
-        span(&doc, doc.attr_span(self.id, i))
+        span(&self.doc, &doc, doc.attr_span(self.id, i))
     }
 
     /// Whether this element matches.

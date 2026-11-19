@@ -195,7 +195,7 @@ assert_eq!(doc.text(hits[0]), "one");
   `parsec-html` with TypeScript types: `parse`, `parseFragment`,
   `select`, `selectFirst`, `xpath`, the tree, attributes, `textContent`,
   `innerHTML` and `outerHTML`, spans and parse errors, in Node and in
-  browsers. It's 868 KB, 361 KB gzipped.
+  browsers. It's 869 KB, 361 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York

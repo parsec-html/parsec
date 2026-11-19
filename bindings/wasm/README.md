@@ -50,13 +50,15 @@ string or a boolean.
 ```js
 const doc = parse(html, { spans: true, errors: true });
 const a = doc.selectFirst("a");
-a.span; // { start, end, line, column }: byte offsets into the UTF-8 input
+html.slice(a.span.start, a.span.end); // the <a ...> tag as it was written
 doc.errors.map((e) => `${e.line}:${e.column}: ${e.code}`);
 ```
 
-Spans are byte offsets into the input as UTF-8, not indexes into the
-JavaScript string, which counts UTF-16 units; they're the same for ASCII.
-To slice the source, encode it with `TextEncoder` first.
+A span's `start` and `end` index the string you parsed, in UTF-16 units
+as JavaScript strings do, so `html.slice(start, end)` is the source even
+past the Basic Multilingual Plane. Its `line` and `column` count from 1,
+and the column counts characters, so an emoji is one column but two
+units. An error's `offset` indexes the string the same way.
 
 Nodes hold their document, so a node stays usable after edits. You don't
 have to call `free()`: the package is built with weak references, so the
@@ -67,7 +69,7 @@ Not there yet: setting `innerHTML`, and creating nodes.
 
 ## Size
 
-The WebAssembly is 868 KB, 361 KB gzipped; XPath and spans are 108 KB of that, and
+The WebAssembly is 869 KB, 361 KB gzipped; XPath and spans are 110 KB of that, and
 parse errors 21 KB. It's built for speed per byte
 (`opt-level = "s"`, then `wasm-opt -Os`): building for size alone (`"z"`)
 saved 59 KB but parsed the 13 pages in `bench/` 40% slower.

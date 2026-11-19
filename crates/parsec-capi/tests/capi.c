@@ -313,6 +313,31 @@ static void positions(void) {
     CHECK(parsec_line_col(NULL, 0, &line, &column) == PARSEC_ERR_NULL);
     parsec_document_free(doc);
 
+    /* Byte offsets, which slice the UTF-8 that was passed in, past the
+     * Basic Multilingual Plane too. */
+    const char *wide = "<p>caf\xc3\xa9</p><b>\xe6\x97\xa5\xe6\x9c\xac</b>"
+                       "<i title='\xf0\x9f\x98\x80'>\xf0\x9f\x98\x80x</i>";
+    CHECK(parsec_parse(wide, strlen(wide), PARSEC_SPANS, &doc) == PARSEC_OK);
+    const char *tags[] = {"p", "<p>", "</p>", "b", "<b>", "</b>",
+                          "i", "<i title='\xf0\x9f\x98\x80'>", "</i>"};
+    for (int t = 0; t < 9; t += 3) {
+        parsec_selector *s = compile(tags[t]);
+        parsec_node n = parsec_select_first(doc, s, parsec_root());
+        CHECK(parsec_node_span(doc, n, &start, &end));
+        CHECK(end - start == strlen(tags[t + 1]) && memcmp(wide + start, tags[t + 1], end - start) == 0);
+        CHECK(parsec_end_span(doc, n, &start, &end));
+        CHECK(end - start == strlen(tags[t + 2]) && memcmp(wide + start, tags[t + 2], end - start) == 0);
+        if (t == 6) {
+            CHECK(parsec_node_span(doc, parsec_first_child(doc, n), &start, &end));
+            CHECK(end - start == 5 && memcmp(wide + start, "\xf0\x9f\x98\x80x", 5) == 0);
+            /* The column counts characters: 35 of them come before </i>. */
+            CHECK(parsec_end_span(doc, n, &start, &end));
+            CHECK(parsec_line_col(doc, start, &line, &column) == PARSEC_OK && column == 36);
+        }
+        parsec_selector_free(s);
+    }
+    parsec_document_free(doc);
+
     /* Off unless asked for. */
     CHECK(parsec_parse(html, strlen(html), 0, &doc) == PARSEC_OK);
     CHECK(!parsec_node_span(doc, parsec_select_first(doc, sel, parsec_root()), &start, &end));

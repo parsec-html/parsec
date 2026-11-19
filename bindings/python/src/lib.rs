@@ -11,6 +11,8 @@
 //! interpreter (see `HtmlParser::read`), and nothing makes a Python object
 //! while holding it, since that can need every other thread to pause.
 
+mod units;
+
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 use std::time::Duration;
@@ -20,6 +22,8 @@ use parsec::{AttrNs, Document, Kind, NodeId, Ns, Options, ParseError};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath, XValue};
 use pyo3::exceptions::{PyKeyError, PyTimeoutError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use units::Units;
+
 use pyo3::types::{PyBool, PyBytes, PyDict, PyFloat, PyList, PyString, PyTuple};
 
 pyo3::create_exception!(
@@ -47,6 +51,8 @@ struct HtmlParser {
     /// after a change. `write` drops it, under the write lock, so a query
     /// (which holds the read lock) never sees one of an older tree.
     index: Mutex<Option<Arc<Index>>>,
+    /// Turns the core's byte offsets into indexes of what was passed in.
+    units: Units,
 }
 
 /// A parse error the parser recovered from, as `HTMLParser.errors` lists
@@ -56,7 +62,7 @@ struct SyntaxIssue {
     /// The HTML Standard's name for it (`eof-in-tag`), or html5lib's for
     /// those tree construction finds (`unexpected-end-tag`).
     code: &'static str,
-    /// A byte offset into the UTF-8 input.
+    /// An index into the input, as `Node.source_range` counts.
     offset: usize,
     /// From 1.
     line: usize,
@@ -393,11 +399,12 @@ fn attr_index(doc: &Document, id: NodeId, key: &str) -> Option<usize> {
     })
 }
 
-fn pair(r: std::ops::Range<usize>) -> (usize, usize) {
-    (r.start, r.end)
-}
-
 impl HtmlParser {
+    /// A span of the core's as `(start, end)` in the input's own units.
+    fn range(&self, r: std::ops::Range<usize>) -> (usize, usize) {
+        (self.units.out(r.start), self.units.out(r.end))
+    }
+
     /// The document to read. It waits for a writer detached from the
     /// interpreter, then takes the lock attached, so a thread holding it can
     /// always get the interpreter's attention.
@@ -664,8 +671,14 @@ impl HtmlParser {
         positions: bool,
         errors: bool,
     ) -> PyResult<Self> {
+        let bytes = html.cast::<PyBytes>().ok().map(|b| b.as_bytes());
         let Some(html) = text_of(html)? else {
             return Err(PyTypeError::new_err("html must be str or bytes"));
+        };
+        let units = match bytes {
+            _ if !(positions || errors) => Units::Same,
+            Some(b) => Units::of_bytes(b),
+            None => Units::of_str(&html),
         };
         let budget = budget
             .map(|s| {
@@ -696,6 +709,7 @@ impl HtmlParser {
             scripting,
             url,
             index: Mutex::new(None),
+            units,
         })
     }
 
@@ -725,17 +739,17 @@ impl HtmlParser {
             .into_iter()
             .map(|e| SyntaxIssue {
                 code: e.code,
-                offset: e.offset,
+                offset: self.units.out(e.offset),
                 line: e.line,
                 column: e.column,
             })
             .collect()
     }
 
-    /// The line and column of a byte offset into the UTF-8 input, both
-    /// from 1, the column in characters.
+    /// The line and column of an offset into the input, counted as
+    /// `source_range` counts: both from 1, the column in characters.
     fn line_col(&self, py: Python<'_>, offset: usize) -> (usize, usize) {
-        self.read(py).line_col(offset)
+        self.read(py).line_col(self.units.back(offset))
     }
 
     /// The `<html>` element; a fragment's first node.
@@ -1223,19 +1237,22 @@ impl Node {
             .into_py(py, &self.parser)
     }
 
-    /// Where the node was written, as `(start, end)` byte offsets into the
-    /// input (UTF-8, as `str` input is encoded): an element's start tag,
-    /// or a whole text node or comment. `None` unless parsed with
+    /// Where the node was written, as `(start, end)` indexes into the input
+    /// as it was passed, so slicing it gives the source: code points into
+    /// a `str`, bytes into `bytes`. An element's start tag, or a whole text
+    /// node or comment. `None` unless parsed with
     /// `positions=True`, and for nodes the parser implied or an edit made.
     #[getter]
     fn source_range(&self, py: Python<'_>) -> Option<(usize, usize)> {
-        self.p().read(py).span(self.id).map(pair)
+        let r = self.p().read(py).span(self.id);
+        r.map(|r| self.p().range(r))
     }
 
     /// Where an element's end tag was written, if it had one.
     #[getter]
     fn end_tag_range(&self, py: Python<'_>) -> Option<(usize, usize)> {
-        self.p().read(py).end_span(self.id).map(pair)
+        let r = self.p().read(py).end_span(self.id);
+        r.map(|r| self.p().range(r))
     }
 
     /// The line and column where the node starts, both from 1, as an
@@ -1251,7 +1268,7 @@ impl Node {
     fn attribute_range(&self, py: Python<'_>, name: &str) -> Option<(usize, usize)> {
         let doc = self.p().read(py);
         let i = attr_index(&doc, self.id, name)?;
-        doc.attr_span(self.id, i).map(pair)
+        doc.attr_span(self.id, i).map(|r| self.p().range(r))
     }
 
     /// The node, if it matches, then the matches under it.
