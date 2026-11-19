@@ -245,6 +245,13 @@ second on dense GBK, where Parsec reaches 501, so on that one Lexbor is
 ahead until you count the conversion. A UTF-8 page Parsec only validates
 and then parses where it is, at about 60 GB a second.
 
+Streaming costs a little. Feeding those transcoded pages to `ByteParser`
+4 KB at a time, with the encoding given as HTTP would give it, runs at 91
+to 95% of `parse_bytes` on the whole page: 502 to 555 MB a second on
+wikipedia-population and 1,284 to 1,451 on nytimes, against 533 to 604
+and 1,381 to 1,597. Left to sniff, it keeps the bytes in case a late
+`<meta>` changes the encoding, and that brings it to 83 to 91%.
+
 URLs as well. Over the 83,113 `href` and `src` values on those 13 pages,
 each resolved against its page, Parsec takes 107 ns a URL. Ada, the C++
 parser in Node.js, takes 142 and Lexbor 243, so Parsec is 1.33 times as
