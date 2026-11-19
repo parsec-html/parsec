@@ -32,10 +32,12 @@
 
 mod bytes;
 mod deep;
+pub mod media;
 mod microsyntax;
 mod parser;
 mod position;
 mod serialize;
+pub mod supports;
 mod tokenizer;
 pub mod values;
 
