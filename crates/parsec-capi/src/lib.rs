@@ -19,13 +19,35 @@ use std::borrow::Cow;
 use std::ffi::{c_char, c_int, c_void};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
+use std::sync::OnceLock;
 
 use html::css::SelectorList;
 use html::{Document, Kind, NodeId, Ns, Options, ParseError};
+use xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
 
 /// A parsed document. Made by `parsec_parse` and friends, freed by
 /// `parsec_document_free`.
-pub struct parsec_document(Document);
+pub struct parsec_document {
+    doc: Document,
+    /// The XPath index of the tree as it is, built by the first query.
+    /// Every change goes through `doc_mut`, which drops it.
+    index: OnceLock<Index>,
+}
+
+/// A compiled XPath 1.0 expression. Made by `parsec_xpath_compile`, freed
+/// by `parsec_xpath_free`; like a selector, it can be shared.
+pub struct parsec_xpath(XPath);
+
+/// What an XPath expression evaluated to, copied out of the document, so
+/// it stays valid after the document changes or is freed. Made by
+/// `parsec_xpath_evaluate`, freed by `parsec_xpath_result_free`.
+pub enum parsec_xpath_result {
+    /// Each node, or each attribute as its element and its place there.
+    Nodes(Vec<(parsec_node, u32)>),
+    Str(String),
+    Num(f64),
+    Bool(bool),
+}
 
 /// A compiled selector list. Made by `parsec_selector_compile`, freed by
 /// `parsec_selector_free`; compile once and run it on as many documents as
@@ -74,10 +96,49 @@ pub const PARSEC_ERR_NOT_INSERTABLE: parsec_status = 11;
 /// reached C. A document that was being changed may be half-changed; free
 /// it. Please report it.
 pub const PARSEC_ERR_PANIC: parsec_status = 12;
+/// The XPath expression doesn't parse, or couldn't be evaluated: it uses a
+/// `$variable` (which the C API doesn't bind), or it ran past the work
+/// limit that stops a query that would take hours.
+pub const PARSEC_ERR_XPATH: parsec_status = 13;
 
 /// Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 /// holds raw text.
 pub const PARSEC_SCRIPTING: u32 = 1;
+/// Record where each node and attribute was written, for
+/// `parsec_node_span`, `parsec_end_span`, `parsec_attr_span` and
+/// `parsec_line_col`. It costs a few bytes per node.
+pub const PARSEC_SPANS: u32 = 2;
+/// Keep the parse errors the parser recovered from, for
+/// `parsec_errors_count` and `parsec_errors_get`.
+pub const PARSEC_ERRORS: u32 = 4;
+
+/// A parse error the parser recovered from.
+#[repr(C)]
+pub struct parsec_syntax_error {
+    /// Its name, `code_len` bytes with no NUL after them, static: the HTML
+    /// Standard's (`eof-in-tag`), or for an error tree construction finds,
+    /// html5lib's (`unexpected-end-tag`).
+    pub code: *const c_char,
+    pub code_len: usize,
+    /// A byte offset into the input.
+    pub offset: usize,
+    /// From 1.
+    pub line: usize,
+    /// From 1, in characters.
+    pub column: usize,
+}
+
+/// What `parsec_xpath_result_type` returns; 0 is a NULL result.
+pub type parsec_xpath_type = u32;
+/// A node-set: `parsec_xpath_result_count` items, in document order.
+pub const PARSEC_XPATH_NODES: parsec_xpath_type = 1;
+pub const PARSEC_XPATH_STRING: parsec_xpath_type = 2;
+pub const PARSEC_XPATH_NUMBER: parsec_xpath_type = 3;
+pub const PARSEC_XPATH_BOOLEAN: parsec_xpath_type = 4;
+
+/// What `parsec_xpath_result_item` gives as the attribute index of an item
+/// that's a node rather than an attribute.
+pub const PARSEC_NO_ATTR: u32 = u32::MAX;
 
 /// A namespace, for elements and fragment contexts. 0 is no namespace:
 /// what `parsec_element_ns` gives for a node that isn't an element.
@@ -115,15 +176,18 @@ fn status(r: Result<(), parsec_status>) -> parsec_status {
 
 unsafe fn doc_ref<'a>(doc: *const parsec_document) -> Result<&'a Document, parsec_status> {
     // SAFETY: the caller passes NULL or a live document (header preamble).
-    unsafe { doc.as_ref() }.map(|d| &d.0).ok_or(PARSEC_ERR_NULL)
+    unsafe { doc.as_ref() }
+        .map(|d| &d.doc)
+        .ok_or(PARSEC_ERR_NULL)
 }
 
 unsafe fn doc_mut<'a>(doc: *mut parsec_document) -> Result<&'a mut Document, parsec_status> {
     // SAFETY: as doc_ref, and no other call is using the document (writes
     // are one at a time, the header says).
-    unsafe { doc.as_mut() }
-        .map(|d| &mut d.0)
-        .ok_or(PARSEC_ERR_NULL)
+    let d = unsafe { doc.as_mut() }.ok_or(PARSEC_ERR_NULL)?;
+    // Whatever the caller changes, the next query indexes the tree again.
+    d.index.take();
+    Ok(&mut d.doc)
 }
 
 fn node(doc: &Document, n: parsec_node) -> Result<NodeId, parsec_status> {
@@ -210,11 +274,16 @@ fn namespace(ns: parsec_ns) -> Result<Ns, parsec_status> {
     }
 }
 
-fn scripting(flags: u32) -> Result<bool, parsec_status> {
-    if flags & !PARSEC_SCRIPTING != 0 {
+fn options(flags: u32) -> Result<Options, parsec_status> {
+    if flags & !(PARSEC_SCRIPTING | PARSEC_SPANS | PARSEC_ERRORS) != 0 {
         return Err(PARSEC_ERR_INVALID);
     }
-    Ok(flags & PARSEC_SCRIPTING != 0)
+    Ok(Options {
+        scripting: flags & PARSEC_SCRIPTING != 0,
+        spans: flags & PARSEC_SPANS != 0,
+        errors: flags & PARSEC_ERRORS != 0,
+        ..Options::default()
+    })
 }
 
 fn parsed(
@@ -225,7 +294,10 @@ fn parsed(
         ParseError::TooLarge { .. } => PARSEC_ERR_TOO_LARGE,
         ParseError::Timeout { .. } => PARSEC_ERR_TIMEOUT,
     })?;
-    *out = Box::into_raw(Box::new(parsec_document(doc)));
+    *out = Box::into_raw(Box::new(parsec_document {
+        doc,
+        index: OnceLock::new(),
+    }));
     Ok(())
 }
 
@@ -266,6 +338,7 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
             "a document or a fragment can't be inserted, only its children\0"
         }
         PARSEC_ERR_PANIC => "internal error in Parsec (please report it)\0",
+        PARSEC_ERR_XPATH => "the XPath expression isn't valid, or couldn't be evaluated\0",
         _ => "unknown status\0",
     };
     s.as_ptr().cast()
@@ -294,7 +367,8 @@ pub unsafe extern "C" fn parsec_string_free(s: *mut c_char) {
 /// Parses `len` bytes of UTF-8 as a whole document and puts it in `*out`.
 /// Bad markup never fails: the parser repairs it as a browser does. Bytes
 /// that aren't UTF-8 become U+FFFD, and a leading byte order mark is
-/// dropped. `flags` is 0 or `PARSEC_SCRIPTING`.
+/// dropped. `flags` is 0, or any of `PARSEC_SCRIPTING`, `PARSEC_SPANS` and
+/// `PARSEC_ERRORS` or'd together.
 ///
 /// Fails with `PARSEC_ERR_TOO_LARGE` over 512 MiB. On any error `*out` is
 /// NULL.
@@ -330,10 +404,9 @@ pub unsafe extern "C" fn parsec_parse_with(
             let out = unsafe { clear(out)? };
             let html = unsafe { text(html, len)? };
             let options = Options {
-                scripting: scripting(flags)?,
                 budget: (budget_us != 0).then(|| std::time::Duration::from_micros(budget_us)),
                 max_depth: (max_depth != 0).then_some(max_depth as usize),
-                ..Options::default()
+                ..options(flags)?
             };
             parsed(html::parse_with(&html, options), out)
         })())
@@ -360,10 +433,7 @@ pub unsafe extern "C" fn parsec_parse_fragment(
             let out = unsafe { clear(out)? };
             let html = unsafe { text(html, len)? };
             let context = unsafe { text(context, context_len)? };
-            let options = Options {
-                scripting: scripting(flags)?,
-                ..Options::default()
-            };
+            let options = options(flags)?;
             parsed(
                 html::parse_fragment_with(&html, namespace(ns)?, &context, options),
                 out,
@@ -1052,6 +1122,352 @@ pub unsafe extern "C" fn parsec_remove(
     })
 }
 
+// ---- source positions ------------------------------------------------------
+
+/// Writes a byte range out, or says there's none.
+unsafe fn range(r: Option<std::ops::Range<usize>>, start: *mut usize, end: *mut usize) -> bool {
+    let Some(r) = r else { return false };
+    // SAFETY: NULL or writable (put checks).
+    unsafe {
+        put(start, r.start);
+        put(end, r.end);
+    }
+    true
+}
+
+/// Where `node` was written, as byte offsets into the input from `*start`
+/// up to `*end`: an element's start tag from `<` to `>`, or the whole of a
+/// text node, comment, doctype or processing instruction. False, leaving
+/// both alone, for a document parsed without `PARSEC_SPANS`, a node the
+/// parser implied (`<html>`, `<head>`, `<body>`, `<tbody>`) or an edit
+/// made, a NULL handle or a bad node.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_node_span(
+    doc: *const parsec_document,
+    node: parsec_node,
+    start: *mut usize,
+    end: *mut usize,
+) -> bool {
+    guard(false, || {
+        // SAFETY: NULL or a live document; out pointers NULL or writable.
+        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+            return false;
+        };
+        unsafe { range(node_of(d, node).and_then(|n| d.span(n)), start, end) }
+    })
+}
+
+/// Where an element's end tag was written, as `parsec_node_span` gives a
+/// start tag: the end tag that closed it (`</p>`, or a `</body>` that
+/// closed it too). False when it had none.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_end_span(
+    doc: *const parsec_document,
+    node: parsec_node,
+    start: *mut usize,
+    end: *mut usize,
+) -> bool {
+    guard(false, || {
+        // SAFETY: NULL or a live document; out pointers NULL or writable.
+        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+            return false;
+        };
+        unsafe { range(node_of(d, node).and_then(|n| d.end_span(n)), start, end) }
+    })
+}
+
+/// Where an element's `index`th attribute (as `parsec_attr_at` counts
+/// them) was written: from its name to the end of its value, past a
+/// closing quote. False for one an edit set, or as `parsec_node_span`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_attr_span(
+    doc: *const parsec_document,
+    node: parsec_node,
+    index: usize,
+    start: *mut usize,
+    end: *mut usize,
+) -> bool {
+    guard(false, || {
+        // SAFETY: NULL or a live document; out pointers NULL or writable.
+        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+            return false;
+        };
+        let r = node_of(d, node).and_then(|n| d.attr_span(n, index));
+        unsafe { range(r, start, end) }
+    })
+}
+
+/// The line and column of a byte offset into the input, as an editor shows
+/// them: both from 1, a line ending at an LF, a CRLF or a lone CR, and the
+/// column counted in characters, not bytes. It reads the input up to
+/// `offset` each time.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_line_col(
+    doc: *const parsec_document,
+    offset: usize,
+    line: *mut usize,
+    column: *mut usize,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or a live document; out pointers NULL or writable.
+            let d = unsafe { doc_ref(doc)? };
+            let (l, c) = d.line_col(offset);
+            unsafe {
+                put(line, l);
+                put(column, c);
+            }
+            Ok(())
+        })())
+    })
+}
+
+// ---- parse errors ----------------------------------------------------------
+
+/// How many parse errors the input had: 0 unless it was parsed with
+/// `PARSEC_ERRORS`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_errors_count(doc: *const parsec_document) -> usize {
+    // SAFETY: NULL or a live document.
+    guard(0, || {
+        unsafe { doc_ref(doc) }.map_or(0, |d| d.errors().len())
+    })
+}
+
+/// The `index`th parse error, in source order, into `*out`.
+/// `PARSEC_ERR_INVALID` if `index` is past the last.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_errors_get(
+    doc: *const parsec_document,
+    index: usize,
+    out: *mut parsec_syntax_error,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or a live document; `out` NULL or writable.
+            let d = unsafe { doc_ref(doc)? };
+            if out.is_null() {
+                return Err(PARSEC_ERR_NULL);
+            }
+            let e = d.errors().get(index).ok_or(PARSEC_ERR_INVALID)?;
+            unsafe {
+                out.write(parsec_syntax_error {
+                    code: e.code.as_ptr().cast(),
+                    code_len: e.code.len(),
+                    offset: e.offset,
+                    line: e.line,
+                    column: e.column,
+                })
+            };
+            Ok(())
+        })())
+    })
+}
+
+// ---- XPath -----------------------------------------------------------------
+
+/// Compiles an XPath 1.0 expression (`len` bytes, such as
+/// `"//a[@href]/@href"`) into `*out`. On `PARSEC_ERR_XPATH`, if `message`
+/// isn't NULL, `*message` is a sentence saying what's wrong, yours to free
+/// with `parsec_string_free`. On any error `*out` is NULL.
+///
+/// Names match as lxml matches them in HTML: lowercase, in no namespace,
+/// so `//div` finds every div and `//DIV` none.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_compile(
+    expr: *const c_char,
+    len: usize,
+    out: *mut *mut parsec_xpath,
+    message: *mut *mut c_char,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: `out` and `message` NULL or writable; `expr` has `len`
+            // bytes.
+            unsafe { put(message, ptr::null_mut()) };
+            let out = unsafe { clear(out)? };
+            let expr = unsafe { text(expr, len)? };
+            let compiled = XPath::new(&expr).map_err(|e| unsafe { xpath_failed(&e, message) })?;
+            *out = Box::into_raw(Box::new(parsec_xpath(compiled)));
+            Ok(())
+        })())
+    })
+}
+
+/// Puts an XPath error's sentence in `*message`, if wanted.
+unsafe fn xpath_failed(e: &xpath::XPathError, message: *mut *mut c_char) -> parsec_status {
+    if !message.is_null() {
+        // SAFETY: checked non-NULL; the caller gives writable space.
+        unsafe { message.write(owned(&e.to_string(), ptr::null_mut())) };
+    }
+    PARSEC_ERR_XPATH
+}
+
+/// Frees a compiled XPath expression. NULL is fine and does nothing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_free(xpath: *mut parsec_xpath) {
+    if !xpath.is_null() {
+        // SAFETY: `xpath` came from parsec_xpath_compile and hasn't been
+        // freed.
+        guard((), || drop(unsafe { Box::from_raw(xpath) }))
+    }
+}
+
+/// Evaluates `xpath` with `context` as the context node (`parsec_root()`
+/// for the whole document) and puts the result in `*out`. Errors as
+/// `parsec_xpath_compile`; on any error `*out` is NULL.
+///
+/// The first query after a change indexes the document, which takes about
+/// as long as a pass over it; later ones reuse the index. Like any read,
+/// it may run on many threads at once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_evaluate(
+    doc: *const parsec_document,
+    xpath: *const parsec_xpath,
+    context: parsec_node,
+    out: *mut *mut parsec_xpath_result,
+    message: *mut *mut c_char,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or live handles; out pointers NULL or writable.
+            unsafe { put(message, ptr::null_mut()) };
+            let out = unsafe { clear(out)? };
+            let d = unsafe { doc.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
+            let x = unsafe { xpath.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
+            let context = node(&d.doc, context)?;
+            let index = d.index.get_or_init(|| {
+                // Every node without a parent, so a query can start in a
+                // removed subtree as well as in the document.
+                let roots: Vec<NodeId> = (0..d.doc.len() as NodeId)
+                    .filter(|&n| d.doc.parent(n).is_none())
+                    .collect();
+                Index::build(&d.doc, &roots)
+            });
+            let value =
+                x.0.evaluate(Doc::html(&d.doc, index), context, &[], &[], &NoExtensions)
+                    .map_err(|e| unsafe { xpath_failed(&e, message) })?;
+            let result = match value {
+                Value::Nodes(items) => parsec_xpath_result::Nodes(
+                    items
+                        .into_iter()
+                        .map(|item| match item {
+                            Item::Node(n) => (n, PARSEC_NO_ATTR),
+                            Item::Attr { owner, index, .. } => (owner, index),
+                        })
+                        .collect(),
+                ),
+                Value::Str(s) => parsec_xpath_result::Str(s.into_owned()),
+                Value::Num(n) => parsec_xpath_result::Num(n),
+                Value::Bool(b) => parsec_xpath_result::Bool(b),
+            };
+            *out = Box::into_raw(Box::new(result));
+            Ok(())
+        })())
+    })
+}
+
+/// Frees an XPath result. NULL is fine and does nothing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_free(result: *mut parsec_xpath_result) {
+    if !result.is_null() {
+        // SAFETY: `result` came from parsec_xpath_evaluate and hasn't been
+        // freed.
+        guard((), || drop(unsafe { Box::from_raw(result) }))
+    }
+}
+
+/// Which of `PARSEC_XPATH_NODES`, `_STRING`, `_NUMBER` and `_BOOLEAN` the
+/// result is; 0 for NULL.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_type(
+    result: *const parsec_xpath_result,
+) -> parsec_xpath_type {
+    // SAFETY: NULL or a live result.
+    match unsafe { result.as_ref() } {
+        None => 0,
+        Some(parsec_xpath_result::Nodes(_)) => PARSEC_XPATH_NODES,
+        Some(parsec_xpath_result::Str(_)) => PARSEC_XPATH_STRING,
+        Some(parsec_xpath_result::Num(_)) => PARSEC_XPATH_NUMBER,
+        Some(parsec_xpath_result::Bool(_)) => PARSEC_XPATH_BOOLEAN,
+    }
+}
+
+/// How many items a node-set holds; 0 for any other result.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_count(result: *const parsec_xpath_result) -> usize {
+    // SAFETY: NULL or a live result.
+    match unsafe { result.as_ref() } {
+        Some(parsec_xpath_result::Nodes(items)) => items.len(),
+        _ => 0,
+    }
+}
+
+/// The node-set's `index`th item, in document order. A node comes back as
+/// `*node` with `*attr` set to `PARSEC_NO_ATTR`; an attribute as its
+/// element in `*node` and its place among the element's attributes in
+/// `*attr`, for `parsec_attr_at`. Either out pointer may be NULL.
+/// `PARSEC_ERR_INVALID` if `index` is past the last item or the result
+/// isn't a node-set.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_item(
+    result: *const parsec_xpath_result,
+    index: usize,
+    node: *mut parsec_node,
+    attr: *mut u32,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or a live result; out pointers NULL or writable.
+            let r = unsafe { result.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
+            let parsec_xpath_result::Nodes(items) = r else {
+                return Err(PARSEC_ERR_INVALID);
+            };
+            let &(n, a) = items.get(index).ok_or(PARSEC_ERR_INVALID)?;
+            unsafe {
+                put(node, n);
+                put(attr, a);
+            }
+            Ok(())
+        })())
+    })
+}
+
+/// A string result, borrowed from the result (valid until it's freed),
+/// `*len` bytes with no NUL after them; NULL for any other result.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_string(
+    result: *const parsec_xpath_result,
+    len: *mut usize,
+) -> *const c_char {
+    // SAFETY: NULL or a live result; `len` NULL or writable.
+    let s = match unsafe { result.as_ref() } {
+        Some(parsec_xpath_result::Str(s)) => Some(s.as_str()),
+        _ => None,
+    };
+    unsafe { borrowed(s, len) }
+}
+
+/// A number result; NaN for any other result.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_number(result: *const parsec_xpath_result) -> f64 {
+    // SAFETY: NULL or a live result.
+    match unsafe { result.as_ref() } {
+        Some(parsec_xpath_result::Num(n)) => *n,
+        _ => f64::NAN,
+    }
+}
+
+/// A boolean result; false for any other result.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_xpath_result_boolean(result: *const parsec_xpath_result) -> bool {
+    // SAFETY: NULL or a live result.
+    matches!(
+        unsafe { result.as_ref() },
+        Some(parsec_xpath_result::Bool(true))
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1068,7 +1484,7 @@ mod tests {
 
     #[test]
     fn every_status_has_a_message() {
-        for s in PARSEC_OK..=PARSEC_ERR_PANIC {
+        for s in PARSEC_OK..=PARSEC_ERR_XPATH {
             let m = unsafe { std::ffi::CStr::from_ptr(parsec_status_message(s)) };
             assert_ne!(m.to_str().unwrap(), "unknown status", "{s}");
         }

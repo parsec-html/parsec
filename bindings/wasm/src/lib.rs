@@ -9,14 +9,105 @@
 //! A node is its document plus an index, so it stays valid after edits:
 //! a removed node can still be read, and put back.
 
-use std::cell::RefCell;
+mod units;
+
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 use parsec::css::SelectorList;
 use parsec::{AttrNs, Kind, NodeId, Ns, Options};
+use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
+use units::Counted;
 use wasm_bindgen::prelude::*;
 
-type Shared = Rc<RefCell<parsec::Document>>;
+type Shared = Rc<Tree>;
+
+/// A document and the XPath index of it as it is, which the first query
+/// builds and any change drops.
+struct Tree {
+    doc: RefCell<parsec::Document>,
+    index: RefCell<Option<Rc<Index>>>,
+    /// Turns the core's byte offsets into UTF-16 indexes of the input;
+    /// None when they're the same, for ASCII, or when nothing reads them.
+    units: Option<Counted>,
+}
+
+impl Tree {
+    fn borrow(&self) -> Ref<'_, parsec::Document> {
+        self.doc.borrow()
+    }
+
+    /// The document to change, so the index goes.
+    fn borrow_mut(&self) -> RefMut<'_, parsec::Document> {
+        self.index.take();
+        self.doc.borrow_mut()
+    }
+
+    /// A core offset as an index into the JavaScript string.
+    fn out(&self, offset: usize) -> u32 {
+        self.units.as_ref().map_or(offset, |u| u.to_units(offset)) as u32
+    }
+
+    fn index(&self) -> Rc<Index> {
+        let doc = self.doc.borrow();
+        self.index
+            .borrow_mut()
+            .get_or_insert_with(|| {
+                // Every node without a parent, so a query can start in a
+                // removed subtree as well as in the document.
+                let roots: Vec<NodeId> = (0..doc.len() as NodeId)
+                    .filter(|&n| doc.parent(n).is_none())
+                    .collect();
+                Rc::new(Index::build(&doc, &roots))
+            })
+            .clone()
+    }
+}
+
+/// Where something was written: `start` to `end` as indexes into the
+/// string that was parsed, so `html.slice(start, end)` is its source, and
+/// the `line` and `column` of `start`, both from 1, the column counting
+/// characters (code points, so an emoji is one).
+#[wasm_bindgen]
+#[derive(Clone, Copy)]
+pub struct Span {
+    #[wasm_bindgen(readonly)]
+    pub start: u32,
+    #[wasm_bindgen(readonly)]
+    pub end: u32,
+    #[wasm_bindgen(readonly)]
+    pub line: u32,
+    #[wasm_bindgen(readonly)]
+    pub column: u32,
+}
+
+/// A parse error the parser recovered from.
+#[wasm_bindgen]
+pub struct ParseError {
+    /// The HTML Standard's name for it (`eof-in-tag`), or html5lib's for
+    /// one tree construction finds (`unexpected-end-tag`).
+    #[wasm_bindgen(readonly, getter_with_clone)]
+    pub code: String,
+    /// An index into the string that was parsed, as `Span` counts.
+    #[wasm_bindgen(readonly)]
+    pub offset: u32,
+    #[wasm_bindgen(readonly)]
+    pub line: u32,
+    /// From 1, in characters.
+    #[wasm_bindgen(readonly)]
+    pub column: u32,
+}
+
+fn span(tree: &Tree, doc: &parsec::Document, r: Option<std::ops::Range<usize>>) -> Option<Span> {
+    let r = r?;
+    let (line, column) = doc.line_col(r.start);
+    Some(Span {
+        start: tree.out(r.start),
+        end: tree.out(r.end),
+        line: line as u32,
+        column: column as u32,
+    })
+}
 
 #[wasm_bindgen(typescript_custom_section)]
 const PARSE_OPTIONS: &str = r#"
@@ -26,7 +117,17 @@ export interface ParseOptions {
     scripting?: boolean;
     /** Keep the tree at most this deep, as Chromium does at 512. */
     maxDepth?: number;
+    /** Record where each node and attribute was written, for `span`. */
+    spans?: boolean;
+    /** Keep the parse errors, for `errors`. */
+    errors?: boolean;
 }
+
+/**
+ * What `xpath()` gives: an array for a node-set (attributes as their
+ * values), or a string, a number or a boolean.
+ */
+export type XPathResult = (Node | string)[] | string | number | boolean;
 "#;
 
 #[wasm_bindgen]
@@ -38,6 +139,10 @@ extern "C" {
     fn scripting(this: &ParseOptions) -> Option<bool>;
     #[wasm_bindgen(method, getter, js_name = maxDepth)]
     fn max_depth(this: &ParseOptions) -> Option<u32>;
+    #[wasm_bindgen(method, getter)]
+    fn spans(this: &ParseOptions) -> Option<bool>;
+    #[wasm_bindgen(method, getter)]
+    fn errors(this: &ParseOptions) -> Option<bool>;
 }
 
 /// A parsed document or fragment.
@@ -69,7 +174,8 @@ fn run(
         max_depth: options
             .and_then(ParseOptions::max_depth)
             .map(|d| d as usize),
-        ..Options::default()
+        spans: options.and_then(ParseOptions::spans).unwrap_or(false),
+        errors: options.and_then(ParseOptions::errors).unwrap_or(false),
     };
     let doc = match context {
         Some(context) => {
@@ -79,8 +185,14 @@ fn run(
         None => parsec::parse_with(html, parse),
     }
     .map_err(|e| JsError::new(&e.to_string()))?;
+    let units = ((parse.spans || parse.errors) && !html.is_ascii())
+        .then(|| Counted::new(html, units::utf16));
     Ok(Document {
-        doc: Rc::new(RefCell::new(doc)),
+        doc: Rc::new(Tree {
+            doc: RefCell::new(doc),
+            index: RefCell::new(None),
+            units,
+        }),
     })
 }
 
@@ -185,6 +297,29 @@ impl Document {
     #[wasm_bindgen(getter)]
     pub fn text(&self) -> String {
         self.doc.borrow().text(0)
+    }
+
+    /// The parse errors, in source order: empty unless parsed with
+    /// `{ errors: true }`.
+    #[wasm_bindgen(getter)]
+    pub fn errors(&self) -> Vec<ParseError> {
+        self.doc
+            .borrow()
+            .errors()
+            .iter()
+            .map(|e| ParseError {
+                code: e.code.to_string(),
+                offset: self.doc.out(e.offset),
+                line: e.line as u32,
+                column: e.column as u32,
+            })
+            .collect()
+    }
+
+    /// Runs an XPath 1.0 expression over the document.
+    #[wasm_bindgen(unchecked_return_type = "XPathResult")]
+    pub fn xpath(&self, expr: &str) -> Result<JsValue, JsError> {
+        self.root().xpath(expr)
     }
 }
 
@@ -303,6 +438,67 @@ impl Node {
         let list = compile(selector)?;
         let id = list.select_first(&self.doc.borrow(), self.id);
         Ok(node(&self.doc, id))
+    }
+
+    /// Runs an XPath 1.0 expression with this node as the context. A
+    /// node-set comes back as an array in document order, with attributes
+    /// as their values; names match lowercase, as lxml matches HTML.
+    #[wasm_bindgen(unchecked_return_type = "XPathResult")]
+    pub fn xpath(&self, expr: &str) -> Result<JsValue, JsError> {
+        let compiled = XPath::new(expr).map_err(|e| JsError::new(&e.to_string()))?;
+        let index = self.doc.index();
+        let doc = self.doc.borrow();
+        let value = compiled
+            .evaluate(Doc::html(&doc, &index), self.id, &[], &[], &NoExtensions)
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        Ok(match value {
+            Value::Nodes(items) => items
+                .into_iter()
+                .map(|item| match item {
+                    Item::Node(id) => JsValue::from(Node {
+                        doc: self.doc.clone(),
+                        id,
+                    }),
+                    Item::Attr { value, .. } => JsValue::from_str(value),
+                })
+                .collect::<Vec<_>>()
+                .into(),
+            Value::Str(s) => JsValue::from_str(&s),
+            Value::Num(n) => JsValue::from_f64(n),
+            Value::Bool(b) => JsValue::from_bool(b),
+        })
+    }
+
+    /// Where the node was written: an element's start tag, or a whole text
+    /// node or comment. Only with `{ spans: true }`, and never for a node
+    /// the parser implied (`<html>`, `<head>`, `<body>`) or an edit made.
+    #[wasm_bindgen(getter)]
+    pub fn span(&self) -> Option<Span> {
+        let doc = self.doc.borrow();
+        span(&self.doc, &doc, doc.span(self.id))
+    }
+
+    /// Where an element's end tag was written, if it had one.
+    #[wasm_bindgen(getter, js_name = endSpan)]
+    pub fn end_span(&self) -> Option<Span> {
+        let doc = self.doc.borrow();
+        span(&self.doc, &doc, doc.end_span(self.id))
+    }
+
+    /// Where the attribute `name` was written, from its name to the end
+    /// of its value.
+    #[wasm_bindgen(js_name = attributeSpan)]
+    pub fn attribute_span(&self, name: &str) -> Option<Span> {
+        let doc = self.doc.borrow();
+        let html = matches!(doc.kind(self.id), Kind::Element { ns: Ns::Html, .. });
+        let i = doc.attrs_written(self.id).position(|(_, n, _)| {
+            if html {
+                n.eq_ignore_ascii_case(name)
+            } else {
+                n == name
+            }
+        })?;
+        span(&self.doc, &doc, doc.attr_span(self.id, i))
     }
 
     /// Whether this element matches.

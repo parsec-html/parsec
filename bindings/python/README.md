@@ -28,6 +28,27 @@ What you get over selectolax:
   `max_depth=`.
 - **Nodes that outlive edits.** A removed node can still be read, and put
   back.
+- **XPath 1.0**, which selectolax doesn't have. `xpath()` gives back what
+  lxml's does, so code written for lxml or parsel reads the same:
+
+  ```python
+  page.xpath("//li/text()")              # ['one', 'two']
+  page.xpath("count(//li)")              # 2.0
+  page.xpath("//a[@rel=$r]/@href", r="next")
+  ```
+
+  Elements and comments come back as nodes, text and attribute values as
+  `str`, and a number, string or boolean as `float`, `str` or `bool`.
+- **Where everything was written.** Parse with `positions=True` and every
+  node knows its place in your input: `node.source_range` and
+  `node.end_tag_range` are `(start, end)` indexes into what you passed
+  (code points into a `str`, bytes into `bytes`), so `src[start:end]` is
+  the tag as you wrote it; `node.position` is
+  its `(line, column)`, and `node.attribute_range("href")` finds one
+  attribute.
+- **Parse errors.** With `errors=True`, `page.errors` lists each one with
+  the HTML Standard's name for it and where it is:
+  `2:1: unexpected-end-tag`.
 
 ## Installing
 
@@ -49,7 +70,8 @@ from parsec_html import HTMLParser
 
 `HTMLParser(html, is_fragment=False, fragment_tag="div",
 fragment_namespace="html", scripting=False)` takes what
-`LexborHTMLParser` does, and the parser and its nodes have selectolax's
+`LexborHTMLParser` does (plus `budget`, `max_depth`, `url`, `positions`
+and `errors`), and the parser and its nodes have selectolax's
 names: `root`, `head`, `body`, `html`, `css`, `css_first` (with `default`
 and `strict`), `css_matches`, `any_css_matches`, `tags`, `text(deep,
 separator, strip, skip_empty)`, `merge_text_nodes`, `strip_tags`,
@@ -74,9 +96,8 @@ Where it behaves differently:
 
 Not there yet: `clone()`, `raw_html`, `raw_value`, `html_pretty`,
 `select()` and its filters, `scripts_contain`, `script_srcs_contain`,
-`template_fragments`, `mem_id`, `tag_id`, the `:lexbor-contains()`
-pseudo-class, and source positions, which arrive with
-[#8](https://github.com/parsec-html/parsec/issues/8).
+`template_fragments`, `mem_id`, `tag_id` and the `:lexbor-contains()`
+pseudo-class.
 
 ## Speed
 

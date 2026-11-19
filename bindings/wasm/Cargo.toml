@@ -17,6 +17,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 parsec-html = { path = "../../crates/parsec" }
+parsec-xpath = { path = "../../crates/parsec-xpath" }
 wasm-bindgen = "0.2.130"
 
 [dev-dependencies]

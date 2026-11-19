@@ -9,10 +9,11 @@
  *
  * The rules every function keeps:
  *
- * - Handles are opaque. A parsec_document or parsec_selector is made by
- *   one function and freed by one, and NULL is accepted everywhere: a
- *   call given NULL fails with PARSEC_ERR_NULL, or returns NULL,
- *   PARSEC_NO_NODE, 0 or false, and the free functions do nothing.
+ * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath
+ *   or parsec_xpath_result is made by one function and freed by one, and
+ *   NULL is accepted everywhere: a call given NULL fails with
+ *   PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or false, and the
+ *   free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
  *   is, and a number that isn't a node of the document is refused, never
  *   read. Removing a node detaches it; nothing is freed until the
@@ -30,9 +31,10 @@
  * - Nothing panics into C. A bug in Parsec comes back as
  *   PARSEC_ERR_PANIC instead.
  * - Threads: any number of threads may read one document at once (every
- *   function taking a const parsec_document *), and a selector may be
- *   used from any number of threads. A call taking a non-const
- *   parsec_document * changes it, and needs the document to itself. A
+ *   function taking a const parsec_document *, parsec_xpath_evaluate
+ *   included), and a selector or a compiled XPath may be used from any
+ *   number of threads. A call taking a non-const parsec_document *
+ *   changes it, and needs the document to itself. A
  *   document or selector may be freed on a different thread from the one
  *   that made it.
  */
@@ -47,6 +49,19 @@
 // Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 // holds raw text.
 #define PARSEC_SCRIPTING 1
+
+// Record where each node and attribute was written, for
+// `parsec_node_span`, `parsec_end_span`, `parsec_attr_span` and
+// `parsec_line_col`. It costs a few bytes per node.
+#define PARSEC_SPANS 2
+
+// Keep the parse errors the parser recovered from, for
+// `parsec_errors_count` and `parsec_errors_get`.
+#define PARSEC_ERRORS 4
+
+// What `parsec_xpath_result_item` gives as the attribute index of an item
+// that's a node rather than an attribute.
+#define PARSEC_NO_ATTR UINT32_MAX
 
 #define PARSEC_NODE_ELEMENT 1
 
@@ -73,6 +88,15 @@ typedef struct parsec_document parsec_document;
 // you like.
 typedef struct parsec_selector parsec_selector;
 
+// A compiled XPath 1.0 expression. Made by `parsec_xpath_compile`, freed
+// by `parsec_xpath_free`; like a selector, it can be shared.
+typedef struct parsec_xpath parsec_xpath;
+
+// What an XPath expression evaluated to, copied out of the document, so
+// it stays valid after the document changes or is freed. Made by
+// `parsec_xpath_evaluate`, freed by `parsec_xpath_result_free`.
+typedef struct parsec_xpath_result parsec_xpath_result;
+
 // What a function that can fail returns. `parsec_status_message` names it.
 typedef int32_t parsec_status;
 
@@ -88,6 +112,24 @@ typedef uint32_t parsec_node;
 // Called by `parsec_select` with each match, in document order, and the
 // `ctx` you passed. Return 0 to go on, anything else to stop there.
 typedef int (*parsec_match_fn)(parsec_node node, void *ctx);
+
+// A parse error the parser recovered from.
+typedef struct {
+  // Its name, `code_len` bytes with no NUL after them, static: the HTML
+  // Standard's (`eof-in-tag`), or for an error tree construction finds,
+  // html5lib's (`unexpected-end-tag`).
+  const char *code;
+  size_t code_len;
+  // A byte offset into the input.
+  size_t offset;
+  // From 1.
+  size_t line;
+  // From 1, in characters.
+  size_t column;
+} parsec_syntax_error;
+
+// What `parsec_xpath_result_type` returns; 0 is a NULL result.
+typedef uint32_t parsec_xpath_type;
 
 // No node: what navigation returns at the end of a list, and what you pass
 // to `parsec_insert_before` to insert last.
@@ -136,6 +178,20 @@ typedef int (*parsec_match_fn)(parsec_node node, void *ctx);
 // it. Please report it.
 #define PARSEC_ERR_PANIC 12
 
+// The XPath expression doesn't parse, or couldn't be evaluated: it uses a
+// `$variable` (which the C API doesn't bind), or it ran past the work
+// limit that stops a query that would take hours.
+#define PARSEC_ERR_XPATH 13
+
+// A node-set: `parsec_xpath_result_count` items, in document order.
+#define PARSEC_XPATH_NODES 1
+
+#define PARSEC_XPATH_STRING 2
+
+#define PARSEC_XPATH_NUMBER 3
+
+#define PARSEC_XPATH_BOOLEAN 4
+
 #define PARSEC_NS_HTML 1
 
 #define PARSEC_NS_SVG 2
@@ -159,7 +215,8 @@ void parsec_string_free(char *s);
 // Parses `len` bytes of UTF-8 as a whole document and puts it in `*out`.
 // Bad markup never fails: the parser repairs it as a browser does. Bytes
 // that aren't UTF-8 become U+FFFD, and a leading byte order mark is
-// dropped. `flags` is 0 or `PARSEC_SCRIPTING`.
+// dropped. `flags` is 0, or any of `PARSEC_SCRIPTING`, `PARSEC_SPANS` and
+// `PARSEC_ERRORS` or'd together.
 //
 // Fails with `PARSEC_ERR_TOO_LARGE` over 512 MiB. On any error `*out` is
 // NULL.
@@ -377,6 +434,104 @@ parsec_status parsec_insert_before(parsec_document *doc,
 // Takes the node out of the tree. Its number stays valid and it can be
 // inserted again; its memory goes when the document is freed.
 parsec_status parsec_remove(parsec_document *doc, parsec_node node);
+
+// Where `node` was written, as byte offsets into the input from `*start`
+// up to `*end`: an element's start tag from `<` to `>`, or the whole of a
+// text node, comment, doctype or processing instruction. False, leaving
+// both alone, for a document parsed without `PARSEC_SPANS`, a node the
+// parser implied (`<html>`, `<head>`, `<body>`, `<tbody>`) or an edit
+// made, a NULL handle or a bad node.
+bool parsec_node_span(const parsec_document *doc, parsec_node node, size_t *start, size_t *end);
+
+// Where an element's end tag was written, as `parsec_node_span` gives a
+// start tag: the end tag that closed it (`</p>`, or a `</body>` that
+// closed it too). False when it had none.
+bool parsec_end_span(const parsec_document *doc, parsec_node node, size_t *start, size_t *end);
+
+// Where an element's `index`th attribute (as `parsec_attr_at` counts
+// them) was written: from its name to the end of its value, past a
+// closing quote. False for one an edit set, or as `parsec_node_span`.
+bool parsec_attr_span(const parsec_document *doc,
+                      parsec_node node,
+                      size_t index,
+                      size_t *start,
+                      size_t *end);
+
+// The line and column of a byte offset into the input, as an editor shows
+// them: both from 1, a line ending at an LF, a CRLF or a lone CR, and the
+// column counted in characters, not bytes. It reads the input up to
+// `offset` each time.
+parsec_status parsec_line_col(const parsec_document *doc,
+                              size_t offset,
+                              size_t *line,
+                              size_t *column);
+
+// How many parse errors the input had: 0 unless it was parsed with
+// `PARSEC_ERRORS`.
+size_t parsec_errors_count(const parsec_document *doc);
+
+// The `index`th parse error, in source order, into `*out`.
+// `PARSEC_ERR_INVALID` if `index` is past the last.
+parsec_status parsec_errors_get(const parsec_document *doc, size_t index, parsec_syntax_error *out);
+
+// Compiles an XPath 1.0 expression (`len` bytes, such as
+// `"//a[@href]/@href"`) into `*out`. On `PARSEC_ERR_XPATH`, if `message`
+// isn't NULL, `*message` is a sentence saying what's wrong, yours to free
+// with `parsec_string_free`. On any error `*out` is NULL.
+//
+// Names match as lxml matches them in HTML: lowercase, in no namespace,
+// so `//div` finds every div and `//DIV` none.
+parsec_status parsec_xpath_compile(const char *expr,
+                                   size_t len,
+                                   parsec_xpath **out,
+                                   char **message);
+
+// Frees a compiled XPath expression. NULL is fine and does nothing.
+void parsec_xpath_free(parsec_xpath *xpath);
+
+// Evaluates `xpath` with `context` as the context node (`parsec_root()`
+// for the whole document) and puts the result in `*out`. Errors as
+// `parsec_xpath_compile`; on any error `*out` is NULL.
+//
+// The first query after a change indexes the document, which takes about
+// as long as a pass over it; later ones reuse the index. Like any read,
+// it may run on many threads at once.
+parsec_status parsec_xpath_evaluate(const parsec_document *doc,
+                                    const parsec_xpath *xpath,
+                                    parsec_node context,
+                                    parsec_xpath_result **out,
+                                    char **message);
+
+// Frees an XPath result. NULL is fine and does nothing.
+void parsec_xpath_result_free(parsec_xpath_result *result);
+
+// Which of `PARSEC_XPATH_NODES`, `_STRING`, `_NUMBER` and `_BOOLEAN` the
+// result is; 0 for NULL.
+parsec_xpath_type parsec_xpath_result_type(const parsec_xpath_result *result);
+
+// How many items a node-set holds; 0 for any other result.
+size_t parsec_xpath_result_count(const parsec_xpath_result *result);
+
+// The node-set's `index`th item, in document order. A node comes back as
+// `*node` with `*attr` set to `PARSEC_NO_ATTR`; an attribute as its
+// element in `*node` and its place among the element's attributes in
+// `*attr`, for `parsec_attr_at`. Either out pointer may be NULL.
+// `PARSEC_ERR_INVALID` if `index` is past the last item or the result
+// isn't a node-set.
+parsec_status parsec_xpath_result_item(const parsec_xpath_result *result,
+                                       size_t index,
+                                       parsec_node *node,
+                                       uint32_t *attr);
+
+// A string result, borrowed from the result (valid until it's freed),
+// `*len` bytes with no NUL after them; NULL for any other result.
+const char *parsec_xpath_result_string(const parsec_xpath_result *result, size_t *len);
+
+// A number result; NaN for any other result.
+double parsec_xpath_result_number(const parsec_xpath_result *result);
+
+// A boolean result; false for any other result.
+bool parsec_xpath_result_boolean(const parsec_xpath_result *result);
 
 #ifdef __cplusplus
 }  // extern "C"

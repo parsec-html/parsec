@@ -129,3 +129,31 @@ fn fragments() {
     let div = parse_fragment("<li>a<li>b", None, None).unwrap();
     assert_eq!(div.select("li").unwrap().len(), 2);
 }
+
+#[wasm_bindgen_test]
+fn xpath_scalars_and_edits() {
+    let doc = parse("<ul><li class=a>1<li>2</ul>", None).unwrap();
+    assert_eq!(doc.xpath("count(//li)").unwrap().as_f64(), Some(2.0));
+    assert_eq!(
+        doc.xpath("string(//li[2])").unwrap().as_string().as_deref(),
+        Some("2")
+    );
+    assert_eq!(doc.xpath("boolean(//ol)").unwrap().as_bool(), Some(false));
+    let ul = doc.select_first("ul").unwrap().unwrap();
+    assert_eq!(ul.xpath("count(li)").unwrap().as_f64(), Some(2.0));
+    // An edit drops the index, so the next query sees it.
+    ul.remove();
+    assert_eq!(doc.xpath("count(//li)").unwrap().as_f64(), Some(0.0));
+    assert_eq!(ul.xpath("count(//li)").unwrap().as_f64(), Some(2.0));
+    assert!(doc.xpath("//li[").is_err());
+    assert!(doc.xpath("$v").is_err());
+}
+
+#[wasm_bindgen_test]
+fn no_spans_unless_asked() {
+    let doc = parse("<p a=1>x</p>", None).unwrap();
+    let p = doc.select_first("p").unwrap().unwrap();
+    assert!(p.span().is_none() && p.end_span().is_none());
+    assert!(p.attribute_span("a").is_none());
+    assert!(doc.errors().is_empty());
+}

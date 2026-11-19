@@ -7,7 +7,7 @@ import threading
 
 import pytest
 
-from parsec_html import HTMLParser, Node, SelectorError
+from parsec_html import HTMLParser, Node, ParseError, SelectorError, XPathError
 
 PAGE = (
     "<!doctype html><title>T</title>"
@@ -227,6 +227,137 @@ def test_one_document_shared_by_threads():
         t.join()
     assert counts == [2000] * 400
     assert p.css_first("ul").attrs["data-n"] == "199"
+
+
+def test_positions():
+    src = "<p class=x id=a>h\u00e9llo</p>\n<div>x<br></div>"
+    p = HTMLParser(src, positions=True)
+    para = p.css_first("p")
+    start, end = para.source_range
+    assert src[start:end] == "<p class=x id=a>"
+    assert src[slice(*para.end_tag_range)] == "</p>"
+    assert src[slice(*para.attribute_range("ID"))] == "id=a"
+    assert para.attribute_range("nope") is None
+    assert src[slice(*para.first_child.source_range)] == "h\u00e9llo"
+    div = p.css_first("div")
+    assert div.position == (2, 1)
+    assert p.css_first("br").end_tag_range is None
+    assert p.line_col(len(src)) == (2, 17)
+    # Implied by the parser, so written nowhere.
+    assert p.body.source_range is None and p.body.position is None
+    # Off unless asked, and nothing an edit makes has one.
+    assert HTMLParser(src).css_first("p").source_range is None
+    para.insert_child("new")
+    assert para.last_child.source_range is None
+
+
+WIDE = "<p>caf\u00e9</p><b>\u65e5\u672c</b><i title='\U0001f600'>\U0001f600x</i>"
+
+
+def test_positions_slice_what_was_passed_in():
+    # A str gives code point indexes.
+    p = HTMLParser(WIDE, positions=True)
+    for tag, start, end in [("p", "<p>", "</p>"), ("b", "<b>", "</b>"), ("i", "<i title='\U0001f600'>", "</i>")]:
+        n = p.css_first(tag)
+        assert WIDE[slice(*n.source_range)] == start
+        assert WIDE[slice(*n.end_tag_range)] == end
+    i = p.css_first("i")
+    assert WIDE[slice(*i.attribute_range("title"))] == "title='\U0001f600'"
+    assert WIDE[slice(*i.first_child.source_range)] == "\U0001f600x"
+    assert p.line_col(i.source_range[0]) == (1, i.source_range[0] + 1)
+    # bytes give byte offsets into those bytes.
+    data = WIDE.encode()
+    q = HTMLParser(data, positions=True)
+    assert data[slice(*q.css_first("b").source_range)] == b"<b>"
+    assert data[slice(*q.css_first("i").first_child.source_range)] == "\U0001f600x".encode()
+    # Even when they aren't all UTF-8: each bad byte is read as a U+FFFD,
+    # three bytes long, but the offsets stay in the bytes given.
+    bad = b"<p>\xff\xfe</p><b>x</b>"
+    r = HTMLParser(bad, positions=True, errors=True)
+    assert bad[slice(*r.css_first("b").source_range)] == b"<b>"
+    assert bad[slice(*r.css_first("p").end_tag_range)] == b"</p>"
+    assert r.line_col(bad.index(b"<b>")) == (1, 10)
+
+
+def test_error_offsets_are_in_the_inputs_units():
+    src = "\u65e5\u672c</b>"
+    e = HTMLParser(src, errors=True).errors[1]
+    assert e.code == "unexpected-end-tag" and src[e.offset:].startswith("</b>")
+    assert e.column == 3
+
+
+def test_errors():
+    p = HTMLParser("<p>a\n</b><div x='1' x='2'>", errors=True)
+    found = [(e.code, e.offset, e.line, e.column) for e in p.errors]
+    assert found == [
+        ("expected-doctype-but-got-start-tag", 0, 1, 1),
+        ("unexpected-end-tag", 5, 2, 1),
+        ("duplicate-attribute", 21, 2, 17),
+        ("expected-closing-tag-but-got-eof", 26, 2, 22),
+    ]
+    assert isinstance(p.errors[0], ParseError)
+    assert str(p.errors[1]) == "2:1: unexpected-end-tag"
+    assert repr(p.errors[1]) == "<ParseError unexpected-end-tag at 2:1>"
+    # Kept only when asked for.
+    assert HTMLParser("</b>").errors == []
+    assert HTMLParser("<!doctype html><p>ok</p>", errors=True).errors == []
+
+
+def test_xpath_results_are_shaped_as_lxml_gives_them():
+    p = HTMLParser(PAGE)
+    assert [n.tag for n in p.xpath("//div | //p")] == ["div", "p"]
+    assert p.xpath("//b/text()") == ["two"]
+    assert p.xpath("//div/@class") == ["x y"]
+    assert p.xpath("count(//*)") == 7.0
+    assert p.xpath("string(//title)") == "T"
+    assert p.xpath("boolean(//p)") is True
+    assert p.xpath("//div/comment()")[0].comment_content == "c"
+    assert p.xpath("//p[. = $want]", want="p1")[0].tag == "p"
+    assert p.xpath("$n + 1", n=2) == 3.0 and p.xpath("$b", b=False) is False
+    with pytest.raises(XPathError):
+        p.xpath("//p[")
+    with pytest.raises(XPathError, match=r"\$missing"):
+        p.xpath("$missing")
+    with pytest.raises(TypeError):
+        p.xpath("$x", x=[1])
+
+
+def test_xpath_from_a_node_and_after_edits():
+    p = HTMLParser("<ul><li>a</li><li>b</li></ul><ol><li>c</li></ol>")
+    ul = p.css_first("ul")
+    assert ul.xpath("li/text()") == ["a", "b"]
+    assert len(ul.xpath("//li")) == 3
+    assert [li.text() for li in ul.xpath("following::li")] == ["c"]
+    # Each edit drops the index, so the next query sees the change.
+    ul.insert_child(p.create_node("li"))
+    assert p.xpath("count(//ul/li)") == 3.0
+    ul.decompose()
+    assert p.xpath("count(//li)") == 1.0
+    # A removed subtree can still be queried, as its own tree.
+    assert ul.xpath("count(//li)") == 3.0
+    assert p.css_first("li").xpath("ancestor::ol")[0].tag == "ol"
+
+
+def test_xpath_from_many_threads_while_one_edits():
+    p = HTMLParser("<ul>" + "<li class=i>x</li>" * 2000 + "</ul>")
+    counts = []
+
+    def read():
+        for _ in range(30):
+            counts.append(p.xpath("count(//li[@class='i'])"))
+
+    def write():
+        ul = p.css_first("ul")
+        for _ in range(100):
+            ul.insert_child("t")
+
+    threads = [threading.Thread(target=read) for _ in range(8)] + [threading.Thread(target=write)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert counts == [2000.0] * 240
+    assert len(p.xpath("//ul/text()")) == 100
 
 
 @pytest.mark.skipif(
