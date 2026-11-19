@@ -357,6 +357,50 @@ pub fn run(pages: &[Page]) {
     typed_row("all stylesheets", total, tp, tl);
     let declared: usize = sheets.iter().map(|(_, c)| parsec_typed(c).1).sum();
     println!("  ({declared} declaration values parsed and typed by Parsec)");
+    cascade(pages);
+}
+
+/// The cascade: every element of each real page styled with the page's
+/// own `<style>` elements and the HTML user agent stylesheet, computed
+/// values and all. Lexbor has no computed values to time against.
+fn cascade(pages: &[Page]) {
+    println!(
+        "\nCascade: every element's computed values, the page's <style> and the UA sheet (median of 5)\n{:<32} {:>9} {:>9} {:>10}",
+        "", "elements", "CSS KB", "ms"
+    );
+    let style = parsec::css::SelectorList::parse("style").unwrap();
+    let mut total = 0.0;
+    for p in pages {
+        let doc = parsec::parse(&p.html, false);
+        let css: usize = style
+            .select(&doc, doc.root())
+            .into_iter()
+            .map(|n| doc.text(n).len())
+            .sum();
+        let elements = (0..doc.len() as parsec::NodeId)
+            .filter(|n| matches!(doc.kind(*n), parsec::Kind::Element { .. }))
+            .count();
+        let t = median(5, || {
+            parsec_css::cascade::Styler::new(Default::default())
+                .with_document_styles(&doc)
+                .style(&doc)
+        });
+        total += t;
+        println!(
+            "  {:<30} {:>9} {:>9.0} {:>10.1}",
+            p.name,
+            elements,
+            css as f64 / 1e3,
+            t * 1e3
+        );
+    }
+    println!(
+        "  {:<30} {:>9} {:>9} {:>10.1}",
+        "all pages",
+        "",
+        "",
+        total * 1e3
+    );
 }
 
 fn typed_row(name: &str, bytes: usize, parsec: f64, lexbor: f64) {

@@ -364,6 +364,7 @@ name = "parsec-html-css"
 version = "0.1.0"
 dependencies = [
  "encoding_rs",
+ "parsec-html",
 ]
 
 [[package]]
