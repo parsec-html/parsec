@@ -304,6 +304,7 @@ impl HtmlParser {
     fn options(&self) -> MatchOptions<'_> {
         MatchOptions {
             url: self.url.as_deref(),
+            ..MatchOptions::default()
         }
     }
 
