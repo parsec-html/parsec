@@ -145,7 +145,7 @@ function extract(rel) {
   if (!/testharness\.js/.test(html)) return Object.assign(entry, { skipped_because: 'not a testharness test' });
   const { sandbox, state } = sandboxFor(rel);
   const context = vm.createContext(sandbox);
-  const scripts = [...html.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script[^>]*>/gi)];
   let error = null;
   for (const [, attrs, code] of scripts) {
     if (attrs && /\bsrc\s*=/.test(attrs)) {
