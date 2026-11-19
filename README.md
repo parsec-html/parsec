@@ -86,13 +86,14 @@ assert_eq!(doc.text(hits[0]), "one");
   its reasoning written beside it. The C API's `unsafe` is all at the
   boundary, where C's pointers come in.
 - **WHATWG URL**, in `crates/parsec-url`: every getter and setter the
-  `URL` interface has, `URLSearchParams`, IDNA and Punycode, built on
-  Servo's `url` crate. `cargo test` runs the web-platform-tests URL suite,
-  and 3,690 of its 4,565 cases pass; Lexbor publishes no count at all.
-  Most of the 875 failures, 795 of them, are one IDNA rule the standard
-  changed in June 2026 and the `url` crate hasn't caught up with yet. The
-  wiki's [URL](https://github.com/parsec-html/parsec/wiki/URL) page names
-  every failing case and why it fails.
+  `URL` interface has, `URLSearchParams`, IDNA, Punycode and Unicode
+  normalization, in a parser of Parsec's own written from the standard's
+  current text, June 2026 changes included. `cargo test` runs the
+  web-platform-tests URL suite, and all 4,565 of its cases pass, as do
+  all 20,171 lines of Unicode's NormalizationTest; Lexbor publishes no
+  URL count at all. The wiki's
+  [URL](https://github.com/parsec-html/parsec/wiki/URL) page has them
+  suite by suite.
 - **A Python package** in `bindings/python`, with selectolax's API:
   `HTMLParser(html).css()`, `css_first`, `text()`, `attributes` and the
   edits, so moving over is mostly a change of import. One parsed page can
@@ -126,10 +127,10 @@ ahead until you count the conversion. A UTF-8 page Parsec only validates
 and then parses where it is, at about 60 GB a second.
 
 URLs as well. Over the 83,113 `href` and `src` values on those 13 pages,
-each resolved against its page, Parsec takes 180 ns a URL and Lexbor 240,
-so Parsec is 1.3 times as fast. Ada, the C++ parser in Node.js, takes
-143 ns, 1.25 times as fast as Parsec. That gap is why a URL parser of
-Parsec's own is next on the roadmap.
+each resolved against its page, Parsec takes 107 ns a URL. Ada, the C++
+parser in Node.js, takes 142 and Lexbor 243, so Parsec is 1.33 times as
+fast as Ada and 2.28 times as fast as Lexbor, and all three give the same
+`href` for every link.
 
 Hostile inputs, the ones built to make a parser crawl, go Parsec's way
 on all eight. 80,000 unclosed `<div>`s take Parsec 3 ms and Lexbor 5.2
@@ -165,7 +166,8 @@ every module Lexbor has, and then go past it:
 | A tree depth limit | no | yes |
 | XPath | no | planned |
 | WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |
-| WHATWG URL | yes, no WPT count published | yes, with WPT pass counts published |
+| WHATWG URL | yes, no WPT count published | yes, all 4,565 WPT cases passing |
+| Unicode normalization | yes | yes, all of NormalizationTest passing |
 | CSS parser and CSSOM | yes | planned, with `var()`, media queries and computed values |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM |
 | Python | through selectolax | yes, free-threaded too |
