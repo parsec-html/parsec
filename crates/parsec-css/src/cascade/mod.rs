@@ -504,30 +504,19 @@ impl Styler {
             root: doc_element(doc),
             ..PseudoStyles::default()
         };
-        // Each pseudo-element rule's place in `pseudo.rules`.
+        // Each pseudo-element rule's place in `pseudo.rules`, where it's
+        // copied the first time an element matches it.
         let mut rule_of: HashMap<usize, usize> = HashMap::new();
         for (i, e) in entries.iter().enumerate() {
-            if let Some(p) = &e.pseudo {
-                let needs_attrs = e
-                    .declarations
-                    .iter()
-                    .any(|(n, v, _)| n.eq_ignore_ascii_case("content") && pseudo::has_attr(v));
-                pseudo.rules.push(PseudoRule {
-                    pseudo: p.clone(),
-                    declarations: e
-                        .declarations
-                        .iter()
-                        .map(|(n, v, imp)| (n.to_string(), crate::to_css(v), *imp))
-                        .collect(),
-                    needs_attrs,
-                });
-                let r = pseudo.rules.len() - 1;
-                // On every element alike: kept once, not per element.
-                if e.any && e.scope.is_none() && e.containers.is_empty() && !needs_attrs {
-                    pseudo.always.push((r, self.key(e, &ranks, 0)));
+            // On every element alike: kept once, not per element.
+            if e.pseudo.is_some() && e.any && e.scope.is_none() && e.containers.is_empty() {
+                let rule = PseudoRule::of(e);
+                if !rule.needs_attrs {
+                    pseudo.rules.push(rule);
+                    let key = self.key(e, &ranks, 0);
+                    pseudo.always.push((pseudo.rules.len() - 1, key));
                     continue;
                 }
-                rule_of.insert(i, r);
             }
             match &e.bucket {
                 Bucket::Id(x) => index.ids.entry(x.clone()).or_default().push(i),
@@ -672,7 +661,10 @@ impl Styler {
                 if let Some(proximity) =
                     self.entry_matches(e, doc, el, &styles, &mut scope_cache, true)
                 {
-                    let r = rule_of[&i];
+                    let r = *rule_of.entry(i).or_insert_with(|| {
+                        pseudo.rules.push(PseudoRule::of(e));
+                        pseudo.rules.len() - 1
+                    });
                     if pseudo.rules[r].needs_attrs && !pseudo.attrs.contains_key(&el) {
                         let attrs = doc
                             .attrs(el)

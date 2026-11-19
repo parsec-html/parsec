@@ -197,6 +197,24 @@ pub(super) struct PseudoRule {
     pub needs_attrs: bool,
 }
 
+impl PseudoRule {
+    /// A rule's declarations copied out of its stylesheet.
+    pub fn of(e: &super::Entry<'_>) -> PseudoRule {
+        PseudoRule {
+            pseudo: e.pseudo.clone().unwrap_or(Pseudo::Before),
+            declarations: e
+                .declarations
+                .iter()
+                .map(|(n, v, imp)| (n.to_string(), crate::to_css(v), *imp))
+                .collect(),
+            needs_attrs: e
+                .declarations
+                .iter()
+                .any(|(n, v, _)| n.eq_ignore_ascii_case("content") && has_attr(v)),
+        }
+    }
+}
+
 /// Everything working out a pseudo-element's style needs, kept with the
 /// document's styles.
 #[derive(Default)]
