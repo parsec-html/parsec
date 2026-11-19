@@ -1,0 +1,31 @@
+[package]
+name = "parsec-html-wasm"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/parsec-html/parsec"
+description = "Parsec for JavaScript: an HTML parser that follows the WHATWG spec, with CSS selectors, built with wasm-bindgen."
+publish = false
+
+# Its own workspace, as bench/ is, so the root's `cargo test --workspace`
+# doesn't build for the web.
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+parsec-html = { path = "../../crates/parsec" }
+wasm-bindgen = "0.2.130"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.80"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "s"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os"]

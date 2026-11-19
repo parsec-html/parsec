@@ -75,7 +75,7 @@ Every CI run publishes the conformance counts in its summary.
 - Done: a guide for moving from Lexbor, call by call, on the wiki.
 - Python wheels, including free-threaded builds. The package is done, in
   `bindings/python`; its wheels go to PyPI with 0.1.0.
-- WebAssembly for npm.
+- Done: WebAssembly for npm, in `bindings/wasm`.
 
 ## M5. Encoding
 

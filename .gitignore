@@ -8,4 +8,7 @@
 /crates/parsec-css/fuzz/Cargo.lock
 /bench/target
 /bench/corpus
+/bindings/wasm/pkg
+/bindings/wasm/node_modules
 __pycache__/
+/bindings/wasm/target

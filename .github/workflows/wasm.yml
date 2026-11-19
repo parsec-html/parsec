@@ -1,0 +1,57 @@
+name: wasm
+
+# bindings/wasm, the parsec-html package on npm: linted, tested in Node
+# and in Firefox, then built as the package and tested as it installs.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: wasm-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: bindings/wasm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-deny,wasm-pack
+      - run: cargo fmt --check
+      - run: cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
+      - run: cargo deny check licenses bans sources
+      - run: wasm-pack test --node
+      - run: wasm-pack test --headless --firefox --test browser
+      - run: ./build.sh
+      # As `npm install ./pkg` would place it, without npm.
+      - run: mkdir -p node_modules && ln -s ../pkg node_modules/parsec-html
+      - run: node --test tests/package.test.mjs
+      - name: Package size
+        run: |
+          {
+            echo "| File | Bytes | Gzipped |"
+            echo "|---|---:|---:|"
+            for f in pkg/parsec_html_bg.wasm pkg/parsec_html.js pkg/node/parsec_html.js; do
+              echo "| \`$f\` | $(wc -c < "$f") | $(gzip -9 -c "$f" | wc -c) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
