@@ -172,6 +172,22 @@ fn custom_value<'a>(
 }
 
 impl<'a> Resolved<'a> {
+    /// Resolved properties from values worked out already, as a parent's
+    /// are by the time its children are styled. `None` is the
+    /// guaranteed-invalid value.
+    pub fn from_values(
+        values: impl IntoIterator<Item = (String, Option<Vec<ComponentValue<'a>>>)>,
+    ) -> Resolved<'a> {
+        Resolved {
+            values: values.into_iter().collect(),
+        }
+    }
+
+    /// Every property here and its value.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, Option<&[ComponentValue<'a>]>)> {
+        self.values.iter().map(|(k, v)| (k.as_str(), v.as_deref()))
+    }
+
     /// A resolved custom property's value; `None` if it's guaranteed-invalid
     /// or not there at all.
     pub fn get(&self, name: &str) -> Option<&[ComponentValue<'a>]> {

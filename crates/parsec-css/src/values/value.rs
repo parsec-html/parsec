@@ -490,6 +490,9 @@ pub fn expand<'a>(
         // Every longhand takes the keyword, or waits for substitution.
         other => return Ok(p.longhands.iter().map(|l| (*l, other.clone())).collect()),
     }
+    if let Some(special) = expand_special(p, value) {
+        return Ok(special);
+    }
     let g = p.grammar().ok_or(InvalidValue)?;
     let mut m = Matcher::new(value).for_property(p);
     if !m.whole(g) {
@@ -508,6 +511,90 @@ pub fn expand<'a>(
         result.push((*name, value));
     }
     Ok(result)
+}
+
+/// The shorthands whose left-out parts aren't their longhands' initial
+/// values: `flex`, where they're `1 1 0%` (CSS Flexbox §7.1), and
+/// `white-space`'s legacy keywords (CSS Text 4 §3).
+fn expand_special<'a>(
+    p: &'static Property,
+    value: &[ComponentValue<'a>],
+) -> Option<Vec<(&'static str, Specified<'a>)>> {
+    let keyword = match value {
+        [ComponentValue::Token(Token::Ident(w), _)] => Some(w.to_ascii_lowercase()),
+        _ => None,
+    };
+    let text = |s: &'static str| -> Specified<'a> {
+        let values = crate::parse_component_values(s);
+        let Ok(Specified::Value(c)) = parse_value_static(s, &values) else {
+            unreachable!("{s}")
+        };
+        Specified::Value(c)
+    };
+    match p.name {
+        "white-space" => {
+            let (collapse, wrap) = match keyword.as_deref()? {
+                "normal" => ("collapse", "wrap"),
+                "pre" => ("preserve", "nowrap"),
+                "pre-wrap" => ("preserve", "wrap"),
+                "pre-line" => ("preserve-breaks", "wrap"),
+                _ => return None,
+            };
+            let kw = |k: &'static str| Specified::Value(vec![Component::Keyword(k)]);
+            Some(vec![
+                ("white-space-collapse", kw(collapse)),
+                ("text-wrap-mode", kw(wrap)),
+            ])
+        }
+        "flex" => {
+            let (grow, shrink, basis) = match keyword.as_deref() {
+                Some("none") => ("0", "0", "auto"),
+                Some("auto") => ("1", "1", "auto"),
+                _ => {
+                    // Split as the grammar does, then fill in 1, 1 and 0%.
+                    let g = p.grammar()?;
+                    let mut m = Matcher::new(value).for_property(p);
+                    if !m.whole(g) {
+                        return None;
+                    }
+                    let outs = canonical(m.out);
+                    let mut assigned: Vec<Option<Vec<Out<'a>>>> = vec![None; 3];
+                    split(p, g, &outs, &mut assigned)?;
+                    let mut fill = |i: usize, d: &'static str| match assigned[i].take() {
+                        Some(o) => Specified::Value(components(o)),
+                        None => text(d),
+                    };
+                    let (gw, sh, ba) = (fill(0, "1"), fill(1, "1"), fill(2, "0%"));
+                    return Some(vec![
+                        ("flex-grow", gw),
+                        ("flex-shrink", sh),
+                        ("flex-basis", ba),
+                    ]);
+                }
+            };
+            Some(vec![
+                ("flex-grow", text(grow)),
+                ("flex-shrink", text(shrink)),
+                ("flex-basis", text(basis)),
+            ])
+        }
+        _ => None,
+    }
+}
+
+/// A value from text that lives for the program: for the defaults above.
+fn parse_value_static<'a>(
+    s: &'static str,
+    values: &[ComponentValue<'static>],
+) -> Result<Specified<'a>, InvalidValue> {
+    // A number alone is `flex-grow`'s or `flex-shrink`'s; anything else
+    // is a basis.
+    let name = if s.parse::<f64>().is_ok() {
+        "flex-grow"
+    } else {
+        "flex-basis"
+    };
+    parse_value(name, values)
 }
 
 /// A longhand's initial value, parsed, or `initial` where the spec's is

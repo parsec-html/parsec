@@ -315,6 +315,49 @@ impl Math {
         type_of(&self.root, percent, 0) == Some(want)
     }
 
+    /// The function with each leaf replaced by what `f` makes of it, then
+    /// simplified again: how a computed value turns `1em` into pixels and
+    /// lets `calc(1em + 2px)` become `calc(18px)`.
+    pub fn map_leaves(&self, f: &impl Fn(Leaf) -> Leaf) -> Math {
+        fn map(n: &Node, f: &impl Fn(Leaf) -> Leaf) -> Node {
+            match n {
+                Node::Value(l) => Node::Value(f(*l)),
+                Node::Keyword(k) => Node::Keyword(k),
+                Node::Sum(c) => Node::Sum(c.iter().map(|x| map(x, f)).collect()),
+                Node::Product(c) => Node::Product(c.iter().map(|x| map(x, f)).collect()),
+                Node::Negate(c) => Node::Negate(Box::new(map(c, f))),
+                Node::Invert(c) => Node::Invert(Box::new(map(c, f))),
+                Node::Function(func, args) => {
+                    Node::Function(*func, args.iter().map(|x| map(x, f)).collect())
+                }
+            }
+        }
+        Math {
+            root: simplify(map(&self.root, f)),
+        }
+    }
+
+    /// The function with its keywords (a relative colour's channel names)
+    /// replaced by the numbers `f` gives, then simplified again.
+    pub fn substitute_keywords(&self, f: &impl Fn(&str) -> Option<f64>) -> Math {
+        fn map(n: &Node, f: &impl Fn(&str) -> Option<f64>) -> Node {
+            match n {
+                Node::Keyword(k) => f(k).map_or(Node::Keyword(k), |v| Node::Value(Leaf::Number(v))),
+                Node::Value(l) => Node::Value(*l),
+                Node::Sum(c) => Node::Sum(c.iter().map(|x| map(x, f)).collect()),
+                Node::Product(c) => Node::Product(c.iter().map(|x| map(x, f)).collect()),
+                Node::Negate(c) => Node::Negate(Box::new(map(c, f))),
+                Node::Invert(c) => Node::Invert(Box::new(map(c, f))),
+                Node::Function(func, args) => {
+                    Node::Function(*func, args.iter().map(|x| map(x, f)).collect())
+                }
+            }
+        }
+        Math {
+            root: simplify(map(&self.root, f)),
+        }
+    }
+
     /// The value, if simplifying left a single one.
     pub fn leaf(&self) -> Option<Leaf> {
         match self.root {

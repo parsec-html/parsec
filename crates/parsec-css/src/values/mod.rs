@@ -6,6 +6,7 @@
 //! syntax every property's grammar is written in.
 
 mod color;
+mod convert;
 mod custom;
 mod generated;
 mod grammar;
@@ -16,6 +17,7 @@ mod units;
 mod value;
 
 pub use color::{Channel, Channels, Color, Model, Predefined, Relative, RelativeChannel};
+pub use convert::{Absolute, Space};
 pub use custom::{CustomProperties, GuaranteedInvalid, Resolved, substitute, substitute_value};
 pub use grammar::Grammar;
 pub use math::{Expect, Leaf, Math, MathFunction, Node, Rounding};

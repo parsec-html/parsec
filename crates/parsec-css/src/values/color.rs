@@ -131,9 +131,11 @@ pub enum Color {
     Relative(Box<Relative>),
     /// `contrast-color(<color>)`.
     Contrast(Box<Color>),
-    /// `color-mix()` or `color-layers()`, matched by their grammars from
-    /// the specs and kept as written out.
-    Mix(String),
+    /// `color-mix()` or `color-layers()`, as matched by their grammars
+    /// and written out, with what `color-mix()` mixes.
+    Mix(Box<Mix>),
+    /// A colour a computed value has worked out, written out.
+    Text(String),
 }
 
 /// A relative color: an origin color and channels that may name the
@@ -147,6 +149,24 @@ pub struct Relative {
     pub origin: Color,
     pub channels: Vec<RelativeChannel>,
     pub alpha: Option<RelativeChannel>,
+}
+
+/// A `color-mix()`'s space, hue method, and colours with their
+/// percentages.
+pub type MixParts = (
+    super::convert::Space,
+    &'static str,
+    Vec<(Color, Option<f64>)>,
+);
+
+/// `color-mix()` or `color-layers()`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Mix {
+    /// The function written out, as a specified value writes it.
+    pub text: String,
+    /// For `color-mix()`: the space, the hue method, and each colour with
+    /// its percentage if it has one.
+    pub parts: Option<MixParts>,
 }
 
 /// One channel of a relative color, as written.
@@ -226,6 +246,13 @@ enum Slot {
 }
 
 impl Color {
+    /// The colour's channels in its own space, worked out: relative
+    /// colours and mixes included. `None` for `currentcolor`, a system
+    /// colour, or math that needs an element.
+    pub fn absolute(&self) -> Option<super::convert::Absolute> {
+        super::convert::absolute(self)
+    }
+
     /// The color with named colors made `rgb()`, as a computed value
     /// has them; everything else as it is.
     pub fn computed(&self) -> Color {
@@ -256,9 +283,10 @@ impl Color {
                     let mut buf = [0; 32];
                     let name = super::units::lowercase(&f.name, &mut buf)?;
                     let c = super::value::match_function(name, std::slice::from_ref(value))?;
-                    let mut s = String::new();
-                    super::value::write_components(&mut s, &c).ok()?;
-                    Some(Color::Mix(s))
+                    let mut text = String::new();
+                    super::value::write_components(&mut text, &c).ok()?;
+                    let parts = super::convert::mix_parts(f);
+                    Some(Color::Mix(Box::new(Mix { text, parts })))
                 })
             }
             ComponentValue::Function(f) => function(f),
@@ -667,6 +695,26 @@ fn write_alpha(out: &mut impl Write, a: &Channel) -> fmt::Result {
 }
 
 impl Channels {
+    pub(crate) fn model_is_legacy(&self) -> bool {
+        matches!(self.model, Model::Rgb | Model::Hsl | Model::Hwb)
+    }
+
+    pub(crate) fn has_math(&self) -> bool {
+        self.channels
+            .iter()
+            .chain([&self.alpha])
+            .any(|c| matches!(c, Channel::Math(_)))
+    }
+
+    /// Each math channel replaced by what `f` makes of it.
+    pub(crate) fn map_math(&mut self, f: &impl Fn(&Math) -> Math) {
+        for c in self.channels.iter_mut().chain([&mut self.alpha]) {
+            if let Channel::Math(m) = c {
+                *m = f(m);
+            }
+        }
+    }
+
     /// The color in sRGB, 0 to 1, if it's a legacy one with every channel
     /// known.
     fn legacy_srgb(&self) -> Option<[f64; 3]> {
@@ -944,7 +992,8 @@ impl fmt::Display for Color {
         match self {
             Color::Relative(r) => write!(f, "{r}"),
             Color::Contrast(c) => write!(f, "contrast-color({c})"),
-            Color::Mix(s) => f.write_str(s),
+            Color::Mix(m) => f.write_str(&m.text),
+            Color::Text(s) => f.write_str(s),
             Color::CurrentColor => f.write_str("currentcolor"),
             Color::Named(name) | Color::System(name) => f.write_str(name),
             Color::Channels(c) => c.write(f),
