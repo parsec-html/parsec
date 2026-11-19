@@ -31,6 +31,7 @@
 //! ```
 
 mod bytes;
+pub mod cascade;
 mod deep;
 pub mod media;
 mod microsyntax;

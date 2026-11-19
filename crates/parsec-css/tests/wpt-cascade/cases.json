@@ -1,0 +1,5132 @@
+{
+ "commit": "1a2a0c5b99c748d173acff45965fa74921e091d7",
+ "files": [
+  {
+   "file": "css/css-cascade/all-prop-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-inherit-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-initial-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-initial-visited.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-initial-xml.html",
+   "skipped_because": "needs a <iframe>"
+  },
+  {
+   "file": "css/css-cascade/all-prop-revert-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-revert-layer-noop.html",
+   "skipped_because": "needs /common/subset-tests-by-key.js"
+  },
+  {
+   "file": "css/css-cascade/all-prop-revert-layer.html",
+   "skipped_because": "needs element.sheet"
+  },
+  {
+   "file": "css/css-cascade/all-prop-revert-noop.html",
+   "skipped_because": "needs /common/subset-tests-by-key.js"
+  },
+  {
+   "file": "css/css-cascade/all-prop-revert-visited.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-unset-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/all-prop-unset-visited.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/at-scope-parsing.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/at-scope-relative-syntax.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/declaration-context.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'cssRules')"
+  },
+  {
+   "file": "css/css-cascade/duplicate-stylesheets.html",
+   "skipped_because": "needs a <div>"
+  },
+  {
+   "file": "css/css-cascade/idlharness.html",
+   "skipped_because": "needs /resources/WebIDLParser.js"
+  },
+  {
+   "file": "css/css-cascade/import-conditional-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/import-conditional-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/import-conditions.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/import-mime-type-quirks.html",
+   "skipped_because": "needs /common/get-host-info.sub.js"
+  },
+  {
+   "file": "css/css-cascade/import-removal.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/important-prop.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/important-transition-manual.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/important-vs-inline-001.html",
+   "skipped_because": "needs element.offsetTop"
+  },
+  {
+   "file": "css/css-cascade/important-vs-inline-002.html",
+   "skipped_because": "needs element.offsetTop"
+  },
+  {
+   "file": "css/css-cascade/important-vs-inline-003.html",
+   "skipped_because": "needs element.setAttribute"
+  },
+  {
+   "file": "css/css-cascade/inherit-initial.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/inherit-initial.html",
+     "sheets": [],
+     "element": {
+      "selector": "html",
+      "index": 0
+     },
+     "property": "z-index",
+     "expect": "auto"
+    },
+    {
+     "file": "css/css-cascade/inherit-initial.html",
+     "sheets": [],
+     "element": {
+      "selector": "html",
+      "index": 0
+     },
+     "property": "position",
+     "expect": "static"
+    },
+    {
+     "file": "css/css-cascade/inherit-initial.html",
+     "sheets": [],
+     "element": {
+      "selector": "html",
+      "index": 0
+     },
+     "property": "overflow",
+     "expect": "visible"
+    },
+    {
+     "file": "css/css-cascade/inherit-initial.html",
+     "sheets": [],
+     "element": {
+      "selector": "html",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgba(0, 0, 0, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/initial-background-color.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/initial-color-background-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/inline-style-background.html",
+   "skipped_because": "needs element.offsetTop"
+  },
+  {
+   "file": "css/css-cascade/inline-style-revert-layer-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-basic.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer { }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            target { color: green; }\n            @layer {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                target { color: green; }\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer {\n                    target { color: red; }\n                }\n                target { color: red; }\n            }\n            @layer {\n                @layer {\n                    @layer {\n                        target { color: red; }\n                    }\n                }\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            target { color: green; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: green; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer A {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B {\n                @layer A {\n                    target.first { color: green; }\n                }\n            }\n           @layer A {\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.A {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.A {\n                target { color: red; }\n            }\n            @layer B.A {\n                target.first { color: green; }\n            }\n            @layer A.B {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.A\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer B.A {\n                target { color: green; }\n            }\n            @layer A.B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                target { color: red; }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer A {\n                @layer {\n                    target { color: green; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n            @layer A {\n                @layer {\n                    target { color: red; }\n                }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer {\n                @layer A {\n                    target { color: red; }\n                }\n            }\n            @layer {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, B, C;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A, C, B;\n            @layer A {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n            @layer B {\n                target.first { color: green; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer C, B, A;\n            @layer A {\n                target.first { color: green; }\n                target.second { color: green; }\n            }\n            @layer B {\n                target.first { color: red; }\n            }\n            @layer C {\n                target.first { color: red; }\n                target.second { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer B, A.B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: green; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: green; }\n                }\n            }\n            @layer B {\n                target { color: red; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-basic.html",
+     "sheets": [
+      "\n            @layer A.B, B, A.A;\n            @layer A {\n                @layer A {\n                    target.first { color: red; }\n                }\n                @layer B {\n                    target.first { color: red; }\n                    target.second { color: red; }\n                }\n            }\n            @layer B {\n                target { color: green; }\n            }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/layer-counter-style-override.html",
+   "skipped_because": "needs element.offsetLeft"
+  },
+  {
+   "file": "css/css-cascade/layer-cssom-insert-after-style.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'insertRule')"
+  },
+  {
+   "file": "css/css-cascade/layer-cssom-order-reverse-at-property.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'insertRule')"
+  },
+  {
+   "file": "css/css-cascade/layer-cssom-order-reverse.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/layer-font-face-override.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/layer-import.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/layer-important.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: green !important; }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red; }\n            @layer { target { color: green !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            target { color: red !important; }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            target { color: red !important; }\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer A, B;\n            @layer B { target { color: red !important; } }\n            @layer A { target { color: green !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target { color: red !important; } }\n            target.first { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 1
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 2
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 3
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 4
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 5
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 6
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/layer-important.html",
+     "sheets": [
+      "\n            @layer { target { color: green !important; } }\n            @layer { target.first { color: red !important; } }\n            target { color: red !important; }\n        "
+     ],
+     "element": {
+      "selector": "target",
+      "index": 7
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/layer-keyframes-override.html",
+   "skipped_because": "needs element.offsetLeft"
+  },
+  {
+   "file": "css/css-cascade/layer-media-query.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/layer-media-toggle.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-namespace-sandwich-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-order-invalidation-shadow-dom.html",
+   "skipped_because": "needs a <div>"
+  },
+  {
+   "file": "css/css-cascade/layer-property-override.html",
+   "skipped_because": "needs element.offsetLeft"
+  },
+  {
+   "file": "css/css-cascade/layer-replaceSync-clears-stale.html",
+   "skipped_because": "ReferenceError: CSSStyleSheet is not defined"
+  },
+  {
+   "file": "css/css-cascade/layer-rule-invalid-name.html",
+   "skipped_because": "needs element.sheet"
+  },
+  {
+   "file": "css/css-cascade/layer-rules-cssom.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/layer-slotted-rule.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-statement-before-import.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/layer-statement-copy-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-stylesheet-multi-adoption.html",
+   "skipped_because": "ReferenceError: CSSStyleSheet is not defined"
+  },
+  {
+   "file": "css/css-cascade/layer-stylesheet-sharing-important.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-stylesheet-sharing.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/layer-vs-inline-style.html",
+   "skipped_because": "needs changing element.style"
+  },
+  {
+   "file": "css/css-cascade/layers-basic.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/layers-basic.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"testP\"]",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(255, 255, 0)"
+    },
+    {
+     "file": "css/css-cascade/layers-basic.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"testP\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(0, 0, 0)"
+    },
+    {
+     "file": "css/css-cascade/layers-basic.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"testP\"]",
+      "index": 0
+     },
+     "property": "font-size",
+     "expect": "64px"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/presentational-hints-cascade.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/presentational-hints-cascade.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target1\"]",
+      "index": 0
+     },
+     "property": "width",
+     "expect": "100px"
+    },
+    {
+     "file": "css/css-cascade/presentational-hints-cascade.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target2\"]",
+      "index": 0
+     },
+     "property": "width",
+     "expect": "100px"
+    },
+    {
+     "file": "css/css-cascade/presentational-hints-cascade.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target3\"]",
+      "index": 0
+     },
+     "property": "width",
+     "expect": "100px"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/presentational-hints-rollback.html",
+   "skipped_because": "needs /resources/check-layout-th.js"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-003.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-004.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-005.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-006.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-007.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-008.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-009.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-010.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-011.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-012.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-013.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-014.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-layer-015.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-rule-basic.html",
+   "skipped_because": "ReferenceError: CSS is not defined"
+  },
+  {
+   "file": "css/css-cascade/revert-rule-custom-property.html",
+   "skipped_because": "ReferenceError: CSS is not defined"
+  },
+  {
+   "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target1\"]",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target1\"]",
+      "index": 0
+     },
+     "property": "margin-left",
+     "expect": "0px"
+    },
+    {
+     "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target1\"]",
+      "index": 0
+     },
+     "property": "--x",
+     "expect": "green"
+    },
+    {
+     "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target2\"]",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target2\"]",
+      "index": 0
+     },
+     "property": "margin-left",
+     "expect": "0px"
+    },
+    {
+     "file": "css/css-cascade/revert-rule-cycle.tentative.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target2\"]",
+      "index": 0
+     },
+     "property": "--x",
+     "expect": "green"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/revert-rule-important.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/revert-rule-important.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"test2\"]",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/revert-rule-important.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"test3\"]",
+      "index": 0
+     },
+     "property": "color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {
+    "ReferenceError: CSS is not defined": 1
+   }
+  },
+  {
+   "file": "css/css-cascade/revert-rule-layer.html",
+   "skipped_because": "ReferenceError: CSS is not defined"
+  },
+  {
+   "file": "css/css-cascade/revert-rule-revert-layer.html",
+   "skipped_because": "ReferenceError: CSS is not defined"
+  },
+  {
+   "file": "css/css-cascade/revert-rule-shadow.html",
+   "skipped_because": "needs element.attachShadow"
+  },
+  {
+   "file": "css/css-cascade/revert-val-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-val-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/revert-val-003.html",
+   "skipped_because": "needs element.style"
+  },
+  {
+   "file": "css/css-cascade/revert-val-004.html",
+   "skipped_because": "needs changing element.className"
+  },
+  {
+   "file": "css/css-cascade/revert-val-005.html",
+   "skipped_because": "needs assert_not_equals"
+  },
+  {
+   "file": "css/css-cascade/revert-val-006.html",
+   "skipped_because": "needs assert_not_equals"
+  },
+  {
+   "file": "css/css-cascade/revert-val-007.html",
+   "skipped_because": "needs assert_not_equals"
+  },
+  {
+   "file": "css/css-cascade/revert-val-008.html",
+   "skipped_because": "needs element.animate"
+  },
+  {
+   "file": "css/css-cascade/revert-val-009.html",
+   "skipped_because": "needs changing element.style"
+  },
+  {
+   "file": "css/css-cascade/revert-val-010.html",
+   "skipped_because": "needs assert_not_equals"
+  },
+  {
+   "file": "css/css-cascade/revert-val-011.html",
+   "skipped_because": "needs element.offsetTop"
+  },
+  {
+   "file": "css/css-cascade/scope-container.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-container.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a",
+      "index": 0
+     },
+     "property": "z-index",
+     "expect": "1"
+    },
+    {
+     "file": "css/css-cascade/scope-container.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/scope-container.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgba(0, 0, 0, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/scope-cssom.html",
+   "skipped_because": "needs element.sheet"
+  },
+  {
+   "file": "css/css-cascade/scope-declaration-list-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-declarations.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-deep.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-evaluation.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'previousElementSibling')"
+  },
+  {
+   "file": "css/css-cascade/scope-featureless.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-focus.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-cascade/scope-has-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-hover.html",
+   "skipped_because": "needs /resources/testdriver.js"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-001-print.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-002-print.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-003-print.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-005-print.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-006-print.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-constructed-document.html",
+   "skipped_because": "ReferenceError: CSSStyleSheet is not defined"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-crash-print.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-external.html",
+   "skipped_because": "runs asynchronously"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-remove-sheet.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-implicit-remove-sheet.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"target\"]",
+      "index": 0
+     },
+     "property": "--matches-scope",
+     "expect": "true"
+    }
+   ],
+   "skipped": {
+    "needs element.remove": 1
+   }
+  },
+  {
+   "file": "css/css-cascade/scope-implicit-sibling-mutations.html",
+   "skipped_because": "needs element.style"
+  },
+  {
+   "file": "css/css-cascade/scope-implicit.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-import-implicit.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-import-inner-scope.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-import-multiple.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-import-parent-pseudo.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-import-scope-end.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-import-scope-pseudo.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-import-scope-start.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-inner-pseudo-scope-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-insert-rule.html",
+   "skipped_because": "needs element.sheet"
+  },
+  {
+   "file": "css/css-cascade/scope-invalidation.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'previousElementSibling')"
+  },
+  {
+   "file": "css/css-cascade/scope-layer.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-layer.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a",
+      "index": 0
+     },
+     "property": "z-index",
+     "expect": "1"
+    },
+    {
+     "file": "css/css-cascade/scope-layer.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/scope-layer.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgba(0, 0, 0, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/scope-media.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-media.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a",
+      "index": 0
+     },
+     "property": "z-index",
+     "expect": "1"
+    },
+    {
+     "file": "css/css-cascade/scope-media.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/scope-media.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgba(0, 0, 0, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/scope-name-defining-rules.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-nesting.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-overlapping-has.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-overlapping-has.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"first\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(255, 0, 0)"
+    },
+    {
+     "file": "css/css-cascade/scope-overlapping-has.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"second\"]",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/scope-part.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-proximity.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading 'previousElementSibling')"
+  },
+  {
+   "file": "css/css-cascade/scope-pseudo-element.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-rule-attr-with-colons.html",
+   "skipped_because": "needs element.sheet"
+  },
+  {
+   "file": "css/css-cascade/scope-shadow-sharing.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-shadow.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-shadow.html",
+     "sheets": [],
+     "element": {
+      "selector": "[id=\"host_scope_subject\"]",
+      "index": 0
+     },
+     "property": "z-index",
+     "expect": "1"
+    }
+   ],
+   "skipped": {
+    "needs element.shadowRoot": 2,
+    "needs element.querySelector": 6
+   }
+  },
+  {
+   "file": "css/css-cascade/scope-slotted.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-specificity.html",
+   "skipped_because": "needs element.querySelector"
+  },
+  {
+   "file": "css/css-cascade/scope-starting-style.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-starting-style.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a",
+      "index": 0
+     },
+     "property": "width",
+     "expect": "150px"
+    },
+    {
+     "file": "css/css-cascade/scope-starting-style.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a > .b",
+      "index": 0
+     },
+     "property": "width",
+     "expect": "150px"
+    },
+    {
+     "file": "css/css-cascade/scope-starting-style.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .b",
+      "index": 0
+     },
+     "property": "width",
+     "expect": "200px"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/scope-style-sharing-001.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-style-sharing-002.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-supports.html",
+   "cases": [
+    {
+     "file": "css/css-cascade/scope-supports.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a",
+      "index": 0
+     },
+     "property": "z-index",
+     "expect": "1"
+    },
+    {
+     "file": "css/css-cascade/scope-supports.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .a > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgb(0, 128, 0)"
+    },
+    {
+     "file": "css/css-cascade/scope-supports.html",
+     "sheets": [],
+     "element": {
+      "selector": "main > .b",
+      "index": 0
+     },
+     "property": "background-color",
+     "expect": "rgba(0, 0, 0, 0)"
+    }
+   ],
+   "skipped": {}
+  },
+  {
+   "file": "css/css-cascade/scope-ua-shadow-host.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/scope-visited-cssom.html",
+   "skipped_because": "needs element.append"
+  },
+  {
+   "file": "css/css-cascade/scope-visited.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/tons-of-declarations-crash.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/unset-val-001.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/unset-val-002.html",
+   "skipped_because": "not a testharness test"
+  },
+  {
+   "file": "css/css-cascade/unset-value-storage.html",
+   "skipped_because": "TypeError: Cannot read properties of undefined (reading '0')"
+  }
+ ]
+}

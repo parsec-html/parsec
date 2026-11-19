@@ -11,6 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 parsec-html-css = { path = ".." }
+parsec-html = { path = "../../parsec" }
 
 [[bin]]
 name = "parse"

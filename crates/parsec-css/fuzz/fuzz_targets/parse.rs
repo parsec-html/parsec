@@ -140,6 +140,21 @@ fuzz_target!(|data: &[u8]| {
             }
         }
     }
+    // As a media query list, a supports condition, and a stylesheet for
+    // a small page: parse, write, evaluate, cascade.
+    let list = media::MediaQueryList::parse(&values);
+    let _ = list.to_string();
+    let _ = list.matches(&media::Environment::default());
+    let _ = supports::supports(&values);
+    let page = parsec::parse("<div id=a class=b><p style='color: red'>x</p><span></span></div>", false);
+    let mut styler = cascade::Styler::new(media::Environment::default());
+    styler.add(css, cascade::Origin::Author);
+    let styled = styler.style(&page);
+    for p in ["color", "display", "margin", "font-size", "--x", "background"] {
+        if let Some(root) = page.children(page.root()).next() {
+            let _ = styled.get(root, p);
+        }
+    }
     let resolved = custom.resolve(None);
     let _ = values::substitute_value("width", &values, &resolved);
     let _ = parse_rule_list(css).to_string();
