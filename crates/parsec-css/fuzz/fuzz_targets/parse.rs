@@ -158,7 +158,7 @@ fuzz_target!(|data: &[u8]| {
     let _ = list.to_string();
     let _ = list.matches(&media::Environment::default());
     let _ = supports::supports(&values);
-    let page = parsec::parse("<div id=a class=b><style>@scope { p { color: blue } }</style><p style='color: red'>x</p><span></span></div>", false);
+    let page = parsec::parse("<div id=a class=b style='container-type: size; writing-mode: vertical-rl'><style>@scope { p { color: blue } }</style><p style='color: red'>x</p><span></span></div>", false);
     // Every at-rule as each kind it could be, written back.
     for rule in &deep.rules {
         if let Rule::At(a) = rule {
@@ -170,7 +170,11 @@ fuzz_target!(|data: &[u8]| {
             if let Some(q) = rules::ContainerQuery::parse_list(&a.prelude) {
                 for q in q {
                     let _ = q.to_string();
-                    let _ = q.evaluate(Some((100.0, 50.0)), 16.0, &|_| Some("1".into()));
+                    let lengths = media::QueryLengths::of(&media::Environment::default());
+                    // Style ranges compare whatever the values give.
+                    let number = |v: &str| Some(values::Leaf::Number(v.len() as f64));
+                    let _ = q.evaluate(Some((100.0, 50.0)), &lengths, &|_| Some("1".into()), &number);
+                    let _ = q.evaluate(None, &lengths, &|_| None, &|_| None);
                 }
             }
         }

@@ -206,7 +206,7 @@ impl Comparison {
         }
     }
 
-    fn test(self, a: f64, b: f64) -> bool {
+    pub(crate) fn test(self, a: f64, b: f64) -> bool {
         match self {
             Comparison::Lt => a < b,
             Comparison::Le => a <= b,
@@ -470,7 +470,7 @@ fn value(v: &[&ComponentValue<'_>]) -> Option<FeatureValue> {
     }
 }
 
-fn comparison(v: &[&ComponentValue<'_>]) -> Option<(Comparison, usize)> {
+pub(crate) fn comparison(v: &[&ComponentValue<'_>]) -> Option<(Comparison, usize)> {
     let delim = |i: usize| match v.get(i) {
         Some(ComponentValue::Token(Token::Delim(c), _)) => Some(*c),
         _ => None,
@@ -544,11 +544,41 @@ fn parse_feature(v: &[&ComponentValue<'_>]) -> Option<Feature> {
 
 // ---- evaluation ------------------------------------------------------------
 
-/// A value in the feature's canonical unit: pixels, dppx, or a number.
-fn resolve(v: &FeatureValue, t: RangeType, env: &Environment) -> Option<f64> {
-    let length = |x: f64, u: Unit| -> Option<f64> {
-        match u {
-            Unit::Em | Unit::Rem => Some(x * env.font_size),
+/// What a query's relative lengths are relative to. For a media query
+/// that's all the environment; a container query's `em` is the
+/// container's, and its `cq*` units are the container's own query
+/// containers'.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct QueryLengths {
+    /// For `em` and `rem`, in pixels.
+    pub font_size: f64,
+    /// The viewport's width and height, for `vw` and the rest.
+    pub viewport: (f64, f64),
+    /// The width and height `cqw` and `cqh` are 1% of.
+    pub container: (f64, f64),
+    /// Whether the writing mode is vertical, so `cqi` is of the height.
+    pub vertical: bool,
+}
+
+impl QueryLengths {
+    /// A media query's: with no containers, `cq*` units are the small
+    /// viewport's, CSS Conditional 5 §6.3.
+    pub fn of(env: &Environment) -> QueryLengths {
+        QueryLengths {
+            font_size: env.font_size,
+            viewport: (env.width, env.height),
+            container: (env.width, env.height),
+            vertical: false,
+        }
+    }
+
+    /// Pixels in one `u`, or `None` if it isn't a length.
+    pub fn px(&self, u: Unit) -> Option<f64> {
+        let (w, h) = self.viewport;
+        let (cw, ch) = self.container;
+        let (ci, cb) = if self.vertical { (ch, cw) } else { (cw, ch) };
+        Some(match u {
+            Unit::Em | Unit::Rem => self.font_size,
             Unit::Ex
             | Unit::Rex
             | Unit::Cap
@@ -556,8 +586,8 @@ fn resolve(v: &FeatureValue, t: RangeType, env: &Environment) -> Option<f64> {
             | Unit::Ch
             | Unit::Rch
             | Unit::Ic
-            | Unit::Ric => Some(x * env.font_size / 2.0),
-            Unit::Lh | Unit::Rlh => Some(x * env.font_size * 1.2),
+            | Unit::Ric => self.font_size / 2.0,
+            Unit::Lh | Unit::Rlh => self.font_size * 1.2,
             Unit::Vw
             | Unit::Svw
             | Unit::Lvw
@@ -565,7 +595,7 @@ fn resolve(v: &FeatureValue, t: RangeType, env: &Environment) -> Option<f64> {
             | Unit::Vi
             | Unit::Svi
             | Unit::Lvi
-            | Unit::Dvi => Some(x * env.width / 100.0),
+            | Unit::Dvi => w / 100.0,
             Unit::Vh
             | Unit::Svh
             | Unit::Lvh
@@ -573,23 +603,35 @@ fn resolve(v: &FeatureValue, t: RangeType, env: &Environment) -> Option<f64> {
             | Unit::Vb
             | Unit::Svb
             | Unit::Lvb
-            | Unit::Dvb => Some(x * env.height / 100.0),
-            Unit::Vmin | Unit::Svmin | Unit::Lvmin | Unit::Dvmin => {
-                Some(x * env.width.min(env.height) / 100.0)
-            }
-            Unit::Vmax | Unit::Svmax | Unit::Lvmax | Unit::Dvmax => {
-                Some(x * env.width.max(env.height) / 100.0)
-            }
-            u if u.kind() == Kind::Length => Some(x * u.to_canonical()?),
-            _ => None,
-        }
-    };
+            | Unit::Dvb => h / 100.0,
+            Unit::Vmin | Unit::Svmin | Unit::Lvmin | Unit::Dvmin => w.min(h) / 100.0,
+            Unit::Vmax | Unit::Svmax | Unit::Lvmax | Unit::Dvmax => w.max(h) / 100.0,
+            Unit::Cqw => cw / 100.0,
+            Unit::Cqh => ch / 100.0,
+            Unit::Cqi => ci / 100.0,
+            Unit::Cqb => cb / 100.0,
+            Unit::Cqmin => ci.min(cb) / 100.0,
+            Unit::Cqmax => ci.max(cb) / 100.0,
+            u if u.kind() == Kind::Length => u.to_canonical()?,
+            _ => return None,
+        })
+    }
+}
+
+/// A value in the feature's canonical unit: pixels, dppx, or a number.
+fn resolve(v: &FeatureValue, t: RangeType, lengths: &QueryLengths) -> Option<f64> {
+    let length = |x: f64, u: Unit| -> Option<f64> { Some(x * lengths.px(u)?) };
     match (t, v) {
         (RangeType::Length, FeatureValue::Number(n) | FeatureValue::Real(n)) if *n == 0.0 => {
             Some(0.0)
         }
         (RangeType::Length, FeatureValue::Dimension(x, u)) => length(*x, *u),
         (RangeType::Length, FeatureValue::Math(m)) if m.fits(Expect::Dimension(Kind::Length)) => {
+            // Each length in pixels first, so `calc(10px + 10em)` sums.
+            let m = m.map_leaves(&|l| match l {
+                Leaf::Dimension(x, u) => length(x, u).map_or(l, |p| Leaf::Dimension(p, Unit::Px)),
+                l => l,
+            });
             match m.leaf()? {
                 Leaf::Dimension(x, u) => length(x, u),
                 _ => None,
@@ -650,6 +692,11 @@ fn cmp(op: Comparison, a: f64, b: f64, t: RangeType) -> bool {
 impl Feature {
     /// `Some(true)`, `Some(false)`, or `None` for unknown.
     pub fn evaluate(&self, env: &Environment) -> Option<bool> {
+        self.evaluate_with(env, &QueryLengths::of(env))
+    }
+
+    /// [`Feature::evaluate`], with relative lengths relative to `lengths`.
+    pub fn evaluate_with(&self, env: &Environment, lengths: &QueryLengths) -> Option<bool> {
         match self {
             Feature::Boolean(name) => {
                 if RANGE.iter().any(|(n, _)| n == name) {
@@ -675,7 +722,7 @@ impl Feature {
                     },
                 };
                 if let Some((_, t)) = RANGE.iter().find(|(n, _)| *n == base) {
-                    let want = resolve(v, *t, env)?;
+                    let want = resolve(v, *t, lengths)?;
                     let op = prefix.unwrap_or(Comparison::Eq);
                     return Some(cmp(op, actual(base, env), want, *t));
                 }
@@ -715,10 +762,10 @@ impl Feature {
                 let mut ok = true;
                 if let Some((v, op)) = before {
                     // `v op name` is `name flip(op) v`.
-                    ok &= cmp(op.flip(), a, resolve(v, *t, env)?, *t);
+                    ok &= cmp(op.flip(), a, resolve(v, *t, lengths)?, *t);
                 }
                 if let Some((op, v)) = after {
-                    ok &= cmp(*op, a, resolve(v, *t, env)?, *t);
+                    ok &= cmp(*op, a, resolve(v, *t, lengths)?, *t);
                 }
                 Some(ok)
             }
