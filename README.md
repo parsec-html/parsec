@@ -152,7 +152,7 @@ assert_eq!(doc.text(hits[0]), "one");
   `cargo test` runs WPT's media query cases (1,370 of 1,370), its
   computed-value cases (11,287 of 12,041) and its static cascade and
   at-rule cases, `@scope`, `@container`, `@property` and
-  `@counter-style` among them (1,139 of 1,345);
+  `@counter-style` among them (1,141 of 1,345);
   [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade) on the
   wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:

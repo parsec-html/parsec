@@ -509,7 +509,7 @@ pub(crate) fn match_grammar<'a>(
     if !m.whole(g) {
         return None;
     }
-    Some(components(canonical(m.out)))
+    Some(components(canonical(m.out, false)))
 }
 
 /// Parses a declaration's value for its property.
