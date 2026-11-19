@@ -49,7 +49,9 @@ assert_eq!(doc.text(hits[0]), "one");
   you pass the page's URL, where Lexbor parses all four and never matches
   them.
 - **A tree you can edit**: create, insert, move and remove nodes, set and
-  rename attributes, then serialize as `innerHTML`, `outerHTML` or text.
+  rename attributes, then serialize as `innerHTML`, `outerHTML` or text,
+  pretty-printed without changing the tree, in the html5lib test format,
+  or with html5lib's serializer options (it passes their 229 tests).
 - **Bytes in, with the encoding found the way browsers find it.**
   `parsec_encoding::parse_bytes` checks for a byte order mark, then the
   `charset` you got from HTTP if you pass one, then the HTML Standard's
