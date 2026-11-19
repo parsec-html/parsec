@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 
-import { parse, parseFragment } from "parsec-html";
+import { ByteParser, parse, parseBytes, parseFragment } from "parsec-html";
 
 test("Node gets the build that loads itself", () => {
   const doc = parse("<ul><li class=hit>one<li>two</ul>");
@@ -105,4 +105,56 @@ test("the types ship with it", async () => {
   assert.match(types, /selectFirst\(selector: string\): Node \| undefined;/);
   assert.match(types, /xpath\(expr: string\): XPathResult;/);
   assert.match(types, /readonly span: Span \| undefined;/);
+  assert.match(types, /export function parseBytes\(bytes: Uint8Array \| number\[\], options\?: ByteParseOptions \| null\): Document;/);
+  assert.match(types, /export interface ByteParseOptions extends ParseOptions/);
+  assert.match(types, /feed\(chunk: Uint8Array \| number\[\]\): void;/);
+  assert.match(types, /readonly encodingConfidence: "certain" \| "tentative" \| undefined;/);
+});
+
+test("bytes, sniffed as a browser sniffs them", () => {
+  // 日本 in Shift_JIS, named by a <meta>.
+  const sjis = new Uint8Array([...new TextEncoder().encode("<meta charset=sjis><p>"), 0x93, 0xfa, 0x96, 0x7b]);
+  const doc = parseBytes(sjis);
+  assert.equal(doc.text, "日本");
+  assert.equal(doc.characterSet, "Shift_JIS");
+  assert.equal(doc.encodingConfidence, "certain");
+  const e9 = new Uint8Array([0x3c, 0x70, 0x3e, 0xc3, 0xa9]); // <p>é in UTF-8
+  assert.equal(parseBytes(e9).text, "Ã©");
+  assert.equal(parseBytes(e9).encodingConfidence, "tentative");
+  const utf8 = parseBytes(e9, { transportEncoding: "utf-8" });
+  assert.deepEqual([utf8.text, utf8.characterSet, utf8.encodingConfidence], ["é", "UTF-8", "certain"]);
+  assert.equal(parseBytes(sjis.slice(19), { defaultEncoding: "shift_jis" }).text, "日本");
+  // A label that names no encoding is passed over, as browsers do.
+  assert.equal(parseBytes(e9, { transportEncoding: "nope" }).characterSet, "windows-1252");
+  assert.throws(() => parseBytes(e9, { defaultEncoding: "nope" }), /defaultEncoding/);
+  assert.equal(parse("<p>").characterSet, "UTF-8");
+  assert.equal(parse("<p>").encodingConfidence, undefined);
+
+  const parser = new ByteParser({ transportEncoding: "shift_jis" });
+  for (const piece of [sjis.slice(0, 23), sjis.slice(23)]) parser.feed(piece);
+  const streamed = parser.finish();
+  assert.equal(streamed.text, "日本");
+  assert.throws(() => parser.feed(e9), /finished/);
+});
+
+test("spans for bytes are byte offsets into them", () => {
+  const enc = (s) => new TextEncoder().encode(s);
+  // <p>日本</p><b>x</b> in Shift_JIS: 4 bytes for the kanji, 6 decoded.
+  const page = new Uint8Array([...enc("<meta charset=shift_jis><p class=a>"), 0x93, 0xfa, 0x96, 0x7b, ...enc("</p>\n<b>x</b></i>")]);
+  const ascii = (s) => String.fromCharCode(...page.slice(s.start, s.end));
+  const whole = parseBytes(page, { spans: true, errors: true });
+  const parser = new ByteParser({ spans: true, errors: true });
+  for (let i = 0; i < page.length; i += 3) parser.feed(page.slice(i, i + 3));
+  for (const doc of [whole, parser.finish()]) {
+    const p = doc.selectFirst("p");
+    assert.equal(ascii(p.span), "<p class=a>");
+    assert.equal(ascii(p.endSpan), "</p>");
+    assert.deepEqual([...page.slice(p.firstChild.span.start, p.firstChild.span.end)], [0x93, 0xfa, 0x96, 0x7b]);
+    const b = doc.selectFirst("b").span;
+    assert.equal(ascii(b), "<b>");
+    assert.deepEqual([b.line, b.column], [2, 1]);
+    const stray = doc.errors.find((e) => e.code === "unexpected-end-tag");
+    assert.equal(ascii({ start: stray.offset, end: stray.offset + 4 }), "</i>");
+    assert.deepEqual([stray.line, stray.column], [2, 9]);
+  }
 });

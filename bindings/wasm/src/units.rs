@@ -2,11 +2,43 @@
 // Copyright 2026 James Conway
 
 //! Offsets in the caller's units. The core counts UTF-8 bytes into the
-//! text it parsed; JavaScript slices a string in UTF-16 units. `Counted`
-//! is bindings/python/src/units.rs's, which counts code points instead
-//! and also maps back, for `line_col`; nothing here takes an offset in.
+//! text it parsed; JavaScript slices a string in UTF-16 units, and a
+//! `Uint8Array` in bytes, in whatever encoding they were in. `Counted` is
+//! bindings/python/src/units.rs's, which counts code points instead and
+//! also maps back, for `line_col`; nothing here takes an offset in.
 
 use std::sync::OnceLock;
+
+use parsec_encoding::{Encoding, Offsets};
+
+/// How the core's offsets become the caller's, when they differ.
+pub enum Units {
+    /// UTF-16 indexes into the string that was parsed.
+    Utf16(Counted),
+    /// Byte offsets into the bytes that were parsed.
+    Bytes(Offsets),
+}
+
+impl Units {
+    /// For a string, or None when it's ASCII.
+    pub fn of_str(text: &str) -> Option<Units> {
+        (!text.is_ascii()).then(|| Units::Utf16(Counted::new(text, utf16)))
+    }
+
+    /// For bytes decoded from `encoding`, or None when the decoding left
+    /// every offset where it was.
+    pub fn of_bytes(bytes: &[u8], encoding: &'static Encoding) -> Option<Units> {
+        let offsets = Offsets::new(bytes, encoding);
+        (!offsets.is_identity()).then_some(Units::Bytes(offsets))
+    }
+
+    pub fn out(&self, offset: usize) -> usize {
+        match self {
+            Units::Utf16(c) => c.to_units(offset),
+            Units::Bytes(o) => o.to_source(offset),
+        }
+    }
+}
 
 const BLOCK: usize = 64;
 

@@ -16,8 +16,9 @@ use std::rc::Rc;
 
 use parsec::css::SelectorList;
 use parsec::{AttrNs, Kind, NodeId, Ns, Options};
+use parsec_encoding::{Confidence, Encoding};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
-use units::Counted;
+use units::Units;
 use wasm_bindgen::prelude::*;
 
 type Shared = Rc<Tree>;
@@ -27,9 +28,13 @@ type Shared = Rc<Tree>;
 struct Tree {
     doc: RefCell<parsec::Document>,
     index: RefCell<Option<Rc<Index>>>,
-    /// Turns the core's byte offsets into UTF-16 indexes of the input;
-    /// None when they're the same, for ASCII, or when nothing reads them.
-    units: Option<Counted>,
+    /// Turns the core's byte offsets into UTF-16 indexes of a string, or
+    /// byte offsets into bytes; None when they're the same (ASCII), or
+    /// when nothing reads them.
+    units: Option<Units>,
+    /// What bytes were decoded from, and how sure that is; None for a
+    /// string.
+    encoding: Option<(&'static Encoding, Confidence)>,
 }
 
 impl Tree {
@@ -45,7 +50,7 @@ impl Tree {
 
     /// A core offset as an index into the JavaScript string.
     fn out(&self, offset: usize) -> u32 {
-        self.units.as_ref().map_or(offset, |u| u.to_units(offset)) as u32
+        self.units.as_ref().map_or(offset, |u| u.out(offset)) as u32
     }
 
     fn index(&self) -> Rc<Index> {
@@ -65,7 +70,8 @@ impl Tree {
 }
 
 /// Where something was written: `start` to `end` as indexes into the
-/// string that was parsed, so `html.slice(start, end)` is its source, and
+/// string that was parsed, so `html.slice(start, end)` is its source (or
+/// byte offsets into the bytes, for `parseBytes` and `ByteParser`), and
 /// the `line` and `column` of `start`, both from 1, the column counting
 /// characters (code points, so an emoji is one).
 #[wasm_bindgen]
@@ -88,7 +94,8 @@ pub struct ParseError {
     /// one tree construction finds (`unexpected-end-tag`).
     #[wasm_bindgen(readonly, getter_with_clone)]
     pub code: String,
-    /// An index into the string that was parsed, as `Span` counts.
+    /// An index into the string that was parsed, or the bytes, as `Span`
+    /// counts.
     #[wasm_bindgen(readonly)]
     pub offset: u32,
     #[wasm_bindgen(readonly)]
@@ -124,6 +131,22 @@ export interface ParseOptions {
 }
 
 /**
+ * How to parse bytes. Their encoding is the one a browser would pick: a
+ * byte order mark's, else `transportEncoding`, else a `<meta>`'s, else
+ * `defaultEncoding`. Spans and error offsets are byte offsets into the
+ * bytes.
+ */
+export interface ByteParseOptions extends ParseOptions {
+    /** The encoding the transport layer gave, such as the `charset` of an
+     * HTTP `Content-Type`: any label the Encoding Standard knows. One it
+     * doesn't is passed over, as browsers do. */
+    transportEncoding?: string;
+    /** The encoding when nothing names one: `"windows-1252"` unless
+     * given, as in browsers set to English. */
+    defaultEncoding?: string;
+}
+
+/**
  * What `xpath()` gives: an array for a node-set (attributes as their
  * values), or a string, a number or a boolean.
  */
@@ -143,6 +166,14 @@ extern "C" {
     fn spans(this: &ParseOptions) -> Option<bool>;
     #[wasm_bindgen(method, getter)]
     fn errors(this: &ParseOptions) -> Option<bool>;
+
+    /// ParseOptions and the encoding's.
+    #[wasm_bindgen(extends = ParseOptions, typescript_type = "ByteParseOptions")]
+    pub type ByteParseOptions;
+    #[wasm_bindgen(method, getter, js_name = transportEncoding)]
+    fn transport_encoding(this: &ByteParseOptions) -> Option<String>;
+    #[wasm_bindgen(method, getter, js_name = defaultEncoding)]
+    fn default_encoding(this: &ByteParseOptions) -> Option<String>;
 }
 
 /// A parsed document or fragment.
@@ -163,12 +194,8 @@ fn compile(selector: &str) -> Result<SelectorList, JsError> {
     SelectorList::parse(selector).map_err(|e| JsError::new(&format!("{selector:?}: {e}")))
 }
 
-fn run(
-    html: &str,
-    options: Option<&ParseOptions>,
-    context: Option<&str>,
-) -> Result<Document, JsError> {
-    let parse = Options {
+fn options(options: Option<&ParseOptions>) -> Options {
+    Options {
         scripting: options.and_then(ParseOptions::scripting).unwrap_or(false),
         budget: None,
         max_depth: options
@@ -176,7 +203,30 @@ fn run(
             .map(|d| d as usize),
         spans: options.and_then(ParseOptions::spans).unwrap_or(false),
         errors: options.and_then(ParseOptions::errors).unwrap_or(false),
-    };
+    }
+}
+
+fn document(
+    doc: parsec::Document,
+    units: Option<Units>,
+    encoding: Option<(&'static Encoding, Confidence)>,
+) -> Document {
+    Document {
+        doc: Rc::new(Tree {
+            doc: RefCell::new(doc),
+            index: RefCell::new(None),
+            units,
+            encoding,
+        }),
+    }
+}
+
+fn run(
+    html: &str,
+    options: Option<&ParseOptions>,
+    context: Option<&str>,
+) -> Result<Document, JsError> {
+    let parse = self::options(options);
     let doc = match context {
         Some(context) => {
             let context = if context.is_empty() { "div" } else { context };
@@ -185,15 +235,106 @@ fn run(
         None => parsec::parse_with(html, parse),
     }
     .map_err(|e| JsError::new(&e.to_string()))?;
-    let units = ((parse.spans || parse.errors) && !html.is_ascii())
-        .then(|| Counted::new(html, units::utf16));
-    Ok(Document {
-        doc: Rc::new(Tree {
-            doc: RefCell::new(doc),
-            index: RefCell::new(None),
-            units,
-        }),
+    let units = (parse.spans || parse.errors)
+        .then(|| Units::of_str(html))
+        .flatten();
+    Ok(document(doc, units, None))
+}
+
+fn label(what: &str, label: Option<String>) -> Result<Option<&'static Encoding>, JsError> {
+    label
+        .map(|l| {
+            Encoding::for_label(l.as_bytes()).ok_or_else(|| {
+                JsError::new(&format!(
+                    "{what}: {l:?} isn't an encoding label the Encoding Standard knows"
+                ))
+            })
+        })
+        .transpose()
+}
+
+fn byte_options(options: Option<&ByteParseOptions>) -> Result<parsec_encoding::Options, JsError> {
+    let base = options.map(|o| o.as_ref());
+    Ok(parsec_encoding::Options {
+        html: self::options(base),
+        // As the HTML Standard has it, a transport layer's label that names
+        // no encoding is passed over: it's usually a server's typo.
+        transport: options
+            .and_then(ByteParseOptions::transport_encoding)
+            .and_then(|l| Encoding::for_label(l.as_bytes())),
+        fallback: label(
+            "defaultEncoding",
+            options.and_then(ByteParseOptions::default_encoding),
+        )?
+        .unwrap_or(parsec_encoding::Options::default().fallback),
     })
+}
+
+/// A document from bytes, with offsets into `bytes` if it keeps any.
+fn from_bytes(parsed: parsec_encoding::Parsed, bytes: Option<&[u8]>) -> Document {
+    let units = bytes.and_then(|b| Units::of_bytes(b, parsed.encoding));
+    document(
+        parsed.document,
+        units,
+        Some((parsed.encoding, parsed.confidence)),
+    )
+}
+
+/// Parses a whole document given as bytes, decoding them first as a
+/// browser would.
+#[wasm_bindgen(js_name = parseBytes)]
+pub fn parse_bytes(bytes: &[u8], options: Option<ByteParseOptions>) -> Result<Document, JsError> {
+    let options = byte_options(options.as_ref())?;
+    let keep = options.html.spans || options.html.errors;
+    let parsed =
+        parsec_encoding::parse_bytes(bytes, options).map_err(|e| JsError::new(&e.to_string()))?;
+    Ok(from_bytes(parsed, keep.then_some(bytes)))
+}
+
+/// Parses a document given as bytes a piece at a time, as a browser does
+/// while it downloads one: `feed()` each piece as it comes, then
+/// `finish()` for the document `parseBytes` gives for all of them.
+#[wasm_bindgen]
+pub struct ByteParser {
+    /// None once finished.
+    parser: Option<parsec_encoding::ByteParser>,
+    /// Every byte, for the spans' offsets, when they're kept.
+    bytes: Option<Vec<u8>>,
+}
+
+#[wasm_bindgen]
+impl ByteParser {
+    #[wasm_bindgen(constructor)]
+    pub fn new(options: Option<ByteParseOptions>) -> Result<ByteParser, JsError> {
+        let options = byte_options(options.as_ref())?;
+        let keep = options.html.spans || options.html.errors;
+        Ok(ByteParser {
+            parser: Some(parsec_encoding::ByteParser::new(options)),
+            bytes: keep.then(Vec::new),
+        })
+    }
+
+    /// The next piece of the input.
+    pub fn feed(&mut self, chunk: &[u8]) -> Result<(), JsError> {
+        let parser = self.parser.as_mut().ok_or_else(finished)?;
+        parser.feed(chunk);
+        if let Some(kept) = &mut self.bytes {
+            kept.extend_from_slice(chunk);
+        }
+        Ok(())
+    }
+
+    /// The end of the input: the document. A parser finishes once.
+    pub fn finish(&mut self) -> Result<Document, JsError> {
+        let parser = self.parser.take().ok_or_else(finished)?;
+        let parsed = parser.finish().map_err(|e| JsError::new(&e.to_string()))?;
+        let bytes = self.bytes.take();
+        Ok(from_bytes(parsed, bytes.as_deref()))
+    }
+}
+
+fn finished() -> JsError {
+    JsError::new("the ByteParser has finished")
 }
 
 /// Parses a whole document, as a browser does.
@@ -297,6 +438,30 @@ impl Document {
     #[wasm_bindgen(getter)]
     pub fn text(&self) -> String {
         self.doc.borrow().text(0)
+    }
+
+    /// The encoding the document was decoded from, by the Encoding
+    /// Standard's name ("UTF-8", "Shift_JIS", "windows-1252"), as the
+    /// DOM's `document.characterSet`: "UTF-8" for a string.
+    #[wasm_bindgen(getter, js_name = characterSet)]
+    pub fn character_set(&self) -> String {
+        self.doc.encoding.map_or("UTF-8", |(e, _)| e.name()).into()
+    }
+
+    /// `"certain"` when a byte order mark, `transportEncoding` or a
+    /// `<meta>` the parser met decided the encoding, `"tentative"` when
+    /// it's from the first 1,024 bytes' `<meta>` alone or
+    /// `defaultEncoding`, as the HTML Standard calls them; undefined for a
+    /// string.
+    #[wasm_bindgen(getter, js_name = encodingConfidence, unchecked_return_type = "\"certain\" | \"tentative\" | undefined")]
+    pub fn encoding_confidence(&self) -> Option<String> {
+        self.doc.encoding.map(|(_, c)| {
+            match c {
+                Confidence::Certain => "certain",
+                Confidence::Tentative => "tentative",
+            }
+            .into()
+        })
     }
 
     /// The parse errors, in source order: empty unless parsed with

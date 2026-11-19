@@ -4,7 +4,7 @@
 // The exports as JavaScript calls them, run in Node by
 // `wasm-pack test --node`; browser.rs runs the same in a browser.
 
-use parsec_html_wasm::{parse, parse_fragment};
+use parsec_html_wasm::{ByteParser, parse, parse_bytes, parse_fragment};
 use wasm_bindgen_test::wasm_bindgen_test;
 
 const PAGE: &str = "<!doctype html><title>T</title>\
@@ -156,4 +156,82 @@ fn no_spans_unless_asked() {
     assert!(p.span().is_none() && p.end_span().is_none());
     assert!(p.attribute_span("a").is_none());
     assert!(doc.errors().is_empty());
+}
+
+#[wasm_bindgen_test]
+fn bytes_are_sniffed() {
+    // 日本 in Shift_JIS, named by a <meta>.
+    let doc = parse_bytes(b"<meta charset=sjis><p>\x93\xfa\x96\x7b", None).unwrap();
+    assert_eq!(doc.text(), "日本");
+    assert_eq!(doc.character_set(), "Shift_JIS");
+    assert_eq!(doc.encoding_confidence().as_deref(), Some("certain"));
+    let plain = parse_bytes(b"<p>caf\xe9", None).unwrap();
+    assert_eq!(plain.text(), "café");
+    assert_eq!(plain.character_set(), "windows-1252");
+    assert_eq!(plain.encoding_confidence().as_deref(), Some("tentative"));
+    let string = parse("<p>x", None).unwrap();
+    assert_eq!(string.character_set(), "UTF-8");
+    assert_eq!(string.encoding_confidence(), None);
+}
+
+#[wasm_bindgen_test]
+fn bytes_in_pieces() {
+    let page = b"<!doctype html><meta charset=sjis><p>\x93\xfa\x96\x7b</p>";
+    let mut parser = ByteParser::new(None).unwrap();
+    // Cut inside the meta and inside the first kanji.
+    for piece in [&page[..20], &page[20..39], &page[39..]] {
+        parser.feed(piece).unwrap();
+    }
+    let doc = parser.finish().unwrap();
+    assert_eq!(doc.html(), parse_bytes(page, None).unwrap().html());
+    assert_eq!(doc.character_set(), "Shift_JIS");
+    assert!(parser.feed(b"x").is_err());
+    assert!(parser.finish().is_err());
+}
+
+/// The html5lib-tests `encoding/` cases, whole and in pieces of 1 to 7
+/// bytes. The scripted one needs `document.write`, so it isn't here.
+#[wasm_bindgen_test]
+fn html5lib_encoding_cases() {
+    const DIR: &str = "../../crates/parsec/tests/html5lib-tests/encoding/";
+    let files: [&[u8]; 3] = [
+        include_bytes!("../../../crates/parsec/tests/html5lib-tests/encoding/tests1.dat"),
+        include_bytes!("../../../crates/parsec/tests/html5lib-tests/encoding/tests2.dat"),
+        include_bytes!("../../../crates/parsec/tests/html5lib-tests/encoding/test-yahoo-jp.dat"),
+    ];
+    let mut cases = Vec::new();
+    for file in files {
+        let mut rest = file;
+        while let Some(at) = find(rest, b"#data\n") {
+            rest = &rest[at + 6..];
+            let end = find(rest, b"\n#encoding\n").unwrap();
+            let label = rest[end + 11..].split(|&b| b == b'\n').next().unwrap();
+            cases.push((&rest[..end], std::str::from_utf8(label).unwrap()));
+            rest = &rest[end..];
+        }
+    }
+    assert_eq!(cases.len(), 82, "cases in {DIR}");
+    for (i, (page, want)) in cases.into_iter().enumerate() {
+        let whole = parse_bytes(page, None).unwrap().character_set();
+        let mut parser = ByteParser::new(None).unwrap();
+        let (mut at, mut size) = (0, 1 + i % 7);
+        while at < page.len() {
+            parser.feed(&page[at..(at + size).min(page.len())]).unwrap();
+            at += size;
+            size = 1 + (size + i) % 7;
+        }
+        let streamed = parser.finish().unwrap().character_set();
+        assert!(
+            whole.eq_ignore_ascii_case(want),
+            "case {i}: {whole}, want {want}"
+        );
+        assert!(
+            streamed.eq_ignore_ascii_case(want),
+            "case {i}: {streamed} streamed, want {want}"
+        );
+    }
+}
+
+fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
