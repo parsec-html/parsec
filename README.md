@@ -125,7 +125,9 @@ assert_eq!(doc.text(hits[0]), "one");
   nodes are numbers that can't dangle, every call is NULL-safe and returns
   an error code instead of crashing, and documents can be read from many
   threads at once. XPath, source positions and parse errors are there
-  too. Each release comes with a package for Linux, macOS and
+  too, and bytes in any encoding: `parsec_parse_bytes` sniffs it as a
+  browser does, and `parsec_byte_parser_feed` takes the bytes as they
+  arrive. Each release comes with a package for Linux, macOS and
   Windows, on x86-64 and ARM; Lexbor's own packages are x86-64 only. The
   C test runs on all three in CI, and under AddressSanitizer on Linux.
 - **One dependency** (`memchr`) and one `unsafe` block in the parser, with
@@ -211,14 +213,22 @@ assert_eq!(doc.text(hits[0]), "one");
   edits, so moving over is mostly a change of import. One parsed page can
   be shared by many threads, and on free-threaded Python the GIL stays
   off. It has what selectolax lacks: XPath 1.0 that answers as lxml's
-  does, positions on nodes and attributes, and parse errors. From
-  Python, it parses the 13 pages below in 66 ms to selectolax's 106, and
+  does, positions on nodes and attributes, and parse errors. Give it
+  `bytes` and it finds their encoding as a browser would (pass the HTTP
+  `charset` as `transport_encoding=`), tells you which in
+  `parser.encoding`, and keeps offsets in your bytes; `StreamParser`
+  does the same as the bytes arrive. That's a change: until now `bytes`
+  were read as UTF-8, so a UTF-8 page that doesn't say so now decodes as
+  windows-1252, as in a browser, unless you pass
+  `transport_encoding="utf-8"`. From Python, it parses the 13 pages below in 66 ms to selectolax's 106, and
   runs the 32 selectors in 283 ms to its 781.
 - **WebAssembly for JavaScript** in `bindings/wasm`, the npm package
   `parsec-html` with TypeScript types: `parse`, `parseFragment`,
   `select`, `selectFirst`, `xpath`, the tree, attributes, `textContent`,
   `innerHTML` and `outerHTML`, spans and parse errors, in Node and in
-  browsers. It's 869 KB, 361 KB gzipped.
+  browsers. `parseBytes` and `ByteParser` take a `Uint8Array`, whole or in
+  pieces, and find its encoding as a browser does. It's 1,070 KB, 504 KB
+  gzipped; the decoders' tables are 199 KB of that, 141 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
@@ -318,9 +328,9 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
-| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions and parse errors included |
-| Python | through selectolax | yes, free-threaded too, with XPath, positions and parse errors |
-| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans and parse errors |
+| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
+| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
+| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node

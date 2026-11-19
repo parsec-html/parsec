@@ -83,6 +83,10 @@ Every CI run publishes the conformance counts in its summary.
   wheels go to PyPI with 0.1.0.
 - Done: WebAssembly for npm, in `bindings/wasm`. It and the C API have
   XPath, source positions and parse errors too.
+- Done: bytes in, for Python, WebAssembly and C, with the encoding
+  sniffed as `parse_bytes` sniffs it, whole or streamed, and positions
+  as offsets into those bytes in any encoding
+  ([#116](https://github.com/parsec-html/parsec/issues/116)).
 
 ## M5. Encoding
 
