@@ -16,8 +16,8 @@ If you use Lexbor today, directly or through selectolax, PHP's `Dom\HTMLDocument
 nokolexbor or lazy_html, Parsec is being built for you. Lexbor is fast and
 follows the spec. What we want to add is everything people keep asking it
 for: positions on nodes, a worst case that stays linear, documents you can
-share across threads, XPath, selectors that match everything a static page
-can decide, and no use-after-free bugs, because the parser is memory-safe
+share across threads, XPath, selectors for everything a static page can
+decide, and no use-after-free bugs, because the parser is memory-safe
 Rust.
 
 Parsec 0.1.0 is out, on crates.io, PyPI and npm as `parsec-html`. This
@@ -128,19 +128,25 @@ assert_eq!(doc.text(hits[0]), "one");
   instead of inside it, as in Chromium.
   The slow-input cases in `examples/hostile.rs`, like thousands of nested
   formatting elements (the pattern that runs Lexbor out of memory), take
-  time in proportion to their length.
+  time in proportion to their length. Not every pattern does yet: a tag
+  with tens of thousands of different attributes, and some end tags
+  under very deep nesting, still take time that grows with the square of
+  their length.
 - **A C API**: `libparsec`, shared and static, with a `parsec.h` that
   cbindgen generates, and pkg-config and CMake files. Handles are opaque,
-  nodes are numbers that can't dangle, every call is NULL-safe and returns
-  an error code instead of crashing, and documents can be read from many
-  threads at once. XPath, source positions and parse errors are there
+  nodes are numbers that can't dangle, every call is NULL-safe, and a bad
+  argument or a bug in Parsec comes back as an error code rather than a
+  crash. The exception is the stack: until a fix lands, tens of thousands
+  of nested `<template>`s overflow it, and that ends the process. Documents
+  can be read from many threads at once. XPath, source positions and parse errors are there
   too, and bytes in any encoding: `parsec_parse_bytes` sniffs it as a
   browser does, and `parsec_byte_parser_feed` takes the bytes as they
   arrive. Each release comes with a package for Linux, macOS and
   Windows, on x86-64 and ARM; Lexbor's own packages are x86-64 only. The
   C test runs on all three in CI, and under AddressSanitizer on Linux.
-- **One dependency** (`memchr`) and one `unsafe` block in the parser, with
-  its reasoning written beside it. The C API's `unsafe` is all at the
+- **Two dependencies**, `memchr` and `url` (for `:local-link` and
+  `:target`, and 34 crates in all with what `url` brings), and one
+  `unsafe` block in the parser, with its reasoning written beside it. The C API's `unsafe` is all at the
   boundary, where C's pointers come in.
 - **WHATWG URL**, in `crates/parsec-url`: every getter and setter the
   `URL` interface has, `URLSearchParams`, IDNA, Punycode and Unicode
@@ -184,7 +190,8 @@ assert_eq!(doc.text(hits[0]), "one");
   css-parsing-tests' 8,061 color cases now run: 4,803 pass, and each of
   the other 3,258 is where CSS Color has changed since the suite was
   written, which the runner checks case by case. Of web-platform-tests'
-  14,893 static CSS parsing cases, 14,758 pass; the wiki's
+  15,022 static CSS parsing cases, 14,758 pass, 135 fail and 129 are
+  skipped, as they need computed values, layout or a DOM; the wiki's
   [CSS values](https://github.com/parsec-html/parsec/wiki/CSS-values)
   page breaks down the other 135.
 - **The cascade and computed values**, in `parsec::stylesheet::cascade`: style a
@@ -211,10 +218,13 @@ assert_eq!(doc.text(hits[0]), "one");
   (`parsec::stylesheet::rules`), whichever wins for each name. Lexbor has no media
   query evaluation and no computed values
   ([discussion #265](https://github.com/lexbor/lexbor/discussions/265)).
-  `cargo test` runs WPT's media query cases (1,370 of 1,370), its
-  computed-value cases (11,356 of 12,111) and its static cascade,
-  at-rule and pseudo-element cases, `@scope`, `@container`, `@property`,
-  `@counter-style` and css-pseudo among them (1,343 of 1,474);
+  `cargo test` runs WPT's media query cases (1,370 of 1,384, with 14
+  skipped that probe the browser more than once in a test), its
+  computed-value cases (11,356 of 12,466, with 355 skipped that change
+  the page from script or need layout) and its static cascade, at-rule
+  and pseudo-element cases, `@scope`, `@container`, `@property`,
+  `@counter-style` and css-pseudo among them (1,343 of 1,673, with 199
+  skipped that change the page from script);
   [Cascade](https://github.com/parsec-html/parsec/wiki/Cascade) on the
   wiki has what fails and why.
 - **A Python package** in `bindings/python`, with selectolax's API:
@@ -236,8 +246,8 @@ assert_eq!(doc.text(hits[0]), "one");
   `select`, `selectFirst`, `xpath`, the tree, attributes, `textContent`,
   `innerHTML` and `outerHTML`, spans and parse errors, in Node and in
   browsers. `parseBytes` and `ByteParser` take a `Uint8Array`, whole or in
-  pieces, and find its encoding as a browser does. It's 1,071 KB, 504 KB
-  gzipped; the decoders' tables are 201 KB of that, 142 KB gzipped.
+  pieces, and find its encoding as a browser does. It's 1.1 MB, 526 KB
+  gzipped; the decoders' tables are about 201 KB of that, 142 KB gzipped.
 
 Speed, timed against Lexbor's own C in one process: on 13 real pages,
 24 MB of Wikipedia, MDN, GitHub, the BBC, Stack Overflow, the New York
