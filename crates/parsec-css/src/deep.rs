@@ -13,14 +13,16 @@
 //! the spec's "put back", with a position instead of a list.
 //!
 //! The open blocks are a stack, as in [`Values`], so nesting doesn't
-//! recurse; their items share one buffer, so each block's list is
+//! recurse, and they count against the same [`MAX_NESTING`](crate::MAX_NESTING) as the values
+//! in them; their items share one buffer, so each block's list is
 //! allocated once, at its size, when it closes.
 
 use std::borrow::Cow;
 
 use crate::parser::{
     AtRule, Block, ComponentValue, Declaration, ErrorKind, Item, ParseError, QualifiedRule, Rule,
-    Stylesheet, Values, looks_like_custom_property, take_tail, unicode_range_tokens, value_plan,
+    Seen, Stylesheet, Values, Watch, looks_like_custom_property, take_tail, unicode_range_tokens,
+    value_plan,
 };
 use crate::tokenizer::{Span, Token, Tokenizer};
 
@@ -120,6 +122,7 @@ impl<'a> Deep<'a> {
     /// The innermost open block ends at `end`, and its rule with it.
     fn close(&mut self, end: usize) {
         let open = self.open.pop().unwrap();
+        self.values.limit += 1;
         let block = Block {
             items: take_tail(&mut self.items, open.at),
             span: Span::new(open.start, end),
@@ -145,6 +148,15 @@ impl<'a> Deep<'a> {
     }
 
     fn open_block(&mut self, head: Head<'a>, brace: Span) {
+        if self.values.limit <= 1 {
+            // Too deep: the rule goes, block and all.
+            let start = match head {
+                Head::At { start, .. } | Head::Qualified { start, .. } => start,
+            };
+            let end = self.values.whole(Token::LeftBrace, brace).span().end;
+            return self.error(ErrorKind::InvalidRule, start, end);
+        }
+        self.values.limit -= 1;
         self.open.push(Open {
             head,
             start: brace.start,
@@ -254,6 +266,10 @@ impl<'a> Deep<'a> {
             }
         };
         self.scratch.clear();
+        let mut watch = match name.starts_with("--") {
+            true => Watch::Custom,
+            false => Watch::Value(Seen::Nothing),
+        };
         while let Some((token, span)) = self.next_token() {
             match token {
                 Token::Semicolon => break,
@@ -263,6 +279,10 @@ impl<'a> Deep<'a> {
                 }
                 token => {
                     let value = self.values.whole(token, span);
+                    if !watch.see(&value) {
+                        self.scratch.clear();
+                        return false;
+                    }
                     self.scratch.push(value);
                 }
             }
@@ -290,12 +310,14 @@ impl<'a> Deep<'a> {
 }
 
 /// Parse a stylesheet with every rule's `{}` block parsed too, as
-/// declarations and nested rules, to any depth: what
+/// declarations and nested rules, down to
+/// [`MAX_NESTING`](crate::MAX_NESTING): what
 /// [`parse_stylesheet`](crate::parse_stylesheet) and
 /// [`SimpleBlock::contents`](crate::SimpleBlock::contents) on each block
 /// make, in one pass and
 /// about 70% of the time. The errors are all in the
-/// stylesheet's list, in the order they were found.
+/// stylesheet's list, in the order they were found; a rule dropped for
+/// opening deeper than that is an [`ErrorKind::InvalidRule`].
 ///
 /// ```
 /// use parsec_css::{Item, Rule};
@@ -328,8 +350,23 @@ mod tests {
         let css = format!("{}color: red", "a{".repeat(300_000));
         let sheet = parse_stylesheet_deep(&css);
         assert_eq!(sheet.rules.len(), 1);
+        // Rules past MAX_NESTING go, with what's in them.
+        let mut depth = 0;
+        let mut rule = &sheet.rules[0];
+        while let Rule::Qualified(q) = rule {
+            depth += 1;
+            match q.block.items.first() {
+                Some(Item::Rule(r)) => rule = r,
+                _ => break,
+            }
+        }
+        assert_eq!(depth, crate::MAX_NESTING - 1);
+        assert_eq!(sheet.errors.len(), 1);
         let written = sheet.to_string();
-        assert!(written.ends_with(&"}".repeat(300_000)));
+        assert!(written.ends_with(&"}".repeat(crate::MAX_NESTING - 1)));
+        assert!(!written.contains("color"));
+        // Kept this shallow, a derived clone or comparison recurses safely.
+        assert!(sheet.clone() == sheet);
         drop(sheet);
     }
 

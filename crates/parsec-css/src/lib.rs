@@ -49,7 +49,7 @@ pub use encoding_rs::Encoding;
 pub use microsyntax::{UnicodeRange, anb, parse_anb, parse_unicode_ranges, serialize_anb};
 pub use parser::{
     AtRule, Block, BlockContents, Bracket, ComponentValue, Declaration, ErrorKind, Function, Item,
-    ParseError, QualifiedRule, Rule, SimpleBlock, Stylesheet, parse_block_contents,
+    MAX_NESTING, ParseError, QualifiedRule, Rule, SimpleBlock, Stylesheet, parse_block_contents,
     parse_comma_separated, parse_component_value, parse_component_values, parse_declaration,
     parse_declaration_list, parse_rule, parse_rule_list, parse_stylesheet,
     parse_unicode_range_value,
