@@ -1186,7 +1186,7 @@ struct Collect<'c, 's> {
 }
 
 /// How deep rules may nest for the cascade to see them.
-const MAX_RULE_DEPTH: usize = 256;
+const MAX_RULE_DEPTH: usize = 128;
 
 /// One stylesheet to collect: its text, where it's from, and the layer
 /// an `@import` put it in; or, with no text, layers to name first.

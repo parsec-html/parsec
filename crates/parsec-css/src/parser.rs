@@ -331,7 +331,7 @@ pub(crate) struct Values<'a> {
 
 /// How deep functions, blocks and rules may nest, together. One that
 /// would open deeper is dropped with everything in it.
-pub const MAX_NESTING: usize = 512;
+pub const MAX_NESTING: usize = 256;
 
 impl<'a> Values<'a> {
     pub(crate) fn new(tokens: Tokenizer<'a>) -> Values<'a> {
