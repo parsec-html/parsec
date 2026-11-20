@@ -336,14 +336,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parsec-html"
-version = "0.1.0"
-dependencies = [
- "memchr",
- "url",
-]
-
-[[package]]
 name = "parsec-html-bench"
 version = "0.0.0"
 dependencies = [
@@ -352,7 +344,7 @@ dependencies = [
  "cssparser",
  "html5ever",
  "markup5ever_rcdom",
- "parsec-html",
+ "parsec-html-core",
  "parsec-html-css",
  "parsec-html-encoding",
  "parsec-url",
@@ -360,11 +352,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-html-core"
+version = "0.1.0"
+dependencies = [
+ "memchr",
+ "url",
+]
+
+[[package]]
 name = "parsec-html-css"
 version = "0.1.0"
 dependencies = [
  "encoding_rs",
- "parsec-html",
+ "parsec-html-core",
 ]
 
 [[package]]
@@ -372,7 +372,7 @@ name = "parsec-html-encoding"
 version = "0.1.0"
 dependencies = [
  "encoding_rs",
- "parsec-html",
+ "parsec-html-core",
 ]
 
 [[package]]

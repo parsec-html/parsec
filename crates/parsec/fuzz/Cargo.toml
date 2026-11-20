@@ -10,7 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-parsec-html = { path = ".." }
+parsec-html-core = { path = ".." }
 
 [[bin]]
 name = "parse"

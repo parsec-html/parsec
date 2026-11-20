@@ -19,5 +19,5 @@ doctest = false
 # Renamed, since this crate's own library is called parsec and its
 # XPath handle parsec_xpath.
 encoding = { package = "parsec-html-encoding", path = "../parsec-encoding" }
-html = { package = "parsec-html", path = "../parsec" }
+html = { package = "parsec-html-core", path = "../parsec" }
 xpath = { package = "parsec-xpath", path = "../parsec-xpath" }
