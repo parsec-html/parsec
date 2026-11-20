@@ -451,6 +451,106 @@ static void positions(void) {
     parsec_document_free(doc);
 }
 
+/* Text that isn't UTF-8 is read with U+FFFD for the bad bytes, which
+ * take more room than they did; spans and errors still index the bytes
+ * that were passed in. */
+static void positions_in_bytes_that_arent_utf8(void) {
+    const char html[] = "\xff\xff\xff\xff<b x=1>t</b></p>";
+    size_t len = sizeof html - 1, start = 0, end = 0, line = 0, column = 0;
+    parsec_document *doc = NULL;
+    CHECK(parsec_parse(html, len, PARSEC_SPANS | PARSEC_ERRORS, &doc) == PARSEC_OK);
+    parsec_selector *sel = compile("b");
+    parsec_node b = parsec_select_first(doc, sel, parsec_root());
+    CHECK(parsec_node_span(doc, b, &start, &end) && start == 4 && end == 11);
+    CHECK(memcmp(html + start, "<b x=1>", 7) == 0);
+    CHECK(parsec_attr_span(doc, b, 0, &start, &end) && start == 7 && end == 10);
+    CHECK(parsec_end_span(doc, b, &start, &end) && start == 12 && end == 16);
+    CHECK(parsec_errors_count(doc) > 0);
+    for (size_t i = 0; i < parsec_errors_count(doc); i++) {
+        parsec_syntax_error e;
+        CHECK(parsec_errors_get(doc, i, &e) == PARSEC_OK && e.offset <= len);
+    }
+    /* The stray </p> is the last error, at its own bytes. */
+    parsec_syntax_error last;
+    CHECK(parsec_errors_get(doc, parsec_errors_count(doc) - 1, &last) == PARSEC_OK);
+    CHECK(last.offset == 16 && last.line == 1);
+    CHECK(parsec_line_col(doc, 4, &line, &column) == PARSEC_OK && column == 5);
+    /* An offset past the end is past the end, not an overflow. */
+    CHECK(parsec_line_col(doc, (size_t)-1, &line, &column) == PARSEC_OK);
+    parsec_document_free(doc);
+
+    /* A fragment keeps a byte order mark as text, and its bytes count. */
+    const char frag[] = "\xef\xbb\xbf\xfe<i>x</i>";
+    CHECK(parsec_parse_fragment(frag, sizeof frag - 1, PARSEC_NS_HTML, "div", 3, PARSEC_SPANS,
+                                &doc) == PARSEC_OK);
+    parsec_selector *i = compile("i");
+    CHECK(parsec_node_span(doc, parsec_select_first(doc, i, parsec_root()), &start, &end));
+    CHECK(start == 4 && end == 7);
+    parsec_selector_free(i);
+    parsec_document_free(doc);
+
+    /* And a document drops it, but its bytes still count. */
+    const char page[] = "\xef\xbb\xbf\xfe<b>x</b>";
+    CHECK(parsec_parse(page, sizeof page - 1, PARSEC_SPANS, &doc) == PARSEC_OK);
+    CHECK(parsec_node_span(doc, parsec_select_first(doc, sel, parsec_root()), &start, &end));
+    CHECK(start == 4 && end == 7);
+    parsec_document_free(doc);
+
+    /* So does a page decoded from bytes. */
+    const char *enc = NULL;
+    CHECK(parsec_parse_bytes(page, sizeof page - 1, NULL, 0, PARSEC_SPANS, &doc, &enc) == PARSEC_OK);
+    CHECK(parsec_line_col(doc, (size_t)-1, &line, &column) == PARSEC_OK);
+    parsec_selector_free(sel);
+    parsec_document_free(doc);
+}
+
+struct in_callback {
+    parsec_document *doc;
+    int calls;
+    parsec_status edit;
+    parsec_node created;
+    int free_it;
+};
+
+static int edit_from_callback(parsec_node node, void *ctx) {
+    struct in_callback *c = ctx;
+    c->calls++;
+    c->edit = parsec_remove(c->doc, node);
+    c->created = parsec_create_text(c->doc, "x", 1);
+    size_t len = 0;
+    /* Reading is fine. */
+    CHECK(is(parsec_node_name(c->doc, node, &len), &len, "p"));
+    if (c->free_it) {
+        parsec_document_free(c->doc);
+        return 1;
+    }
+    return 0;
+}
+
+static void select_callbacks_cant_edit(void) {
+    const char *html = "<p>a<p>b";
+    parsec_document *doc = NULL;
+    CHECK(parsec_parse(html, strlen(html), 0, &doc) == PARSEC_OK);
+    parsec_selector *p = compile("p");
+    struct in_callback c = {doc, 0, PARSEC_OK, 0, 0};
+    CHECK(parsec_select(doc, p, parsec_root(), edit_from_callback, &c) == PARSEC_OK);
+    CHECK(c.calls == 2 && c.edit == PARSEC_ERR_BUSY && c.created == PARSEC_NO_NODE);
+    /* Once it's returned, edits work again. */
+    parsec_node first = parsec_select_first(doc, p, parsec_root());
+    CHECK(parsec_remove(doc, first) == PARSEC_OK);
+    /* Freed from the callback, it's freed when parsec_select returns:
+     * under the sanitizers, a use after free or a leak fails here. */
+    c = (struct in_callback){doc, 0, PARSEC_OK, 0, 1};
+    CHECK(parsec_select(doc, p, parsec_root(), edit_from_callback, &c) == PARSEC_OK);
+    CHECK(c.calls == 1);
+    CHECK(strcmp(parsec_status_message(PARSEC_ERR_BUSY), "unknown status") != 0);
+    parsec_selector_free(p);
+}
+
+#if PARSEC_VERSION_MAJOR != 0 || !defined(PARSEC_VERSION_MINOR) || !defined(PARSEC_VERSION_PATCH)
+#error "parsec.h should define PARSEC_VERSION_MAJOR, _MINOR and _PATCH"
+#endif
+
 static void syntax_errors(void) {
     const char *html = "<p>a\n</b>";
     parsec_document *doc = NULL;
@@ -759,6 +859,8 @@ int main(void) {
     fragments_and_options();
     errors_and_null();
     positions();
+    positions_in_bytes_that_arent_utf8();
+    select_callbacks_cant_edit();
     syntax_errors();
     xpath();
     bytes_and_encodings();
@@ -773,6 +875,7 @@ int main(void) {
         fprintf(stderr, "%d check(s) failed\n", failures);
         return 1;
     }
+    CHECK(strcmp(parsec_version(), PARSEC_VERSION) == 0);
     printf("parsec %s: every C API check passed\n", parsec_version());
     return 0;
 }
