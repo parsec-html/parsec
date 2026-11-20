@@ -333,9 +333,9 @@ under 2, on the same M2 Max:
 
 | | Seconds per 1,000 pages | Slowest page | Peak RSS | Crashes | Timeouts (10 s) |
 |---|---:|---:|---:|---:|---:|
-| Parsec | 1.49 | 0.258 s | 512 MB | 0 | 0 |
-| Lexbor 3.0.1 | 1.93 | 0.249 s | 1,044 MB | 0 | 0 |
-| html5ever 0.40 | 5.99 | 0.811 s | 673 MB | 0 | 0 |
+| Parsec | 1.02 | 0.163 s | 516 MB | 0 | 0 |
+| Lexbor 3.0.1 | 1.94 | 0.247 s | 952 MB | 0 | 0 |
+| html5ever 0.40 | 5.99 | 0.804 s | 708 MB | 0 | 0 |
 
 Nothing crashed, nothing hit the limit, and all three built the same
 number of elements on every one of the 1,000 pages. So what's left is
@@ -343,23 +343,27 @@ speed and memory, and that depends on what kind of page it is:
 
 | | Parsec | Lexbor | html5ever |
 |---|---:|---:|---:|
-| 900 fragments, 1.4 MB | 0.048 s | 0.406 s | 0.754 s |
-| 46 real pages, 33 MB | 0.059 s | 0.134 s | 0.293 s |
-| 44 re-encoded pages, 37 MB | 0.064 s | 0.178 s | 0.306 s |
-| 10 giants, 194 MB | 1.317 s | 1.214 s | 4.631 s |
+| 900 fragments, 1.4 MB | 0.049 s | 0.407 s | 0.752 s |
+| 46 real pages, 33 MB | 0.057 s | 0.132 s | 0.298 s |
+| 44 re-encoded pages, 37 MB | 0.063 s | 0.179 s | 0.308 s |
+| 10 giants, 194 MB | 0.854 s | 1.221 s | 4.636 s |
 
 The fragments show what a page costs before there's anything to parse.
-Lexbor spends 0.45 ms on each and Parsec 53 µs, eight times less. On
+Lexbor spends 0.45 ms on each and Parsec 54 µs, eight times less. On
 real pages Parsec is 2.3 times as fast, and 2.8 on the re-encoded ones.
 
-The giants go to Lexbor, 1.21 seconds to 1.32, and all of that lead
-comes from three pages that are one long text node of character
-references: Lexbor gets through them in 0.28 s, about twice as fast as
-Parsec's 0.58. On the real pages run together Parsec is 1.4 times as
-fast, and on the huge table 1.2. Lexbor's slowest page is a shade
-quicker too, 0.249 s for a 27.6 MB table, to Parsec's 0.258 for 21.8 MB
-of references. Memory is Parsec's: half Lexbor's peak, and less than
-html5ever's. All three include the 32 MB the harness holds for the
+The giants used to be Lexbor's. Three of them are one long text node of
+character references, and Parsec took twice Lexbor's time on those,
+looking each name up in a sorted table and handing the tree builder a
+fresh run of text at every reference
+([#124](https://github.com/parsec-html/parsec/issues/124)). Now the
+names come from a hash table built at compile time and a stretch of
+text arrives in one piece, and those three pages take 0.21 s to
+Lexbor's 0.28. The huge tables go 0.36 s to 0.56 and the real pages run
+together 0.26 to 0.37, so the giants are Parsec's by 1.4 times, and so
+is the slowest page: 0.163 s to Lexbor's 0.247, the same 27.6 MB table
+for both. Memory is Parsec's as well: just over half Lexbor's peak, and
+less than html5ever's. All three include the 32 MB the harness holds for the
 biggest page.
 
 `cargo run --release --manifest-path bench/Cargo.toml -- boss` runs it,
