@@ -492,8 +492,9 @@ impl Document {
 
 #[wasm_bindgen]
 impl Node {
-    /// The DOM's `nodeType`: 1 for an element, 3 text, 8 a comment,
-    /// 9 the document, 10 a doctype, 11 a fragment.
+    /// The DOM's `nodeType`: 1 for an element, 3 text, 4 a CDATA section
+    /// (in SVG or MathML), 7 a processing instruction, 8 a comment, 9 the
+    /// document, 10 a doctype, 11 a fragment or a shadow root.
     #[wasm_bindgen(getter, js_name = nodeType)]
     pub fn node_type(&self) -> u8 {
         match self.doc.borrow().kind(self.id) {

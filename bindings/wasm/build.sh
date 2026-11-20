@@ -15,3 +15,10 @@ wasm-pack build --release --target nodejs --weak-refs --out-dir pkg/node --out-n
 rm -f pkg/.gitignore pkg/node/.gitignore pkg/node/README.md
 cp npm/package.json README.md ../../LICENSE ../../NOTICE pkg/
 printf '{ "type": "commonjs" }\n' > pkg/node/package.json
+# The classes have [Symbol.dispose] for `using`, which TypeScript knows only
+# with the esnext.disposable lib; this brings it in for a project that
+# doesn't list it, rather than failing with TS2550.
+for d in pkg/parsec_html.d.ts pkg/node/parsec_html.d.ts; do
+  { printf '/// <reference lib="esnext.disposable" />\n'; cat "$d"; } > "$d.tmp"
+  mv "$d.tmp" "$d"
+done

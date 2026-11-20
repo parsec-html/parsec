@@ -97,17 +97,36 @@ string, `characterSet` is `"UTF-8"`, as `DOMParser` says, and
 Standard doesn't know is passed over, as browsers pass over a bad
 `charset`; a `defaultEncoding` it doesn't know throws.
 
-Nodes hold their document, so a node stays usable after edits. You don't
-have to call `free()`: the package is built with weak references, so the
-garbage collector frees what you drop. Call it, or use `using`, if you
-want the memory back sooner.
+Nodes hold their document, so a node stays usable after edits, and a
+document stays in memory for as long as any node from it does. The
+package is built with weak references, so the garbage collector frees
+what you drop. It gets round to that between turns of the event loop,
+though, and a loop that never yields gives it no turn. Parse sixty 2 MB
+pages in one, reading a node from each, and WebAssembly memory reaches
+1.4 GB; at 4 GB it traps. Free each node and its document when you're
+done with them, or declare them with `using`, and the same loop stays at
+40 MB:
+
+```js
+for (const page of pages) {
+  using doc = parse(page);
+  using title = doc.selectFirst("title");
+  titles.push(title?.textContent);
+}
+```
+
+Freeing the document alone isn't enough while a node from it is still
+alive. And WebAssembly memory only grows: what a free gives back is room
+for the next page, not memory for the system, so the most you ever had
+parsed at once stays reserved until the program ends.
 
 Not there yet: setting `innerHTML`, and creating nodes.
 
 ## Size
 
-The WebAssembly is 1,071 KB, 504 KB gzipped; XPath and spans are 110 KB
-of that, parse errors 21 KB, and the decoders for bytes 201 KB (142 KB
+The WebAssembly is 1,116,633 bytes, 526 KB gzipped, as `main` builds it
+(each CI run's summary has the sizes of its own build); XPath and spans
+are about 110 KB of that, parse errors 21 KB, and the decoders for bytes 201 KB (142 KB
 gzipped), most of it the tables of the Chinese, Japanese and Korean
 encodings. It's built for speed per byte
 (`opt-level = "s"`, then `wasm-opt -Os`): building for size alone (`"z"`)

@@ -19,8 +19,10 @@
       },
       "types": "./parsec_html.d.ts",
       "default": "./parsec_html.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
+  "main": "./node/parsec_html.js",
   "types": "./parsec_html.d.ts",
   "files": [
     "parsec_html.js",
