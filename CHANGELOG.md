@@ -4,6 +4,90 @@ Every change people using Parsec would notice, newest first. Version
 numbers follow [Semantic Versioning](https://semver.org/); until 1.0, a
 minor release can break the API and a patch release won't.
 
+## 0.1.1
+
+A patch release: fixes for inputs built to be slow or deep, positions
+in the C API, wheels that 0.1.0 didn't ship, and docs that said more
+than the code did. Nothing in the API is removed or changed in shape;
+the additions are `parsec_css::MAX_NESTING`, `punycode::MAX_LABEL`,
+`Offsets::lossy_utf8`, the C status `PARSEC_ERR_BUSY` and the
+`PARSEC_VERSION` macros.
+
+### CSS
+
+- A stylesheet or `style` attribute nested tens of thousands deep no
+  longer overflows the stack. Functions, blocks and rules nest at most
+  `MAX_NESTING` (256) deep, counted together; anything deeper is dropped
+  as it's read, and a rule dropped that way is an `InvalidRule` error.
+  The cascade looks 128 rules deep
+  ([#128](https://github.com/parsec-html/parsec/pull/128)).
+- `var()` substitution copies in at most 1 MiB, so custom properties
+  that double each other can't take gigabytes and tens of seconds. Past
+  that the value is invalid at computed-value time (#128).
+- Nested style rules' selectors, with their parents written in, stop at
+  64 KiB, and a lone parent is written in without `:is()`, which matched
+  in time that doubled per level of nesting (#128).
+- `@layer` names are looked up in a map and may have 64 parts, so a long
+  dotted name or deep `@layer` nesting no longer takes minutes (#128).
+- `parse_block_contents` on rules with no `;` between them, `a{}a{}…`,
+  is linear instead of quadratic, and so is `parse_stylesheet_deep` on
+  the same inside a block (#128).
+- `cargo doc` builds every crate with warnings denied, in CI too (#128).
+
+### C API
+
+- With `PARSEC_SPANS` or `PARSEC_ERRORS`, spans and error offsets index
+  the bytes you passed even when they aren't valid UTF-8; before, they
+  counted the U+FFFD copy and could point past your buffer
+  ([#129](https://github.com/parsec-html/parsec/pull/129)).
+- `parsec_line_col` with an offset near `SIZE_MAX` gives an answer
+  instead of a panic or a wrong one (#129).
+- A `parsec_select` callback that changes the document gets
+  `PARSEC_ERR_BUSY`; one that frees it has it freed when `parsec_select`
+  returns (#129).
+- `parsec.h` defines `PARSEC_VERSION` and its major, minor and patch
+  parts, and says what's undefined about `parsec_string_free` and what
+  ends the process (#129).
+
+### URL
+
+- A host label over 4,000 code points (`punycode::MAX_LABEL`) fails
+  instead of taking seconds of Punycode work. All 4,565 WPT URL cases
+  still pass (#129).
+
+### Python
+
+- Wheels for CPython 3.14 and 3.15 with the GIL on macOS and Windows,
+  which 0.1.0 didn't have, and the release job fails if any expected
+  wheel is missing ([#132](https://github.com/parsec-html/parsec/pull/132)).
+- Wheels and the sdist carry `LICENSE` and `NOTICE`, and PyPI lists each
+  supported Python version (#132).
+- `Node.strip_tags()` and `Node.unwrap_tags()` include the node itself
+  when it matches, as selectolax does (#132).
+- The docs say what `decompose()` refuses, how `line_col()` counts
+  without positions, and how XPath numbers become strings next to lxml
+  (#132).
+
+### WebAssembly
+
+- The TypeScript types compile without `lib: esnext.disposable`
+  ([#130](https://github.com/parsec-html/parsec/pull/130)).
+- `package.json` exports `./package.json` and has a `main` (#130).
+- The README says when to call `free()` or use `using`: in a loop that
+  doesn't yield, the garbage collector never gets to run (#130).
+
+### Packaging and docs
+
+- crates.io pages show the header image, and their links work
+  ([#131](https://github.com/parsec-html/parsec/pull/131)).
+- The crates no longer carry their test suites and data (#131).
+- The README's claims are corrected: two dependencies, not one; what
+  can still end a C program; which inputs are still quadratic; the
+  WebAssembly size; and WPT totals with their skipped cases (#130).
+
+Fixes to the parser core itself arrive with the next sync from Netweir,
+which adds them to this entry.
+
 ## 0.1.0
 
 The first release. It's on crates.io, PyPI and npm as `parsec-html`, and

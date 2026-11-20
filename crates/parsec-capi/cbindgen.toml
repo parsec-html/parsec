@@ -14,10 +14,10 @@ no_includes = true
 # is the library's at run time. A test in src/lib.rs keeps it in step with
 # Cargo.toml.
 after_includes = """
-#define PARSEC_VERSION "0.1.0"
+#define PARSEC_VERSION "0.1.1"
 #define PARSEC_VERSION_MAJOR 0
 #define PARSEC_VERSION_MINOR 1
-#define PARSEC_VERSION_PATCH 0"""
+#define PARSEC_VERSION_PATCH 1"""
 header = """
 /* SPDX-License-Identifier: Apache-2.0
  * Copyright 2026 James Conway

@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-capi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "parsec-html-core",
  "parsec-html-encoding",
@@ -227,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "parsec-html-core",
  "parsec-html-css",
@@ -238,7 +238,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "memchr",
  "serde_json",
@@ -247,7 +247,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html-css"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "parsec-html-core",
@@ -256,7 +256,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html-encoding"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "encoding_rs",
  "parsec-html-core",
@@ -265,14 +265,14 @@ dependencies = [
 
 [[package]]
 name = "parsec-url"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "parsec-xpath"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "parsec-html-core",
  "stacker",
