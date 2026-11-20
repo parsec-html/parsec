@@ -20,7 +20,7 @@ bench = false
 cssparser = "0.38"
 html5ever = "0.40"
 markup5ever_rcdom = "0.40"
-parsec-html = { path = "../crates/parsec" }
+parsec-html-core = { path = "../crates/parsec" }
 parsec-html-css = { path = "../crates/parsec-css" }
 parsec-html-encoding = { path = "../crates/parsec-encoding" }
 parsec-url = { path = "../crates/parsec-url" }

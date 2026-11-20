@@ -1,16 +1,15 @@
 [package]
-name = "parsec-html"
+name = "parsec-html-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "A fast HTML parser that follows the WHATWG spec, with CSS selectors and a mutable DOM."
+description = "The core of parsec-html: an HTML parser that follows the WHATWG spec, with CSS selectors and a mutable DOM. Depend on parsec-html."
 repository.workspace = true
 license.workspace = true
 readme = "../../README.md"
 keywords = ["html", "parser", "html5", "dom", "css-selectors"]
 categories = ["parser-implementations", "web-programming"]
-# Until it's ahead of Lexbor on every benchmark and conformance suite.
-publish = false
+documentation = "https://docs.rs/parsec-html-core"
 # The html5lib-tests submodule is test data, and a checkout has it or not:
 # leaving it out keeps the package the same either way (scripts/package-twice.sh).
 exclude = ["tests/html5lib-tests"]

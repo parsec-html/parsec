@@ -223,7 +223,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "parsec-html"
+name = "parsec-html-core"
 version = "0.1.0"
 dependencies = [
  "memchr",
@@ -235,14 +235,14 @@ name = "parsec-html-encoding"
 version = "0.1.0"
 dependencies = [
  "encoding_rs",
- "parsec-html",
+ "parsec-html-core",
 ]
 
 [[package]]
 name = "parsec-html-python"
 version = "0.1.0"
 dependencies = [
- "parsec-html",
+ "parsec-html-core",
  "parsec-html-encoding",
  "parsec-xpath",
  "pyo3",
@@ -252,7 +252,7 @@ dependencies = [
 name = "parsec-xpath"
 version = "0.1.0"
 dependencies = [
- "parsec-html",
+ "parsec-html-core",
  "stacker",
 ]
 

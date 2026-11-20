@@ -5,15 +5,15 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+readme = "../../README.md"
 description = "XPath 1.0 over Parsec's HTML document tree."
 keywords = ["xpath", "html", "parser", "dom"]
 categories = ["parser-implementations", "web-programming"]
-# Until it's ahead of Lexbor on every benchmark and conformance suite.
-publish = false
+documentation = "https://docs.rs/parsec-xpath"
 
 [lib]
 name = "parsec_xpath"
 
 [dependencies]
-parsec-html = { path = "../parsec" }
+parsec-html-core = { path = "../parsec", version = "0.1.0" }
 stacker = "0.1"

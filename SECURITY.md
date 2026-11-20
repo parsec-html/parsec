@@ -30,15 +30,21 @@ bug rather than a security problem. Please open an ordinary issue for it.
 
 ## Supported versions
 
-There's no release yet, so for now fixes go to `main`. Once there is one,
-fixes go into the newest minor release. Until Parsec reaches 1.0, older
-releases don't get backports.
+| Version | Fixes |
+|---|---|
+| 0.1.x | yes |
+| 0.0.0 | no: it's an empty placeholder on crates.io |
+
+Fixes go into the newest minor release, as a patch release, on every
+registry at once. Until Parsec reaches 1.0, older minor releases don't
+get backports, so when 0.2 comes out, 0.1 stops getting them.
 
 ## Verifying a release
 
-A release is a signed tag, and on its GitHub release page the crate
-(`parsec-html-VERSION.crate`), its `SHA256SUMS` and the provenance bundle
-(`parsec-vVERSION.intoto.jsonl`). Each can be checked on its own.
+A release is a signed tag, and on its GitHub release page the crates
+(`parsec-html-VERSION.crate` and the five it's built from), their
+`SHA256SUMS` and the provenance bundle (`parsec-vVERSION.intoto.jsonl`).
+Each can be checked on its own.
 
 **The tag** is signed with a maintainer's SSH key, listed in
 [`.github/allowed_signers`](.github/allowed_signers). Take that file from
@@ -50,8 +56,8 @@ git show origin/main:.github/allowed_signers > allowed_signers
 git -c gpg.ssh.allowedSignersFile=allowed_signers tag -v v0.1.0
 ```
 
-**The crate** was built by the release workflow from that tag, and GitHub
-signed a record of it:
+**The crates** were built by the release workflow from that tag, and
+GitHub signed a record of each:
 
 ```sh
 gh attestation verify parsec-html-0.1.0.crate --repo parsec-html/parsec \
@@ -69,7 +75,24 @@ gh attestation verify parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz \
 ```
 
 They're attached only once the tag's signature has checked out. Unlike
-the crate, they aren't yet checked to rebuild byte for byte.
+the crates, they aren't yet checked to rebuild byte for byte.
+
+**crates.io** has the same bytes as the release: the release workflow
+fails if a published crate's checksum isn't the one in `SHA256SUMS`. To
+check one yourself:
+
+```sh
+curl -s https://crates.io/api/v1/crates/parsec-html/0.1.0 | jq -r .version.checksum
+```
+
+**PyPI and npm** packages are published by trusted publishing from
+`release-python.yml` and `release-npm.yml`, with the attestations PyPI
+shows on each file and npm's provenance statement, and only once the
+tag's signature has checked out:
+
+```sh
+npm audit signatures    # in a project that depends on parsec-html
+```
 
 **A rebuild** gives the same file, byte for byte. At the tag, run
 
@@ -78,8 +101,10 @@ git checkout v0.1.0
 scripts/package-twice.sh
 ```
 
-It packages the crate twice from fresh checkouts, fails if they differ, and
-prints the SHA-256, which must match the release's `SHA256SUMS`. Any recent
-stable Rust gives the same package: cargo 1.99 and 1.101 do. CI runs the
+It packages every crate twice from fresh checkouts, fails if they differ,
+and prints their SHA-256s, which must match the release's `SHA256SUMS`.
+It needs cargo 1.90 or newer, which packages a workspace's crates against
+each other before they're published; past that, the version of Rust
+doesn't change the packages. CI runs the
 same script on every change, so a change that would break this fails there
 first.

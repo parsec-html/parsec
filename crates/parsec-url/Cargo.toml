@@ -6,10 +6,14 @@ rust-version.workspace = true
 description = "WHATWG URL, URLSearchParams and IDNA for Parsec, tested against the web-platform-tests URL suite."
 repository.workspace = true
 license.workspace = true
+readme = "../../README.md"
 keywords = ["url", "whatwg", "idna", "punycode", "parser"]
 categories = ["parser-implementations", "web-programming", "encoding"]
-# Published with the umbrella crate, once that is.
-publish = false
+documentation = "https://docs.rs/parsec-url"
+
+# The conformance suites run from the repository; their vendored data
+# would be most of the package and nothing a build needs.
+exclude = ["tests/"]
 
 [lib]
 name = "parsec_url"

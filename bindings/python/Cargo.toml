@@ -20,7 +20,7 @@ test = false
 doctest = false
 
 [dependencies]
-parsec-html = { path = "../../crates/parsec" }
+parsec-html-core = { path = "../../crates/parsec" }
 parsec-html-encoding = { path = "../../crates/parsec-encoding" }
 parsec-xpath = { path = "../../crates/parsec-xpath" }
 pyo3 = "0.30.1"

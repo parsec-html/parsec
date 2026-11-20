@@ -9,15 +9,18 @@ license.workspace = true
 readme = "../../README.md"
 keywords = ["html", "encoding", "charset", "whatwg", "parser"]
 categories = ["encoding", "parser-implementations", "web-programming"]
-# As parsec-html: not until it's ahead of Lexbor.
-publish = false
+documentation = "https://docs.rs/parsec-html-encoding"
+
+# The conformance suites run from the repository; their vendored data
+# would be most of the package and nothing a build needs.
+exclude = ["tests/"]
 
 [lib]
 name = "parsec_encoding"
 
 [dependencies]
 encoding_rs = "0.8.35"
-parsec-html = { path = "../parsec" }
+parsec-html-core = { path = "../parsec", version = "0.1.0" }
 
 [dev-dependencies]
 serde_json = "1"
