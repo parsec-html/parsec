@@ -154,8 +154,8 @@ static void edit_and_serialize(void) {
     CHECK(owned_is(parsec_inner_html(doc, ul, &len), &len,
                    "<li class=\"first\">a</li><li>b</li><li>c &amp; d</li><!--end-->"));
 
-    /* Removing detaches; the number still works, and can go back in. */
-    CHECK(parsec_remove(doc, b) == PARSEC_OK);
+    /* Detaching takes it out; the number still works, and can go back in. */
+    CHECK(parsec_detach(doc, b) == PARSEC_OK);
     CHECK(parsec_parent(doc, b) == PARSEC_NO_NODE);
     CHECK(owned_is(parsec_outer_html(doc, b, &len), &len, "<li>b</li>"));
     CHECK(parsec_append(doc, ul, b) == PARSEC_OK);
@@ -174,6 +174,107 @@ static void edit_and_serialize(void) {
     parsec_string_free(page);
 
     parsec_selector_free(sel);
+    parsec_document_free(doc);
+}
+
+/* parsec_remove is for good: a number held for the node, or for anything
+ * in it, reads as nothing afterwards, which is what Lexbor's held nodes
+ * don't do. parsec_detach keeps it, to move. */
+static void removed_and_detached(void) {
+    const char *html =
+        "<div><p id=a class=x>one <b>two</b><!--c--></p><p id=b>three</p>"
+        "<template><i>t</i></template></div>";
+    parsec_document *doc = NULL;
+    CHECK(parsec_parse(html, strlen(html), PARSEC_SPANS, &doc) == PARSEC_OK);
+    parsec_selector *sel_a = compile("#a");
+    parsec_selector *sel_p = compile("p, b, i");
+    parsec_node p = parsec_select_first(doc, sel_a, parsec_root());
+    parsec_node div = parsec_parent(doc, p);
+    parsec_node text = parsec_first_child(doc, p);
+    parsec_node b = parsec_next_sibling(doc, text);
+    parsec_node comment = parsec_next_sibling(doc, b);
+    parsec_node other = parsec_next_sibling(doc, p);
+    parsec_node template = parsec_next_sibling(doc, other);
+    parsec_node contents = parsec_template_contents(doc, template);
+    parsec_node i = parsec_first_child(doc, contents);
+    size_t len = 0, start = 0, end = 0;
+    const char *name = NULL, *value = NULL;
+    size_t name_len = 0, value_len = 0;
+    bool gone = true;
+
+    /* Detached: out of the tree, still itself, and it can go back. */
+    CHECK(parsec_detach(doc, p) == PARSEC_OK);
+    CHECK(!parsec_node_is_removed(doc, p) && !parsec_node_is_removed(doc, b));
+    CHECK(parsec_parent(doc, p) == PARSEC_NO_NODE && parsec_parent(doc, b) == p);
+    CHECK(owned_is(parsec_outer_html(doc, p, &len), &len,
+                   "<p id=\"a\" class=\"x\">one <b>two</b><!--c--></p>"));
+    CHECK(parsec_matches(doc, sel_a, p));
+    CHECK(parsec_insert_before(doc, div, p, other) == PARSEC_OK);
+    CHECK(parsec_parent(doc, p) == div);
+
+    /* Removed: it and all it holds read as nothing. */
+    CHECK(parsec_remove(doc, p) == PARSEC_OK);
+    parsec_node held[] = {p, text, b, comment};
+    for (size_t k = 0; k < sizeof held / sizeof held[0]; k++) {
+        parsec_node n = held[k];
+        CHECK(parsec_node_is_removed(doc, n));
+        CHECK(parsec_parent(doc, n) == PARSEC_NO_NODE);
+        CHECK(parsec_first_child(doc, n) == PARSEC_NO_NODE);
+        CHECK(parsec_last_child(doc, n) == PARSEC_NO_NODE);
+        CHECK(parsec_next_sibling(doc, n) == PARSEC_NO_NODE);
+        CHECK(parsec_prev_sibling(doc, n) == PARSEC_NO_NODE);
+        CHECK(parsec_attr_count(doc, n) == 0);
+        CHECK(owned_is(parsec_outer_html(doc, n, &len), &len, ""));
+        CHECK(owned_is(parsec_inner_html(doc, n, &len), &len, ""));
+        CHECK(owned_is(parsec_text(doc, n, &len), &len, ""));
+        CHECK(!parsec_node_span(doc, n, &start, &end));
+        CHECK(!parsec_end_span(doc, n, &start, &end));
+        CHECK(!parsec_matches(doc, sel_p, n));
+        CHECK(parsec_select_first(doc, sel_p, n) == PARSEC_NO_NODE);
+        struct collected found = {{0}, 0, 0};
+        CHECK(parsec_select(doc, sel_p, n, collect, &found) == PARSEC_OK && found.count == 0);
+        CHECK(parsec_append(doc, div, n) == PARSEC_ERR_REMOVED);
+        CHECK(parsec_detach(doc, n) == PARSEC_ERR_REMOVED);
+    }
+    /* Each keeps its type, and an element its name, so you can tell what
+     * it was; a text's or comment's text is empty. */
+    CHECK(parsec_node_type(doc, p) == PARSEC_NODE_ELEMENT);
+    CHECK(parsec_element_ns(doc, p) == PARSEC_NS_HTML);
+    CHECK(is(parsec_node_name(doc, p, &len), &len, "p"));
+    CHECK(parsec_node_type(doc, text) == PARSEC_NODE_TEXT);
+    CHECK(is(parsec_node_value(doc, text, &len), &len, ""));
+    CHECK(is(parsec_node_value(doc, comment, &len), &len, ""));
+    CHECK(parsec_attr_get(doc, p, "id", 2, &len) == NULL && len == 0);
+    CHECK(parsec_attr_at(doc, p, 0, &name, &name_len, &value, &value_len) == PARSEC_ERR_REMOVED);
+    CHECK(!parsec_attr_span(doc, p, 0, &start, &end));
+    CHECK(parsec_attr_set(doc, p, "id", 2, "z", 1) == PARSEC_ERR_REMOVED);
+    CHECK(parsec_attr_remove(doc, p, "id", 2, &gone) == PARSEC_ERR_REMOVED && gone);
+    parsec_node fresh = parsec_create_element(doc, PARSEC_NS_HTML, "span", 4);
+    CHECK(parsec_append(doc, p, fresh) == PARSEC_ERR_REMOVED);
+    CHECK(parsec_insert_before(doc, div, fresh, p) == PARSEC_ERR_REMOVED);
+    CHECK(strcmp(parsec_status_message(PARSEC_ERR_REMOVED), "unknown status") != 0);
+    /* Removing again, or the root, does nothing. */
+    CHECK(parsec_remove(doc, p) == PARSEC_OK);
+    CHECK(parsec_remove(doc, parsec_root()) == PARSEC_OK);
+    CHECK(!parsec_node_is_removed(doc, parsec_root()));
+
+    /* The rest of the document is as it was. */
+    CHECK(parsec_append(doc, div, fresh) == PARSEC_OK);
+    CHECK(owned_is(parsec_inner_html(doc, div, &len), &len,
+                   "<p id=\"b\">three</p><template><i>t</i></template><span></span>"));
+    struct collected left = {{0}, 0, 0};
+    CHECK(parsec_select(doc, sel_p, parsec_root(), collect, &left) == PARSEC_OK);
+    CHECK(left.count == 1 && left.nodes[0] == other);
+
+    /* A template's contents go with it. */
+    CHECK(parsec_remove(doc, template) == PARSEC_OK);
+    CHECK(parsec_node_is_removed(doc, contents) && parsec_node_is_removed(doc, i));
+    CHECK(parsec_template_contents(doc, template) == PARSEC_NO_NODE);
+    CHECK(owned_is(parsec_inner_html(doc, div, &len), &len,
+                   "<p id=\"b\">three</p><span></span>"));
+
+    parsec_selector_free(sel_a);
+    parsec_selector_free(sel_p);
     parsec_document_free(doc);
 }
 
@@ -275,6 +376,9 @@ static void errors_and_null(void) {
     CHECK(parsec_select(doc, NULL, 0, collect, NULL) == PARSEC_ERR_NULL);
     CHECK(parsec_select_first(doc, NULL, 0) == PARSEC_NO_NODE);
     CHECK(parsec_remove(NULL, 0) == PARSEC_ERR_NULL);
+    CHECK(parsec_detach(NULL, 0) == PARSEC_ERR_NULL);
+    CHECK(parsec_detach(doc, bad) == PARSEC_ERR_NO_SUCH_NODE);
+    CHECK(!parsec_node_is_removed(NULL, 0) && !parsec_node_is_removed(doc, bad));
     CHECK(parsec_create_text(NULL, "x", 1) == PARSEC_NO_NODE);
     CHECK(parsec_node_name(doc, 0, NULL) == NULL);
     parsec_document_free(NULL);
@@ -425,14 +529,22 @@ static void xpath(void) {
     r = eval(doc, parsec_root(), "count(//li)");
     CHECK(parsec_xpath_result_number(r) == 4.0);
     parsec_xpath_result_free(r);
-    /* A removed subtree is a tree of its own. */
-    CHECK(parsec_remove(doc, ul) == PARSEC_OK);
+    /* A detached subtree is a tree of its own. */
+    CHECK(parsec_detach(doc, ul) == PARSEC_OK);
     r = eval(doc, parsec_root(), "count(//li)");
     CHECK(parsec_xpath_result_number(r) == 0.0);
     parsec_xpath_result_free(r);
     r = eval(doc, ul, "count(//li)");
     CHECK(parsec_xpath_result_number(r) == 4.0);
     parsec_xpath_result_free(r);
+    /* A removed one can't be queried at all. */
+    li = parsec_first_child(doc, ul);
+    CHECK(parsec_remove(doc, ul) == PARSEC_OK);
+    parsec_xpath *all = NULL;
+    CHECK(parsec_xpath_compile("count(//li)", 11, &all, NULL) == PARSEC_OK);
+    CHECK(parsec_xpath_evaluate(doc, all, ul, &r, NULL) == PARSEC_ERR_REMOVED && r == NULL);
+    CHECK(parsec_xpath_evaluate(doc, all, li, &r, NULL) == PARSEC_ERR_REMOVED && r == NULL);
+    parsec_xpath_free(all);
     /* The result is a copy, so it outlives the document. */
     r = eval(doc, parsec_root(), "string(//nothing | /)");
     parsec_selector_free(sel);
@@ -643,6 +755,7 @@ static void html5lib_encoding(const char *dir) {
 int main(void) {
     parse_select_read();
     edit_and_serialize();
+    removed_and_detached();
     fragments_and_options();
     errors_and_null();
     positions();

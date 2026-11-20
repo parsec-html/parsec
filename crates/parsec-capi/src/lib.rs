@@ -117,6 +117,10 @@ pub const PARSEC_ERR_PANIC: parsec_status = 12;
 /// `$variable` (which the C API doesn't bind), or it ran past the work
 /// limit that stops a query that would take hours.
 pub const PARSEC_ERR_XPATH: parsec_status = 13;
+/// The node was taken out with `parsec_remove`, or was inside one that
+/// was, so it can't be used again: not edited, inserted, nor used as an
+/// XPath context. `parsec_detach` takes a node out to move it.
+pub const PARSEC_ERR_REMOVED: parsec_status = 14;
 
 /// Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 /// holds raw text.
@@ -287,6 +291,7 @@ fn edit_status(e: html::EditError) -> parsec_status {
         html::EditError::NotAParent => PARSEC_ERR_NOT_A_PARENT,
         html::EditError::NotAChild => PARSEC_ERR_NOT_A_CHILD,
         html::EditError::NotInsertable => PARSEC_ERR_NOT_INSERTABLE,
+        html::EditError::Removed => PARSEC_ERR_REMOVED,
         // The C API attaches no shadow roots, so this can't happen yet.
         html::EditError::NotAShadowHost => PARSEC_ERR_INVALID,
     }
@@ -409,6 +414,7 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
         }
         PARSEC_ERR_PANIC => "internal error in Parsec (please report it)\0",
         PARSEC_ERR_XPATH => "the XPath expression isn't valid, or couldn't be evaluated\0",
+        PARSEC_ERR_REMOVED => "the node was removed from its document, so it can't be used again\0",
         _ => "unknown status\0",
     };
     s.as_ptr().cast()
@@ -700,7 +706,7 @@ pub extern "C" fn parsec_root() -> parsec_node {
 }
 
 /// The node's parent, or `PARSEC_NO_NODE` for the root and for a node
-/// that's been removed or not yet inserted.
+/// that's been removed, detached or not yet inserted.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_parent(
     doc: *const parsec_document,
@@ -918,7 +924,8 @@ pub unsafe extern "C" fn parsec_attr_count(
 /// An element's `index`th attribute, in source order: its name as written
 /// (`xlink:href`, `viewBox`) and its value, both borrowed as
 /// `parsec_node_name` says. Any of the four out pointers may be NULL if you
-/// don't want that part. `PARSEC_ERR_INVALID` if `index` is past the last.
+/// don't want that part. `PARSEC_ERR_INVALID` if `index` is past the last,
+/// `PARSEC_ERR_REMOVED` for a removed element.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_attr_at(
     doc: *const parsec_document,
@@ -933,10 +940,7 @@ pub unsafe extern "C" fn parsec_attr_at(
         status((|| {
             // SAFETY: NULL or a live document; out pointers NULL or writable.
             let d = unsafe { doc_ref(doc)? };
-            let n = self::node(d, node)?;
-            if !matches!(d.kind(n), Kind::Element { .. }) {
-                return Err(PARSEC_ERR_NOT_AN_ELEMENT);
-            }
+            let n = element(d, node)?;
             let (_, k, v) = d.attrs_written(n).nth(index).ok_or(PARSEC_ERR_INVALID)?;
             unsafe {
                 put(name, k.as_ptr().cast());
@@ -1033,6 +1037,9 @@ pub unsafe extern "C" fn parsec_attr_remove(
 
 fn element(doc: &Document, n: parsec_node) -> Result<NodeId, parsec_status> {
     let n = node(doc, n)?;
+    if doc.is_removed(n) {
+        return Err(PARSEC_ERR_REMOVED);
+    }
     match doc.kind(n) {
         Kind::Element { .. } => Ok(n),
         _ => Err(PARSEC_ERR_NOT_AN_ELEMENT),
@@ -1315,8 +1322,16 @@ pub unsafe extern "C" fn parsec_insert_before(
     })
 }
 
-/// Takes the node out of the tree. Its number stays valid and it can be
-/// inserted again; its memory goes when the document is freed.
+/// Takes the node, and everything in it, out of the document for good, as
+/// `lxb_dom_node_destroy_deep` would. Their numbers stay valid but read
+/// as nothing: each keeps its node type, and an element its name, but
+/// has no parent, children, siblings, text, attributes, spans or markup,
+/// matches no selector, and editing or inserting it is
+/// `PARSEC_ERR_REMOVED`. So a node you still hold after something else
+/// removed it can't quietly read stale data. A template's contents and a
+/// shadow host's shadow tree go with it. Memory goes when the document is
+/// freed. Removing the root, a template's contents or a node already
+/// removed does nothing. To move a node, use `parsec_detach`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_remove(
     doc: *mut parsec_document,
@@ -1330,6 +1345,45 @@ pub unsafe extern "C" fn parsec_remove(
             d.remove(n);
             Ok(())
         })())
+    })
+}
+
+/// Takes the node out of the tree, as `lxb_dom_node_remove` does. It and
+/// everything in it stay usable: insert it again with `parsec_append` or
+/// `parsec_insert_before` to move it. `PARSEC_ERR_REMOVED` for a node
+/// `parsec_remove` took out.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_detach(
+    doc: *mut parsec_document,
+    node: parsec_node,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or a live document no other call is using.
+            let d = unsafe { doc_mut(doc)? };
+            let n = self::node(d, node)?;
+            if d.is_removed(n) {
+                return Err(PARSEC_ERR_REMOVED);
+            }
+            d.detach(n);
+            Ok(())
+        })())
+    })
+}
+
+/// Whether `parsec_remove` took the node out, or one it was inside. False
+/// for a detached node, a NULL handle or a bad node.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_node_is_removed(
+    doc: *const parsec_document,
+    node: parsec_node,
+) -> bool {
+    guard(false, || {
+        // SAFETY: NULL or a live document.
+        let Ok(d) = (unsafe { doc_ref(doc) }) else {
+            return false;
+        };
+        node_of(d, node).is_some_and(|n| d.is_removed(n))
     })
 }
 
@@ -1561,11 +1615,15 @@ pub unsafe extern "C" fn parsec_xpath_evaluate(
             let d = unsafe { doc.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
             let x = unsafe { xpath.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
             let context = node(&d.doc, context)?;
+            if d.doc.is_removed(context) {
+                return Err(PARSEC_ERR_REMOVED);
+            }
             let index = d.index.get_or_init(|| {
                 // Every node without a parent, so a query can start in a
-                // removed subtree as well as in the document.
+                // detached subtree as well as in the document. Removed
+                // nodes have no parent either, but no one can query them.
                 let roots: Vec<NodeId> = (0..d.doc.len() as NodeId)
-                    .filter(|&n| d.doc.parent(n).is_none())
+                    .filter(|&n| d.doc.parent(n).is_none() && !d.doc.is_removed(n))
                     .collect();
                 Index::build(&d.doc, &roots)
             });
@@ -1709,7 +1767,7 @@ mod tests {
 
     #[test]
     fn every_status_has_a_message() {
-        for s in PARSEC_OK..=PARSEC_ERR_XPATH {
+        for s in PARSEC_OK..=PARSEC_ERR_REMOVED {
             let m = unsafe { std::ffi::CStr::from_ptr(parsec_status_message(s)) };
             assert_ne!(m.to_str().unwrap(), "unknown status", "{s}");
         }

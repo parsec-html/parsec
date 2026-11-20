@@ -156,7 +156,7 @@ def test_removing_and_unwrapping():
     p.css_first("em").unwrap(delete_empty=True)
     assert p.css_first("div").html == "<div>a<i>b</i></div>"
     first = p.css_first("p")
-    first.decompose()
+    first.remove()
     assert p.body.html == "<body><div>a<i>b</i></div><p>2</p></body>"
     # A removed node can still be read and put back.
     assert first.html == "<p>1</p>"
@@ -334,10 +334,15 @@ def test_xpath_from_a_node_and_after_edits():
     # Each edit drops the index, so the next query sees the change.
     ul.insert_child(p.create_node("li"))
     assert p.xpath("count(//ul/li)") == 3.0
-    ul.decompose()
+    ul.remove()
     assert p.xpath("count(//li)") == 1.0
     # A removed subtree can still be queried, as its own tree.
     assert ul.xpath("count(//li)") == 3.0
+    # A decomposed one can't be.
+    ul.decompose()
+    with pytest.raises(ValueError):
+        ul.xpath("count(//li)")
+    assert p.xpath("count(//li)") == 1.0
     assert p.css_first("li").xpath("ancestor::ol")[0].tag == "ol"
 
 
@@ -373,3 +378,99 @@ def test_free_threaded_python_keeps_the_gil_off():
 def test_node_is_not_constructible():
     with pytest.raises(TypeError):
         Node()
+
+
+def test_a_decomposed_node_reads_as_nothing():
+    p = HTMLParser("<div><p id=a class=x>one <b>two</b><!--c--></p><p id=b>three</p></div>")
+    first = p.css_first("#a")
+    b = first.css_first("b")
+    words = first.first_child
+    comment = first.last_child
+    div = first.parent
+    first.decompose()
+    assert div.html == '<div><p id="b">three</p></div>'
+    for node in (first, b, words, comment):
+        assert node.parent is None
+        assert node.first_child is None and node.last_child is None
+        assert node.next is None and node.prev is None
+        assert node.attributes == {}
+        assert dict(node.attrs.items()) == {}
+        assert node.id is None
+        assert node.html == ""
+        assert node.inner_html == ""
+        assert node.text() == ""
+        assert list(node.iter(include_text=True)) == []
+        assert list(node.traverse(include_text=True)) == []
+        assert node.css("*") == []
+        assert node.css_first("*") is None
+        assert not node.css_matches("*")
+    # Each keeps what it was, as selectolax's `tag` does.
+    assert first.tag == "p" and b.tag == "b"
+    assert words.is_text_node and words.text_content == ""
+    assert comment.comment_content == ""
+    # Edits do nothing, and nothing else changes.
+    first.attrs["class"] = "y"
+    assert first.attributes == {}
+    first.decompose()
+    assert div.html == '<div><p id="b">three</p></div>'
+
+
+def test_a_decomposed_node_cant_go_back():
+    p = HTMLParser("<div><p>one <b>two</b></p></div><section></section>")
+    first, section = p.css_first("p"), p.css_first("section")
+    b = first.css_first("b")
+    first.decompose()
+    for node in (first, b):
+        with pytest.raises(ValueError):
+            section.insert_child(node, move=True)
+        with pytest.raises(ValueError):
+            section.insert_child(node)
+        with pytest.raises(ValueError):
+            HTMLParser("<i></i>").css_first("i").insert_child(node)
+    with pytest.raises(ValueError):
+        first.insert_child("x")
+    assert section.html == "<section></section>"
+    document = p.root.parent
+    with pytest.raises(ValueError):
+        document.decompose()
+    assert p.css_first("div").html == "<div></div>"
+
+
+def test_remove_and_replace_with_keep_the_node():
+    p = HTMLParser("<div><p>one</p><i>two</i></div><section></section>")
+    first, i, section = p.css_first("p"), p.css_first("i"), p.css_first("section")
+    first.remove()
+    assert first.html == "<p>one</p>" and first.parent is None
+    i.replace_with(first, move=True)
+    assert p.css_first("div").html == "<div><p>one</p></div>"
+    # The replaced node is kept, as the DOM's replaceWith keeps it.
+    assert i.html == "<i>two</i>"
+    section.insert_child(i, move=True)
+    assert section.html == "<section><i>two</i></section>"
+    # A node moved from another document leaves a readable original.
+    other = HTMLParser("<b>x</b>")
+    bold = other.css_first("b")
+    section.insert_child(bold, move=True)
+    assert section.html == "<section><i>two</i><b>x</b></section>"
+    assert bold.html == "<b>x</b>" and bold.parent is None
+
+
+def test_what_unwrap_strip_and_merge_drop_is_gone():
+    p = HTMLParser("<div><span>a</span><em></em><s>x</s></div>")
+    span, em, s = p.css_first("span"), p.css_first("em"), p.css_first("s")
+    words = span.first_child
+    span.unwrap()
+    em.unwrap(delete_empty=True)
+    p.strip_tags(["s"])
+    assert p.css_first("div").html == "<div>a</div>"
+    for node in (span, em, s):
+        assert node.html == "" and node.parent is None
+    # The text that was moved out of the span is the same node, still live.
+    assert words.parent.tag == "div"
+    div = p.css_first("div")
+    div.insert_child("b")
+    p.merge_text_nodes()
+    assert div.html == "<div>ab</div>"
+    assert words.html == "" and words.parent is None
+    div.inner_html = "<i>new</i>"
+    assert div.first_child.tag == "i"

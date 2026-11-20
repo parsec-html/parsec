@@ -21,6 +21,18 @@ test("Node gets the build that loads itself", () => {
   assert.throws(() => doc.select("li["), /expected/);
 });
 
+test("a removed node stays usable, as the DOM's remove() leaves it", () => {
+  const doc = parse("<div><p>one <b>two</b></p></div><section></section>");
+  const p = doc.selectFirst("p");
+  const b = doc.selectFirst("b");
+  p.remove();
+  assert.equal(doc.selectFirst("div").outerHTML, "<div></div>");
+  assert.equal(p.outerHTML, "<p>one <b>two</b></p>");
+  assert.ok(b.parentNode.isSameNode(p));
+  doc.selectFirst("section").appendChild(p);
+  assert.equal(doc.selectFirst("section").textContent, "one two");
+});
+
 test("options and fragments", () => {
   const doc = parse("<noscript><p>x</p></noscript>", { scripting: true });
   assert.equal(doc.selectFirst("p"), undefined);

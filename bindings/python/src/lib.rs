@@ -156,7 +156,9 @@ fn py_strip(s: &str) -> &str {
 
 /// `id` and its descendants in tree order, without recursion.
 fn subtree(doc: &Document, id: NodeId) -> Vec<NodeId> {
-    let (mut out, mut stack) = (Vec::new(), vec![id]);
+    // A decomposed node isn't even itself any more.
+    let start = if doc.is_removed(id) { vec![] } else { vec![id] };
+    let (mut out, mut stack) = (Vec::new(), start);
     while let Some(n) = stack.pop() {
         out.push(n);
         let at = stack.len();
@@ -329,10 +331,12 @@ fn build(doc: &mut Document, steps: &[Step]) -> Vec<NodeId> {
 }
 
 /// Every node with no parent: the document first, then any subtree that
-/// was removed or made apart from it, so a query can start anywhere.
+/// was taken out with `remove()` or made apart from it, so a query can
+/// start anywhere. A decomposed node has no parent either, but can't be
+/// queried.
 fn roots(doc: &Document) -> Vec<NodeId> {
     (0..doc.len() as NodeId)
-        .filter(|&n| doc.parent(n).is_none())
+        .filter(|&n| doc.parent(n).is_none() && !doc.is_removed(n))
         .collect()
 }
 
@@ -1068,6 +1072,11 @@ impl Node {
             return Err(PyTypeError::new_err("expected str, bytes or Node"));
         };
         let other = other.get();
+        if other.p().read(py).is_removed(other.id) {
+            return Err(PyValueError::new_err(
+                "the node was decomposed, so it can't be put back or copied",
+            ));
+        }
         let same = other.parser.is(&self.parser);
         if same && move_ {
             return Ok(vec![other.id]);
@@ -1075,7 +1084,8 @@ impl Node {
         let steps = record(&other.p().read(py), other.id);
         let made = build(&mut self.p().write(py), &steps);
         if move_ {
-            other.p().write(py).remove(other.id);
+            // Moved, not decomposed: the handle to the original still reads it.
+            other.p().write(py).detach(other.id);
         }
         Ok(made)
     }
@@ -1367,6 +1377,11 @@ impl Node {
         variables: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let vars = self::variables(variables)?;
+        if self.p().read(py).is_removed(self.id) {
+            return Err(PyValueError::new_err(
+                "the node was decomposed, so it can't be queried",
+            ));
+        }
         self.p()
             .run_xpath(py, query, self.id, &vars)?
             .into_py(py, &self.parser)
@@ -1453,17 +1468,32 @@ impl Node {
         Ok(false)
     }
 
-    /// Takes the node out of the tree. It stays readable, and can be
-    /// inserted again.
+    /// Takes the node, and everything in it, out of the document for
+    /// good, as selectolax's frees it. From then on this handle, and any
+    /// for a node inside it, reads as nothing: no parent, children,
+    /// attributes or text, `html` is `""`, no selector matches it, `xpath`
+    /// raises `ValueError`, and putting it back raises `ValueError`. It
+    /// keeps its `tag`, so you can tell what it was. Use `remove()` to take
+    /// a node out and keep it. The root can't be decomposed.
     #[pyo3(signature = (recursive = true))]
-    fn decompose(&self, py: Python<'_>, recursive: bool) {
+    fn decompose(&self, py: Python<'_>, recursive: bool) -> PyResult<()> {
         let _ = recursive;
-        self.p().write(py).remove(self.id);
+        let mut doc = self.p().write(py);
+        if self.id == doc.root() {
+            return Err(PyValueError::new_err(
+                "decomposing the root node is not allowed",
+            ));
+        }
+        doc.remove(self.id);
+        Ok(())
     }
 
+    /// Takes the node out of the tree, still readable, to keep or to put
+    /// back with `insert_child(node, move=True)` and the like.
     #[pyo3(signature = (recursive = true))]
     fn remove(&self, py: Python<'_>, recursive: bool) {
-        self.decompose(py, recursive);
+        let _ = recursive;
+        self.p().write(py).detach(self.id);
     }
 
     /// Replaces the element with its contents. An empty one stays unless
@@ -1512,7 +1542,8 @@ impl Node {
             return Ok(());
         };
         self.put(py, value, r#move, parent, Some(self.id))?;
-        self.p().write(py).remove(self.id);
+        // Kept, as the DOM's replaceWith keeps it: it can go in elsewhere.
+        self.p().write(py).detach(self.id);
         Ok(())
     }
 

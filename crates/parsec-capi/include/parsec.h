@@ -190,6 +190,11 @@ typedef uint32_t parsec_xpath_type;
 // limit that stops a query that would take hours.
 #define PARSEC_ERR_XPATH 13
 
+// The node was taken out with `parsec_remove`, or was inside one that
+// was, so it can't be used again: not edited, inserted, nor used as an
+// XPath context. `parsec_detach` takes a node out to move it.
+#define PARSEC_ERR_REMOVED 14
+
 // A node-set: `parsec_xpath_result_count` items, in document order.
 #define PARSEC_XPATH_NODES 1
 
@@ -318,7 +323,7 @@ size_t parsec_node_count(const parsec_document *doc);
 parsec_node parsec_root(void);
 
 // The node's parent, or `PARSEC_NO_NODE` for the root and for a node
-// that's been removed or not yet inserted.
+// that's been removed, detached or not yet inserted.
 parsec_node parsec_parent(const parsec_document *doc, parsec_node node);
 
 // The node's first child, or `PARSEC_NO_NODE`.
@@ -373,7 +378,8 @@ size_t parsec_attr_count(const parsec_document *doc, parsec_node node);
 // An element's `index`th attribute, in source order: its name as written
 // (`xlink:href`, `viewBox`) and its value, both borrowed as
 // `parsec_node_name` says. Any of the four out pointers may be NULL if you
-// don't want that part. `PARSEC_ERR_INVALID` if `index` is past the last.
+// don't want that part. `PARSEC_ERR_INVALID` if `index` is past the last,
+// `PARSEC_ERR_REMOVED` for a removed element.
 parsec_status parsec_attr_at(const parsec_document *doc,
                              parsec_node node,
                              size_t index,
@@ -490,9 +496,27 @@ parsec_status parsec_insert_before(parsec_document *doc,
                                    parsec_node child,
                                    parsec_node before);
 
-// Takes the node out of the tree. Its number stays valid and it can be
-// inserted again; its memory goes when the document is freed.
+// Takes the node, and everything in it, out of the document for good, as
+// `lxb_dom_node_destroy_deep` would. Their numbers stay valid but read
+// as nothing: each keeps its node type, and an element its name, but
+// has no parent, children, siblings, text, attributes, spans or markup,
+// matches no selector, and editing or inserting it is
+// `PARSEC_ERR_REMOVED`. So a node you still hold after something else
+// removed it can't quietly read stale data. A template's contents and a
+// shadow host's shadow tree go with it. Memory goes when the document is
+// freed. Removing the root, a template's contents or a node already
+// removed does nothing. To move a node, use `parsec_detach`.
 parsec_status parsec_remove(parsec_document *doc, parsec_node node);
+
+// Takes the node out of the tree, as `lxb_dom_node_remove` does. It and
+// everything in it stay usable: insert it again with `parsec_append` or
+// `parsec_insert_before` to move it. `PARSEC_ERR_REMOVED` for a node
+// `parsec_remove` took out.
+parsec_status parsec_detach(parsec_document *doc, parsec_node node);
+
+// Whether `parsec_remove` took the node out, or one it was inside. False
+// for a detached node, a NULL handle or a bad node.
+bool parsec_node_is_removed(const parsec_document *doc, parsec_node node);
 
 // Where `node` was written, as byte offsets into the input from `*start`
 // up to `*end`: an element's start tag from `<` to `>`, or the whole of a

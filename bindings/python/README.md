@@ -126,7 +126,8 @@ Where it behaves differently:
 |---|---|---|
 | `<a href>`'s `attributes` | `{'href': None}` | `{'href': ''}`: Parsec doesn't yet record whether a value was written |
 | A selector that doesn't parse | `SelectolaxError` | `SelectorError`, a `ValueError` |
-| A node after `decompose()` | freed | still readable, and can be inserted again |
+| A node after `decompose()` | freed | reads as empty (no parent, children, attributes or text, `html` is `""`, no selector matches) but keeps its `tag`; `xpath()` and putting it back raise `ValueError` |
+| `remove()` | the same as `decompose()` | takes the node out but keeps it readable, to put back with `move=True` |
 | `attrs.items()`, `keys()`, `values()` | iterators | lists |
 | `bytes` in | UTF-8, or sniffed with `encoding=True` | sniffed as a browser sniffs them: byte order mark, `transport_encoding`, `<meta>`, then `default_encoding` |
 | Class names | `LexborHTMLParser`, `LexborNode` | `HTMLParser`, `Node` |

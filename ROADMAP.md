@@ -18,7 +18,7 @@ the order can change when users show us something more urgent.
 | Milestone | Target |
 |---|---|
 | M1. Proof | done, November 2026 |
-| M2. HTML, past Lexbor | early 2027 |
+| M2. HTML, past Lexbor | done, November 2026 |
 | M3. Selectors | early 2027, alongside M2 |
 | M4. Every way in, then 0.1.0 | spring 2027 |
 | M5. Encoding | done, November 2026 |
@@ -43,6 +43,8 @@ Every CI run publishes the conformance counts in its summary.
 
 ## M2. HTML, past Lexbor
 
+Done.
+
 - Done: bytes in, with the encoding sniffed from the BOM and `<meta>`, as
   browsers do, and the html5lib encoding tests passing
   (`parsec_encoding::parse_bytes`, all 82 cases that don't need
@@ -52,9 +54,12 @@ Every CI run publishes the conformance counts in its summary.
 - Done: source positions on every node and attribute.
 - Done: the pretty-printing and html5lib serializer formats, with the
   html5lib serializer tests (229 passed, 1 skipped).
-- A depth limit alongside the time budget.
-- Documents that are `Send` and `Sync`, enforced at compile time.
-- Node handles that can tell when the node they named was removed.
+- Done: a depth limit alongside the time budget.
+- Done: documents that are `Send` and `Sync`, enforced at compile time.
+- Done: node ids that know when their node was removed. `remove` is for
+  good, and every id in what it took out reads as nothing from then on
+  (`is_removed` says so); `detach` takes a subtree out to move it. In
+  the C API that's `parsec_remove` and `parsec_detach`.
 
 ## M3. Selectors that match what a page can decide
 

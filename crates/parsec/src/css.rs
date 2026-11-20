@@ -1593,6 +1593,9 @@ impl SelectorList {
         scope: Option<NodeId>,
         options: &MatchOptions<'_>,
     ) -> bool {
+        if doc.is_removed(el) {
+            return false;
+        }
         let cx = Cx::new(doc, scope, scope.unwrap_or(el), Page::new(doc, options.url));
         self.0.iter().any(|c| cx.complex(c, el, el))
     }
@@ -1631,6 +1634,9 @@ impl SelectorList {
         scope: Option<NodeId>,
         options: &MatchOptions<'_>,
     ) -> Result<bool, MatchTimeout> {
+        if doc.is_removed(el) {
+            return Ok(false);
+        }
         let mut cx = Cx::new(doc, scope, scope.unwrap_or(el), Page::new(doc, options.url));
         cx.deadline = deadline(options);
         let found = self.0.iter().any(|c| cx.complex(c, el, el));

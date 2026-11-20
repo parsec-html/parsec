@@ -322,13 +322,14 @@ every module Lexbor has, and then go past it:
 | Parse errors with line and column | pointers only | yes, with the spec's names; all 7,042 html5lib tokenizer error cases match |
 | Source positions on nodes and attributes | no ([lexbor#374](https://github.com/lexbor/lexbor/issues/374)) | yes, byte ranges into your input with line and column |
 | Linear worst case | no ([#340](https://github.com/lexbor/lexbor/issues/340)) | planned |
-| Thread-safe documents | no | planned, checked at compile time |
+| Thread-safe documents | no | yes, `Send` and `Sync`, checked at compile time |
 | `:scope`, `:lang()`, `:dir()`, `:target`, `:local-link` | parsed, never match | yes |
 | `:valid`, `:invalid`, `:in-range`, `:out-of-range`, `:default`, `:indeterminate` | parsed, never match | yes |
 | `:blank`, `:defined` | parsed, never match | yes |
 | Queries that stop at the first match | no ([#32](https://github.com/lexbor/lexbor/issues/32)) | yes, `select_first` and `select_iter` |
 | web-platform-tests selector cases | not run | yes, every one that runs without a browser: 1,719 DOM and 461 CSS cases |
 | A tree depth limit | no | yes |
+| A node you hold after it's removed | a dangling pointer, read after free ([lexbor#132](https://github.com/lexbor/lexbor/issues/132)) | reads as nothing, and `is_removed` tells you; `detach` keeps a subtree to move |
 | XPath | no | yes, XPath 1.0, all of libxml2's expression tests but its own extensions |
 | WHATWG Encoding, 40 encodings | yes | yes, through encoding_rs, with WPT pass counts published |
 | WHATWG URL | yes, no WPT count published | yes, all 4,565 WPT cases passing |

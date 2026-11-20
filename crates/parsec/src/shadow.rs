@@ -50,7 +50,7 @@ pub(crate) fn valid_host(ns: Ns, tag: Tag, name: &str) -> bool {
 impl Document {
     /// The element's shadow root, open or closed.
     pub fn shadow_root(&self, host: NodeId) -> Option<NodeId> {
-        if self.shadow_roots.is_empty() {
+        if self.shadow_roots.is_empty() || self.is_removed(host) {
             return None;
         }
         self.shadow_roots.get(&host).copied()
@@ -58,6 +58,9 @@ impl Document {
 
     /// A shadow root's host.
     pub fn shadow_host(&self, root: NodeId) -> Option<NodeId> {
+        if self.is_removed(root) {
+            return None;
+        }
         match self.nodes[root as usize].data {
             Data::ShadowRoot { host, .. } => Some(host),
             _ => None,
@@ -82,6 +85,9 @@ impl Document {
     /// shadowrootmode>` is handed back once to a call with its mode,
     /// emptied, keeping the settings it was declared with.
     pub fn attach_shadow(&mut self, host: NodeId, init: ShadowRoot) -> Result<NodeId, EditError> {
+        if self.is_removed(host) {
+            return Err(EditError::Removed);
+        }
         let Some(e) = self.element(host) else {
             return Err(EditError::NotAShadowHost);
         };
@@ -147,7 +153,7 @@ impl Document {
     /// Only those that are children of the host are assigned, when asked;
     /// in a root with named assignment the list is kept and unused.
     pub fn assign(&mut self, slot: NodeId, nodes: &[NodeId]) {
-        if self.element(slot).is_none() {
+        if self.element(slot).is_none() || self.is_removed(slot) {
             return;
         }
         for list in self.manual_slots.values_mut() {
@@ -155,7 +161,7 @@ impl Document {
         }
         let mut list: Vec<NodeId> = Vec::with_capacity(nodes.len());
         for &n in nodes {
-            if self.slottable(n) && !list.contains(&n) {
+            if self.slottable(n) && !self.is_removed(n) && !list.contains(&n) {
                 list.push(n);
             }
         }
@@ -325,7 +331,11 @@ impl Document {
     /// The flat tree under `id`, in tree order, `id` first: what a
     /// renderer walks.
     pub fn flat_tree(&self, id: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        let mut stack = vec![id];
+        let mut stack = if self.is_removed(id) {
+            vec![]
+        } else {
+            vec![id]
+        };
         std::iter::from_fn(move || {
             let n = stack.pop()?;
             let at = stack.len();

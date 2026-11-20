@@ -749,9 +749,10 @@ impl Node {
         self.doc.borrow().inner_html(self.id)
     }
 
-    /// Takes the node out of the tree. It can still be read, and put back.
+    /// Takes the node out of the tree. It can still be read, and put back,
+    /// as the DOM's `ChildNode.remove()` leaves it.
     pub fn remove(&self) {
-        self.doc.borrow_mut().remove(self.id);
+        self.doc.borrow_mut().detach(self.id);
     }
 
     /// Moves `child`, a node of the same document, to the end of this

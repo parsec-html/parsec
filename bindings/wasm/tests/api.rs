@@ -95,9 +95,13 @@ fn attributes_and_edits() {
         div.outer_html(),
         r#"<div id="a" title="t"><p>p1</p>one <b>two</b><!--c--></div>"#
     );
+    // Taken out but kept, as the DOM's remove() keeps it: its contents
+    // still read, and it can go back in.
     p.remove();
     assert!(p.parent_node().is_none());
     assert_eq!(p.outer_html(), "<p>p1</p>");
+    assert_eq!(p.first_child().unwrap().text_content(), "p1");
+    assert!(p.matches("p").unwrap());
     doc.body().unwrap().append_child(&p).unwrap();
     assert_eq!(
         doc.body()
