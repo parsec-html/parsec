@@ -6,6 +6,8 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 readme = "../../README.md"
+# The libxml2 cases run from the repository; a build needs none of them.
+exclude = ["tests/"]
 description = "XPath 1.0 over Parsec's HTML document tree."
 keywords = ["xpath", "html", "parser", "dom"]
 categories = ["parser-implementations", "web-programming"]

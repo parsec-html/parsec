@@ -10,9 +10,11 @@ readme = "../../README.md"
 keywords = ["html", "parser", "html5", "dom", "css-selectors"]
 categories = ["parser-implementations", "web-programming"]
 documentation = "https://docs.rs/parsec-html-core"
-# The html5lib-tests submodule is test data, and a checkout has it or not:
-# leaving it out keeps the package the same either way (scripts/package-twice.sh).
-exclude = ["tests/html5lib-tests"]
+# The conformance suites run from the repository. Their data would be most
+# of the package and nothing a build needs, and the html5lib-tests
+# submodule is there in one checkout and not another: leaving tests/ out
+# keeps the package the same either way (scripts/package-twice.sh).
+exclude = ["tests/"]
 
 [lib]
 name = "parsec"

@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="assets/parsec-header.svg" alt="Parsec" width="100%">
+  <img src="https://raw.githubusercontent.com/parsec-html/parsec/main/assets/parsec-header.svg" alt="Parsec" width="100%">
 </h1>
 
 <p align="center">
@@ -375,7 +375,7 @@ page has every quirk, the seed and the raw output.
 
 ## What's coming
 
-The [roadmap](ROADMAP.md) has the order. In short, Parsec is set to cover
+The [roadmap](https://github.com/parsec-html/parsec/blob/main/ROADMAP.md) has the order. In short, Parsec is set to cover
 every module Lexbor has, and then go past it:
 
 | | Lexbor | Parsec |
@@ -499,11 +499,11 @@ cargo test
 ```
 
 The parser core is shared with Netweir, so changes to `crates/parsec` start
-there. [CONTRIBUTING.md](CONTRIBUTING.md) explains how that works and how
+there. [CONTRIBUTING.md](https://github.com/parsec-html/parsec/blob/main/CONTRIBUTING.md) explains how that works and how
 to get a change in. Questions go to
 [Discussions](https://github.com/parsec-html/parsec/discussions), bugs to
 [Issues](https://github.com/parsec-html/parsec/issues).
 
 ## Licence
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](https://github.com/parsec-html/parsec/blob/main/LICENSE) and [NOTICE](https://github.com/parsec-html/parsec/blob/main/NOTICE).

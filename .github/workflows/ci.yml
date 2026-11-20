@@ -145,6 +145,25 @@ jobs:
           (cd target/package && sha256sum -- *.crate) > "$RUNNER_TEMP/here"
           cat "$RUNNER_TEMP/twice"
           diff "$RUNNER_TEMP/twice" "$RUNNER_TEMP/here"
+      # The conformance data runs from the repository; in a package it's
+      # only weight for everyone who builds it.
+      - name: No crate ships test data
+        run: |
+          for p in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+            [ "$p" = parsec-capi ] && continue
+            if cargo package --list --locked -p "$p" | grep -E '^(tests|data)/'; then
+              echo "$p's package holds the files above" >&2
+              exit 1
+            fi
+          done
+      # crates.io shows README.md as each crate's page, where a link
+      # relative to the repository goes nowhere.
+      - name: README.md's links are absolute
+        run: |
+          if grep -nE '\]\([^h#)]|src="[^h]' README.md; then
+            echo "use https:// links in README.md: crates.io can't follow relative ones" >&2
+            exit 1
+          fi
 
   test:
     strategy:

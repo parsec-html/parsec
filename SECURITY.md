@@ -79,10 +79,11 @@ the crates, they aren't yet checked to rebuild byte for byte.
 
 **crates.io** has the same bytes as the release: the release workflow
 fails if a published crate's checksum isn't the one in `SHA256SUMS`. To
-check one yourself:
+check one yourself (crates.io refuses a request without a user agent
+that says who's asking, so put yours in):
 
 ```sh
-curl -s https://crates.io/api/v1/crates/parsec-html/0.1.0 | jq -r .version.checksum
+curl -s -A "release check (you@example.com)" https://crates.io/api/v1/crates/parsec-html/0.1.0 | jq -r .version.checksum
 ```
 
 **PyPI and npm** packages are published by trusted publishing from
