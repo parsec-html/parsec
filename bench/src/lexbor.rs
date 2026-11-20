@@ -92,6 +92,156 @@ unsafe extern "C" {
     fn lxb_html_document_parse(doc: *mut LxbHtmlDocument, html: *const u8, size: usize) -> u32;
     fn lxb_html_document_destroy(doc: *mut LxbHtmlDocument) -> *mut LxbHtmlDocument;
     fn lexbor_memory_setup(m: Malloc, r: Realloc, c: Calloc, f: Free) -> u32;
+    fn lxb_dom_node_first_child_noi(node: *mut LxbDomNode) -> *mut LxbDomNode;
+    fn lxb_dom_node_next_noi(node: *mut LxbDomNode) -> *mut LxbDomNode;
+    fn lxb_dom_node_parent_noi(node: *mut LxbDomNode) -> *mut LxbDomNode;
+    fn lxb_dom_node_type_noi(node: *mut LxbDomNode) -> u32;
+    fn lxb_encoding_bom_sniff(begin: *const u8, length: usize) -> u32;
+    fn lxb_encoding_data_by_pre_name(name: *const u8, length: usize) -> *const LxbEncodingData;
+    fn lxb_encoding_data_prescan_validate(name: *const u8, length: usize)
+    -> *const LxbEncodingData;
+    fn lxb_html_encoding_init(em: *mut HtmlEncoding) -> u32;
+    fn lxb_html_encoding_destroy(em: *mut HtmlEncoding, self_destroy: bool) -> *mut HtmlEncoding;
+    fn lxb_html_encoding_prescan(
+        em: *mut HtmlEncoding,
+        data: *const u8,
+        end: *const u8,
+        out_length: *mut usize,
+    ) -> *const u8;
+}
+
+/// `lxb_encoding_data_t`, whose first field is its `lxb_encoding_t`.
+#[repr(C)]
+struct LxbEncodingData {
+    encoding: u32,
+}
+
+/// Room for `lxb_html_encoding_t`, two `lexbor_array_obj_t` (64 bytes);
+/// `lxb_html_encoding_init` fills it in.
+#[repr(C, align(16))]
+struct HtmlEncoding([u8; 128]);
+
+/// `LXB_DOM_NODE_TYPE_ELEMENT`.
+const ELEMENT: u32 = 1;
+/// `lxb_encoding_t` values from lexbor/encoding/const.h.
+const LXB_DEFAULT: u32 = 0x00;
+const LXB_UTF_16BE: u32 = 0x19;
+const LXB_UTF_16LE: u32 = 0x1a;
+const LXB_UTF_8: u32 = 0x1b;
+const LXB_WINDOWS_1252: u32 = 0x21;
+
+/// The encoding Lexbor's own pieces choose for `bytes`, as the HTML
+/// Standard orders them: its BOM sniff, then the transport's label, then
+/// its prescan of the first 1,024 bytes, then windows-1252, the spec's
+/// default (Lexbor has no detector to guess UTF-8 from the bytes). Also
+/// how many bytes of BOM to skip.
+pub fn choose_encoding(bytes: &[u8], transport: Option<&str>) -> (u32, usize) {
+    // SAFETY: each call reads only the slice it's given; the prescan's
+    // state is initialised before use and destroyed after, and the name it
+    // returns points into `bytes`, which is still alive.
+    unsafe {
+        match lxb_encoding_bom_sniff(bytes.as_ptr(), bytes.len()) {
+            LXB_UTF_8 => return (LXB_UTF_8, 3),
+            bom @ (LXB_UTF_16BE | LXB_UTF_16LE) => return (bom, 2),
+            _ => {}
+        }
+        if let Some(label) = transport {
+            let data = lxb_encoding_data_by_pre_name(label.as_ptr(), label.len());
+            if !data.is_null() {
+                return ((*data).encoding, 0);
+            }
+        }
+        let head = &bytes[..bytes.len().min(1024)];
+        let mut em = HtmlEncoding([0; 128]);
+        assert_eq!(lxb_html_encoding_init(&mut em), 0);
+        let mut len = 0;
+        let name = lxb_html_encoding_prescan(
+            &mut em,
+            head.as_ptr(),
+            head.as_ptr().add(head.len()),
+            &mut len,
+        );
+        let data = if name.is_null() {
+            std::ptr::null()
+        } else {
+            lxb_encoding_data_prescan_validate(name, len)
+        };
+        lxb_html_encoding_destroy(&mut em, false);
+        match data.as_ref() {
+            Some(d) if d.encoding != LXB_DEFAULT => (d.encoding, 0),
+            _ => (LXB_WINDOWS_1252, 0),
+        }
+    }
+}
+
+impl Document {
+    /// A page as a crawler gets it, bytes and maybe a transport label,
+    /// through Lexbor's own encoding detection and decoders and then its
+    /// parser, which takes UTF-8. UTF-8, and ASCII in an encoding that
+    /// keeps ASCII as it is, go to the parser as they are; anything else
+    /// is decoded to UTF-8 by Lexbor's encoding module first. A failed
+    /// parse is its status.
+    pub fn parse_bytes(bytes: &[u8], transport: Option<&str>) -> Result<Document, u32> {
+        let (encoding, bom) = choose_encoding(bytes, transport);
+        let bytes = &bytes[bom..];
+        let decoded;
+        let utf8 = if encoding == LXB_UTF_8
+            || (bytes.is_ascii() && encoding != LXB_UTF_16BE && encoding != LXB_UTF_16LE)
+        {
+            bytes
+        } else {
+            decoded = crate::encoding::lexbor_utf8(encoding, bytes);
+            &decoded
+        };
+        // SAFETY: as in `parse`.
+        unsafe {
+            let doc = lxb_html_document_create();
+            if doc.is_null() {
+                return Err(u32::MAX);
+            }
+            let status = lxb_html_document_parse(doc, utf8.as_ptr(), utf8.len());
+            if status != 0 {
+                lxb_html_document_destroy(doc);
+                return Err(status);
+            }
+            Ok(Document(doc))
+        }
+    }
+
+    /// Elements in the tree, walked from the document node in tree order
+    /// (a template's contents aren't its children, so they're not counted).
+    pub fn elements(&self) -> usize {
+        let root: *mut LxbDomNode = self.0.cast();
+        let mut n = 0;
+        // SAFETY: every pointer comes from Lexbor's own tree accessors on a
+        // live document, and the walk never leaves the document node.
+        unsafe {
+            let mut at = lxb_dom_node_first_child_noi(root);
+            while !at.is_null() {
+                if lxb_dom_node_type_noi(at) == ELEMENT {
+                    n += 1;
+                }
+                let child = lxb_dom_node_first_child_noi(at);
+                if !child.is_null() {
+                    at = child;
+                    continue;
+                }
+                loop {
+                    let next = lxb_dom_node_next_noi(at);
+                    if !next.is_null() {
+                        at = next;
+                        break;
+                    }
+                    at = lxb_dom_node_parent_noi(at);
+                    if at.is_null() || at == root {
+                        at = std::ptr::null_mut();
+                        break;
+                    }
+                }
+            }
+        }
+        n
+    }
 }
 
 /// A parsed Lexbor document, destroyed on drop.

@@ -116,7 +116,7 @@ fn lexbor_code_points(encoding: u32, bytes: &[u8]) -> usize {
 }
 
 /// Lexbor decoding and then encoding the code points as UTF-8.
-fn lexbor_utf8(encoding: u32, bytes: &[u8]) -> Vec<u8> {
+pub(crate) fn lexbor_utf8(encoding: u32, bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len() * 3 / 2);
     let mut buf = vec![0u8; 16384];
     let mut ctx = Ctx([0; 256]);

@@ -29,7 +29,13 @@
 //!
 //! Then CSS: tokenizing and parsing real stylesheets, Parsec against
 //! Lexbor's CSS module and Servo's cssparser. Name `css` to run only that.
+//!
+//! `boss` runs the final boss instead (not part of a full run): a seeded
+//! batch of broken fragments, real pages, encoding quirks and giants, as
+//! bytes, each parser in its own process, timed per page with its peak
+//! memory. See src/boss.rs.
 
+mod boss;
 mod css;
 mod encoding;
 mod lexbor;
@@ -221,6 +227,13 @@ fn main() {
         let page = pages::chosen(std::slice::from_ref(page)).remove(0);
         let r = measure(which.parse().unwrap(), &page.html);
         println!("{} {}", r.secs, r.peak);
+        return;
+    }
+    if args.first().is_some_and(|a| a.starts_with("boss")) {
+        if args[0] == "boss" {
+            header();
+        }
+        boss::run(&args);
         return;
     }
     if args.iter().any(|a| a == "encoding") {

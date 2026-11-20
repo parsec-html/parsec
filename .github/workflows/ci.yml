@@ -64,6 +64,11 @@ jobs:
           tool: cargo-deny
       - run: cargo deny --manifest-path bench/Cargo.toml check licenses bans sources
       - run: cargo run --release --manifest-path bench/Cargo.toml -- "shop 1 MB" "unclosed tables"
+      # The final boss, small: 300 seeded pages of broken fragments,
+      # encoding quirks and 2 MB giants, as bytes, Parsec only. Not timed
+      # against anything; it fails on a crash, a page over 10 s, or a page
+      # without a document.
+      - run: cargo run --release --manifest-path bench/Cargo.toml -- boss --smoke
 
   # Known vulnerabilities in the Rust dependencies, from the RustSec
   # database. Not a required check: a new advisory shouldn't block an
