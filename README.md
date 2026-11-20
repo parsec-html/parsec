@@ -308,6 +308,66 @@ Lexbor and cssparser. The wiki's
 [Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks) page
 has the method, every number and how to run it yourself.
 
+## The final boss
+
+Clean pages, one at a time, tell you how fast a parser is. They don't
+tell you what happens when a crawl comes back with everything at once.
+So here's the batch I'd least like to get: 1,000 pages built from a
+seed, the same bytes every time. 900 are tiny broken fragments:
+unclosed and misnested tags, stray `</table>`s, duplicate attributes,
+NUL bytes, `&amp` with no semicolon, `&#xD800;`, tags nested 5,000
+deep, comments and `<script>`s left open at the end. 46 are real pages
+as they were served. 44 are real pages re-encoded: Shift_JIS, GBK,
+EUC-KR, windows-1251, UTF-16 with a BOM, a `<meta>` that lies, a BOM
+that disagrees with the `<meta>`, a charset that only the HTTP header
+gives, UTF-8 that never says so, and UTF-8 peppered with invalid bytes.
+The last 10 are giants of 10 to 30 MB. That's 265 MB, and three
+quarters of it is the giants.
+
+Each parser gets the bytes, as a crawler does, in the same order, in a
+process of its own, so the peak memory is that parser's alone. Parsec
+finds the encoding itself. Lexbor gets its own BOM sniff, `<meta>`
+prescan and decoders. html5ever only takes text, so encoding_rs decodes
+for it. These are medians of three runs, each started with the load
+under 2, on the same M2 Max:
+
+| | Seconds per 1,000 pages | Slowest page | Peak RSS | Crashes | Timeouts (10 s) |
+|---|---:|---:|---:|---:|---:|
+| Parsec | 1.49 | 0.258 s | 512 MB | 0 | 0 |
+| Lexbor 3.0.1 | 1.93 | 0.249 s | 1,044 MB | 0 | 0 |
+| html5ever 0.40 | 5.99 | 0.811 s | 673 MB | 0 | 0 |
+
+Nothing crashed, nothing hit the limit, and all three built the same
+number of elements on every one of the 1,000 pages. So what's left is
+speed and memory, and that depends on what kind of page it is:
+
+| | Parsec | Lexbor | html5ever |
+|---|---:|---:|---:|
+| 900 fragments, 1.4 MB | 0.048 s | 0.406 s | 0.754 s |
+| 46 real pages, 33 MB | 0.059 s | 0.134 s | 0.293 s |
+| 44 re-encoded pages, 37 MB | 0.064 s | 0.178 s | 0.306 s |
+| 10 giants, 194 MB | 1.317 s | 1.214 s | 4.631 s |
+
+The fragments show what a page costs before there's anything to parse.
+Lexbor spends 0.45 ms on each and Parsec 53 µs, eight times less. On
+real pages Parsec is 2.3 times as fast, and 2.8 on the re-encoded ones.
+
+The giants go to Lexbor, 1.21 seconds to 1.32, and all of that lead
+comes from three pages that are one long text node of character
+references: Lexbor gets through them in 0.28 s, about twice as fast as
+Parsec's 0.58. On the real pages run together Parsec is 1.4 times as
+fast, and on the huge table 1.2. Lexbor's slowest page is a shade
+quicker too, 0.249 s for a 27.6 MB table, to Parsec's 0.258 for 21.8 MB
+of references. Memory is Parsec's: half Lexbor's peak, and less than
+html5ever's. All three include the 32 MB the harness holds for the
+biggest page.
+
+`cargo run --release --manifest-path bench/Cargo.toml -- boss` runs it,
+and CI runs a 300-page version with nothing over 2 MB through Parsec on
+every pull request, failing on a crash or a hang. The wiki's
+[Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks#the-final-boss)
+page has every quirk, the seed and the raw output.
+
 ## What's coming
 
 The [roadmap](ROADMAP.md) has the order. In short, Parsec is set to cover

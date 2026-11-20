@@ -1282,7 +1282,7 @@ pub fn run(args: &[String]) {
         .map(|r| format!("{:.2}", r.load))
         .collect();
     println!(
-        "Load average at the start of each run: {}",
+        "Load average at the start of each run, by parser: {}",
         loads.join(", ")
     );
     if events.is_empty() {
