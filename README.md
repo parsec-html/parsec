@@ -75,7 +75,7 @@ assert_eq!(doc.text(hits[0]), "one");
   libxml2's 231 expression tests, skipping only its own extensions.
 
   ```rust
-  use parsec_xpath::{Doc, Index, NoExtensions, XPath};
+  use parsec::xpath::{Doc, Index, NoExtensions, XPath};
 
   let doc = parsec::parse("<ul><li>a<li class=x>b<li>c</ul>", false);
   let index = Index::build(&doc, &[doc.root()]);
@@ -90,7 +90,7 @@ assert_eq!(doc.text(hits[0]), "one");
   pretty-printed without changing the tree, in the html5lib test format,
   or with html5lib's serializer options (it passes their 229 tests).
 - **Bytes in, with the encoding found the way browsers find it.**
-  `parsec_encoding::parse_bytes` checks for a byte order mark, then the
+  `parsec::encoding::parse_bytes` checks for a byte order mark, then the
   `charset` you got from HTTP if you pass one, then the HTML Standard's
   `<meta>` prescan of the first 1,024 bytes, then takes bytes that are
   valid UTF-8 for UTF-8 (the spec's autodetection step, narrowed to what
@@ -100,7 +100,7 @@ assert_eq!(doc.text(hits[0]), "one");
   once more in the declared encoding, as a browser reloads. You get the
   document, the encoding and how sure it is. It passes all 82 html5lib
   `encoding/` cases that don't need JavaScript.
-- **Bytes as they arrive, too.** `parsec_encoding::ByteParser` takes the
+- **Bytes as they arrive, too.** `parsec::encoding::ByteParser` takes the
   page a piece at a time, straight off the socket. It holds back the first
   bytes only until it knows the encoding (a byte order mark, your HTTP
   `charset`, a whole `<meta>`, or 1,024 bytes), then decodes each piece and
@@ -165,7 +165,7 @@ assert_eq!(doc.text(hits[0]), "one");
   [CSS](https://github.com/parsec-html/parsec/wiki/CSS) page names each
   one. It passes all 287 of Romain Menke's tokenizer tests too, positions
   included. Lexbor runs its own CSS tests, not an outside suite.
-- **CSS values**, in `parsec_css::values`: every property in the CSS
+- **CSS values**, in `parsec::stylesheet::values`: every property in the CSS
   specs, 822 of them (597 longhands, 161 shorthands, 64 legacy aliases),
   generated from w3c/webref's data with its grammar, initial value and
   inheritance, and each value parsed against its grammar by a matcher
@@ -186,10 +186,10 @@ assert_eq!(doc.text(hits[0]), "one");
   14,893 static CSS parsing cases, 14,758 pass; the wiki's
   [CSS values](https://github.com/parsec-html/parsec/wiki/CSS-values)
   page breaks down the other 135.
-- **The cascade and computed values**, in `parsec_css::cascade`: style a
+- **The cascade and computed values**, in `parsec::stylesheet::cascade`: style a
   Parsec document with the user agent's, the user's and the author's
   sheets, `@media` and `@supports` evaluated against an environment you
-  give (`parsec_css::media` and `::supports`), `@layer`, nesting,
+  give (`parsec::stylesheet::media` and `::supports`), `@layer`, nesting,
   specificity, `!important` and `style=""`, `@scope` with scoping
   proximity, `@container` against the container sizes you give (size and
   `style()` queries, ranges like `style(--gap > 1em)` included, and the
@@ -207,7 +207,7 @@ assert_eq!(doc.text(hits[0]), "one");
   `styled.pseudo_exists()` telling you whether a `::before`, `::after` or
   `::marker` box is there. They're worked out when you ask, so a page
   costs no more to style for having them. `@keyframes` and `@counter-style` are parsed and given back
-  (`parsec_css::rules`), whichever wins for each name. Lexbor has no media
+  (`parsec::stylesheet::rules`), whichever wins for each name. Lexbor has no media
   query evaluation and no computed values
   ([discussion #265](https://github.com/lexbor/lexbor/discussions/265)).
   `cargo test` runs WPT's media query cases (1,370 of 1,370), its
@@ -348,34 +348,59 @@ and Firefox. A
 
 ## Using it
 
-Parsec isn't on crates.io yet. To try it from git:
+From 0.1.0, Parsec is on crates.io, PyPI and npm as `parsec-html`, and
+the C library comes with each GitHub release. Until 0.1.0 is out, use the
+git versions below each one.
 
-```toml
-[dependencies]
-parsec-html = { git = "https://github.com/parsec-html/parsec" }
+**Rust.** The package is `parsec-html` and the crate you `use` is
+`parsec`:
+
+```sh
+cargo add parsec-html                      # parser, selectors, encoding, URL, XPath
+cargo add parsec-html --features css       # plus CSS Syntax, values and the cascade
+cargo add parsec-html --no-default-features --features xpath   # just what you name
 ```
 
-The package is `parsec-html` and the crate you `use` is `parsec`. For
-bytes in, add `parsec-html-encoding` the same way; its crate is
-`parsec_encoding`:
+Each standard is a module: `parsec::encoding`, `parsec::url`,
+`parsec::xpath`, and with `css`, `parsec::stylesheet` (`parsec::css` is
+the selector engine, always there). Bytes in looks like this:
 
 ```rust
 let page = b"<meta charset=shift_jis><title>\x93\xfa\x96\x7b</title>";
-let parsed = parsec_encoding::parse_bytes(page, Default::default()).unwrap();
+let parsed = parsec::encoding::parse_bytes(page, Default::default()).unwrap();
 assert_eq!(parsed.encoding.name(), "Shift_JIS");
 assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 ```
 
-From Python, until the wheels go to PyPI with 0.1.0, build it from git
-(Rust 1.88 or newer) and `import parsec_html`:
+Before 0.1.0: `parsec-html = { git = "https://github.com/parsec-html/parsec" }`.
+
+**Python** 3.9 or newer, free-threaded too; then `import parsec_html`:
 
 ```sh
-pip install "git+https://github.com/parsec-html/parsec#subdirectory=bindings/python"
+pip install parsec-html
 ```
 
-From C, build the library and its header, pkg-config and CMake files
-into a folder of your choice, then `find_package(parsec)` or
-`pkg-config parsec`:
+Before 0.1.0, build it from git (Rust 1.88 or newer):
+`pip install "git+https://github.com/parsec-html/parsec#subdirectory=bindings/python"`.
+
+**JavaScript**, in Node or a browser:
+
+```sh
+npm install parsec-html
+```
+
+**C.** Each release has a package per platform (Linux, macOS and Windows,
+on x86-64 and ARM) with the shared and static library, `parsec.h`, and
+pkg-config and CMake files. Unpack it anywhere, then `find_package(parsec)`
+with `CMAKE_PREFIX_PATH` pointing there, or `pkg-config parsec` with
+`PKG_CONFIG_PATH` set to its `lib/pkgconfig`:
+
+```sh
+gh release download v0.1.0 --repo parsec-html/parsec --pattern 'parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz'
+tar -xzf parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+```
+
+Or build the same package yourself, into a folder of your choice:
 
 ```sh
 crates/parsec-capi/package.sh "$HOME/.local/parsec"
