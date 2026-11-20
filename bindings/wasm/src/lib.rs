@@ -627,7 +627,9 @@ impl Node {
                         doc: self.doc.clone(),
                         id,
                     }),
-                    Item::Attr { value, .. } => JsValue::from_str(value),
+                    Item::Attr { owner, index, .. } => {
+                        JsValue::from_str(attr_value(&doc, owner, index))
+                    }
                 })
                 .collect::<Vec<_>>()
                 .into(),
@@ -792,4 +794,12 @@ impl Node {
             .insert_before(self.id, child.id, reference.map(|r| r.id))
             .map_err(|e| JsError::new(&e.to_string()))
     }
+}
+
+/// The value of an XPath attribute item, which names its attribute by
+/// place on the element rather than carrying it.
+fn attr_value(doc: &parsec::Document, owner: parsec::NodeId, index: u32) -> &str {
+    doc.attrs(owner)
+        .nth(index as usize)
+        .map_or("", |(_, _, value)| value)
 }

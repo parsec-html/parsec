@@ -546,7 +546,9 @@ impl HtmlParser {
                                 Kind::Text(t) | Kind::Cdata(t) => Hit::Str(t.to_string()),
                                 _ => Hit::Node(n),
                             },
-                            Item::Attr { value, .. } => Hit::Str(value.to_string()),
+                            Item::Attr { owner, index, .. } => {
+                                Hit::Str(attr_value(&doc, owner, index).to_string())
+                            }
                         })
                         .collect(),
                 ),
@@ -1863,4 +1865,12 @@ fn parsec_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("XPathError", m.py().get_type::<XPathError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
+}
+
+/// The value of an XPath attribute item, which names its attribute by
+/// place on the element rather than carrying it.
+fn attr_value(doc: &parsec::Document, owner: parsec::NodeId, index: u32) -> &str {
+    doc.attrs(owner)
+        .nth(index as usize)
+        .map_or("", |(_, _, value)| value)
 }
