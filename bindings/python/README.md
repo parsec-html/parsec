@@ -89,8 +89,14 @@ What you get over selectolax:
 
 ## Installing
 
-Parsec isn't released yet. Wheels go to PyPI as `parsec-html` with 0.1.0.
-Until then, build it from git (you need Rust 1.88 or newer):
+```sh
+pip install parsec-html
+```
+
+There are wheels for CPython 3.9 and newer, free-threaded too, on Linux
+(glibc and musl), macOS and Windows, x86-64 and ARM. Anywhere else, pip
+builds the sdist, which needs Rust 1.88 or newer. The newest code on
+`main` installs the same way from git:
 
 ```sh
 pip install "git+https://github.com/parsec-html/parsec#subdirectory=bindings/python"

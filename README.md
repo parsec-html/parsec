@@ -20,8 +20,9 @@ share across threads, XPath, selectors that match everything a static page
 can decide, and no use-after-free bugs, because the parser is memory-safe
 Rust.
 
-Parsec isn't released yet. This page says what works today and what's on
-the way, and the line between the two is kept sharp.
+Parsec 0.1.0 is out, on crates.io, PyPI and npm as `parsec-html`. This
+page says what works today and what's on the way, and the line between
+the two is kept sharp.
 
 ## What works today
 
@@ -412,9 +413,8 @@ and Firefox. A
 
 ## Using it
 
-From 0.1.0, Parsec is on crates.io, PyPI and npm as `parsec-html`, and
-the C library comes with each GitHub release. Until 0.1.0 is out, use the
-git versions below each one.
+Parsec is on crates.io, PyPI and npm as `parsec-html`, and the C
+library comes with each [GitHub release](https://github.com/parsec-html/parsec/releases).
 
 **Rust.** The package is `parsec-html` and the crate you `use` is
 `parsec`:
@@ -436,16 +436,14 @@ assert_eq!(parsed.encoding.name(), "Shift_JIS");
 assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 ```
 
-Before 0.1.0: `parsec-html = { git = "https://github.com/parsec-html/parsec" }`.
-
 **Python** 3.9 or newer, free-threaded too; then `import parsec_html`:
 
 ```sh
 pip install parsec-html
 ```
 
-Before 0.1.0, build it from git (Rust 1.88 or newer):
-`pip install "git+https://github.com/parsec-html/parsec#subdirectory=bindings/python"`.
+Wheels cover Linux, macOS and Windows; anywhere else, pip builds the
+sdist, which needs Rust 1.88 or newer.
 
 **JavaScript**, in Node or a browser:
 
