@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 #
-# Packages parsec-html twice, from two fresh checkouts of one commit, and
-# fails unless the two .crate files are the same byte for byte. It's how a
-# release is built (release.yml), and how anyone can check one: run it at
-# the release's tag and compare the printed SHA-256 with the release's.
+# Packages every crate Parsec publishes twice, from two fresh checkouts of
+# one commit, and fails unless each pair of .crate files is the same byte
+# for byte. It's how a release is built (release.yml), and how anyone can
+# check one: run it at the release's tag and compare the printed SHA-256s
+# with the release's SHA256SUMS.
 #
 #   scripts/package-twice.sh [COMMIT] [OUT]
 #
@@ -13,7 +14,7 @@
 # of its own, which works in a shallow clone too, and no submodules; the
 # first checks out with umask 022 and the second with 077, so file modes
 # from a checkout can't leak into the package. OUT, when given, gets the
-# .crate.
+# .crate files.
 set -euo pipefail
 
 commit=$(git rev-parse --verify "${1:-HEAD}^{commit}")
@@ -31,23 +32,21 @@ build() { # name umask
 		umask "$2"
 		git -C "$repo" worktree add --quiet --detach "$work/$1" "$commit"
 	)
-	cargo package --quiet --manifest-path "$work/$1/Cargo.toml" -p parsec-html \
-		--locked --no-verify --target-dir "$work/target-$1"
+	# The C API isn't on crates.io; its libraries go with the release.
+	cargo package --quiet --manifest-path "$work/$1/Cargo.toml" --workspace \
+		--exclude parsec-capi --locked --no-verify --target-dir "$work/target-$1"
 }
 
 build a 022
 build b 077
-crate=$(cd "$work/target-a/package" && ls -- *.crate)
-sum_a=$(sha256sum "$work/target-a/package/$crate" | cut -d' ' -f1)
-sum_b=$(sha256sum "$work/target-b/package/$crate" | cut -d' ' -f1)
-if [ "$sum_a" != "$sum_b" ]; then
-	echo "$crate differs between two builds of $commit:" >&2
-	echo "  $sum_a" >&2
-	echo "  $sum_b" >&2
+(cd "$work/target-a/package" && sha256sum -- *.crate) > "$work/sums-a"
+(cd "$work/target-b/package" && sha256sum -- *.crate) > "$work/sums-b"
+if ! diff "$work/sums-a" "$work/sums-b" >&2; then
+	echo "the packages differ between two builds of $commit" >&2
 	exit 1
 fi
 if [ -n "$out" ]; then
 	mkdir -p "$out"
-	cp "$work/target-a/package/$crate" "$out/"
+	cp "$work/target-a/package/"*.crate "$out/"
 fi
-echo "$sum_a  $crate"
+cat "$work/sums-a"

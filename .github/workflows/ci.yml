@@ -116,10 +116,12 @@ jobs:
       - name: Every Rust file states its licence and copyright
         run: scripts/check-headers.sh
 
-  # A release is the crate cargo packages, and it has to come out the same
-  # every time (release.yml). The script builds it twice from fresh
-  # checkouts; the package from this checkout, which has the submodules,
-  # must match them too, as it would for anyone rebuilding a release.
+  # A release is the crates cargo packages, and they have to come out the
+  # same every time (release.yml). The script builds them twice from fresh
+  # checkouts; the packages from this checkout, which has the submodules,
+  # must match them too, as they would for anyone rebuilding a release.
+  # Packaging them here also builds each package on its own against the
+  # others, as crates.io will have them, as `cargo publish` would.
   reproducible:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -131,14 +133,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
-      - name: The crate packages the same twice, and with submodules
+      - name: The crates package the same twice, and with submodules
         run: |
-          twice=$(scripts/package-twice.sh HEAD | cut -d' ' -f1)
-          cargo package --quiet -p parsec-html --locked --no-verify
-          here=$(sha256sum target/package/*.crate | cut -d' ' -f1)
-          echo "twice: $twice"
-          echo "here:  $here"
-          [ "$twice" = "$here" ]
+          scripts/package-twice.sh HEAD > "$RUNNER_TEMP/twice"
+          cargo package --quiet --workspace --exclude parsec-capi --locked
+          (cd target/package && sha256sum -- *.crate) > "$RUNNER_TEMP/here"
+          cat "$RUNNER_TEMP/twice"
+          diff "$RUNNER_TEMP/twice" "$RUNNER_TEMP/here"
 
   test:
     strategy:
