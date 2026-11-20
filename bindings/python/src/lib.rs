@@ -41,6 +41,10 @@ pyo3::create_exception!(
     "An XPath expression that doesn't parse, or that can't be evaluated."
 );
 
+/// A parsed page, or a fragment, with selectolax's API: `css()`, `root`,
+/// `body`, `text()` and the rest, plus `xpath()`. A `str` is parsed as it
+/// is; `bytes` are decoded as a browser decodes them. Any number of
+/// threads may read and edit one parser at once.
 #[pyclass(frozen, module = "parsec_html", name = "HTMLParser")]
 struct HtmlParser {
     doc: RwLock<Document>,
@@ -88,6 +92,9 @@ impl SyntaxIssue {
     }
 }
 
+/// A node of a parsed page: an element, text, a comment, a doctype, or
+/// the document. It stays valid as the page changes, and after it's
+/// taken out with `remove()`.
 #[pyclass(frozen, module = "parsec_html")]
 struct Node {
     parser: Py<HtmlParser>,
@@ -668,7 +675,8 @@ fn first_or_default(
     }
 }
 
-/// Each of `tags`' matches under `scope`, gathered before any is changed.
+/// Each of `tags`' matches under `scope`, gathered before any is changed:
+/// the scope too, when it's an element and matches, as selectolax has it.
 fn matches_of(
     py: Python<'_>,
     parser: &HtmlParser,
@@ -678,7 +686,7 @@ fn matches_of(
     let mut out = Vec::new();
     for tag in tags.try_iter()? {
         let tag = tag?;
-        out.extend(parser.select(py, &compile(&tag.extract::<String>()?)?, scope, false));
+        out.extend(parser.select(py, &compile(&tag.extract::<String>()?)?, scope, true));
     }
     Ok(out)
 }
@@ -889,6 +897,9 @@ impl HtmlParser {
 
     /// The line and column of an offset into the input, counted as
     /// `source_range` counts: both from 1, the column in characters.
+    /// With neither `positions` nor `errors` on, the input isn't kept to
+    /// count against, and `offset` is a UTF-8 byte offset into the text
+    /// that was parsed instead.
     fn line_col(&self, py: Python<'_>, offset: usize) -> (usize, usize) {
         self.read(py).line_col(self.units.back(offset))
     }
@@ -1476,7 +1487,9 @@ impl Node {
     /// attributes or text, `html` is `""`, no selector matches it, `xpath`
     /// raises `ValueError`, and putting it back raises `ValueError`. It
     /// keeps its `tag`, so you can tell what it was. Use `remove()` to take
-    /// a node out and keep it. The root can't be decomposed.
+    /// a node out and keep it. The document node can't be decomposed; the
+    /// `<html>` element, which `root` gives, can, though selectolax refuses
+    /// that one.
     #[pyo3(signature = (recursive = true))]
     fn decompose(&self, py: Python<'_>, recursive: bool) -> PyResult<()> {
         let _ = recursive;
@@ -1505,6 +1518,8 @@ impl Node {
         unwrap(&mut self.p().write(py), self.id, delete_empty);
     }
 
+    /// Replaces every element matching each of `tags` with its contents:
+    /// this node, if it matches, and those inside it.
     #[pyo3(signature = (tags, delete_empty = false))]
     fn unwrap_tags(
         &self,
@@ -1520,6 +1535,8 @@ impl Node {
         Ok(())
     }
 
+    /// Decomposes every element matching each of `tags`, with its
+    /// contents: this node, if it matches, and those inside it.
     #[pyo3(signature = (tags, recursive = false))]
     fn strip_tags(&self, py: Python<'_>, tags: &Bound<'_, PyAny>, recursive: bool) -> PyResult<()> {
         let _ = recursive;

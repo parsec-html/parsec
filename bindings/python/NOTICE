@@ -1,0 +1,64 @@
+Parsec
+Copyright 2026 James Conway
+
+Parsec is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Parsec's HTML parser includes the table of named character references
+from the HTML Standard (https://html.spec.whatwg.org/), © WHATWG (Apple,
+Google, Mozilla, Microsoft), licensed under the Creative Commons
+Attribution 4.0 International License.
+
+Parsec's HTML parser also includes Unicode property tables generated
+from the Unicode Character Database (https://www.unicode.org/ucd/),
+© 1991-2025 Unicode, Inc., licensed under the Unicode License v3
+(https://www.unicode.org/license.txt).
+
+Parsec's CSS module includes data generated from @webref/css
+(https://github.com/w3c/webref), the CSS definitions scraped from the
+specifications: every property's grammar, initial value, inheritance and
+longhands, in crates/parsec-css/src/values/generated.rs, from
+crates/parsec-css/data/webref/css.json, Copyright (c) 2020 World Wide Web
+Consortium, under the MIT License; see the LICENSE file in that directory.
+
+Parsec's CSS module also includes the user agent stylesheet from the
+HTML Standard's rendering section
+(https://html.spec.whatwg.org/multipage/rendering.html), in
+crates/parsec-css/src/cascade/html.css, © WHATWG (Apple, Google, Mozilla,
+Microsoft), licensed under the Creative Commons Attribution 4.0
+International License.
+
+Parsec's tests use test data that is not part of the library and is
+licensed under its own terms:
+
+- libxml2's XPath expression tests (https://gitlab.gnome.org/GNOME/libxml2),
+  in crates/parsec-xpath/tests/libxml2, Copyright (C) 1998-2012 Daniel
+  Veillard and the Libxml2 Contributors, under the MIT License; see the
+  Copyright file in that directory.
+- html5lib-tests (https://github.com/html5lib/html5lib-tests), in
+  crates/parsec/tests/html5lib-tests, Copyright (c) 2006-2013 James
+  Graham, Geoffrey Sneddon, and other contributors, under the MIT
+  License; see the LICENSE file in that directory.
+- The tree-construction tests from web-platform-tests
+  (https://github.com/web-platform-tests/wpt), in
+  crates/parsec/tests/tree-construction, Copyright web-platform-tests
+  contributors, under the 3-Clause BSD License; see the LICENSE.md file
+  in that directory.
+- css-parsing-tests (https://github.com/CourtBouillon/css-parsing-tests),
+  in crates/parsec-css/tests/css-parsing-tests, written by Simon Sapin
+  and dedicated to the public domain under CC0 1.0; and its urange.json
+  from rust-cssparser (https://github.com/servo/rust-cssparser), in
+  crates/parsec-css/tests/urange, under the same dedication.
+- css-tokenizer-tests (https://github.com/romainmenke/css-tokenizer-tests),
+  in crates/parsec-css/tests/css-tokenizer-tests, Copyright 2026 Romain
+  Menke, under the MIT License; see the LICENSE file in that directory.
+- The CSS parsing tests from web-platform-tests
+  (https://github.com/web-platform-tests/wpt), as the cases extracted
+  into crates/parsec-css/tests/wpt-values, Copyright web-platform-tests
+  contributors, under the 3-Clause BSD License; see the LICENSE.md file
+  in that directory.
+- web-platform-tests' media query, computed-value and cascade tests
+  (https://github.com/web-platform-tests/wpt), as the cases extracted
+  into crates/parsec-css/tests/wpt-media, wpt-computed and wpt-cascade,
+  with the test files those cases come from, Copyright
+  web-platform-tests contributors, under the 3-Clause BSD License; see
+  the LICENSE.md file in each directory.
