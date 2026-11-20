@@ -20,6 +20,7 @@ use std::ffi::{c_char, c_int, c_void};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use encoding::{Encoding, Offsets, Parsed};
 use html::css::SelectorList;
@@ -36,10 +37,29 @@ pub struct parsec_document {
     /// For a document parsed from bytes, the name of the encoding they
     /// were decoded from, NUL-terminated.
     encoding: Option<Box<str>>,
-    /// For a document parsed from bytes with `PARSEC_SPANS` or
-    /// `PARSEC_ERRORS`, turns offsets into the decoded text into offsets
-    /// into the bytes; None when they're the same.
+    /// With `PARSEC_SPANS` or `PARSEC_ERRORS`, for a document parsed from
+    /// bytes or from text that wasn't all UTF-8, turns offsets into the
+    /// text the parser read into offsets into the caller's bytes; None
+    /// when they're the same.
     offsets: Option<Offsets>,
+    /// How many `parsec_select` calls are running callbacks on it. While
+    /// any are, changes are refused and freeing waits for the last.
+    busy: AtomicUsize,
+    /// Freed from a callback: the last `parsec_select` frees it.
+    free_pending: AtomicBool,
+}
+
+impl parsec_document {
+    fn new(doc: Document, encoding: Option<Box<str>>, offsets: Option<Offsets>) -> Self {
+        parsec_document {
+            doc,
+            index: OnceLock::new(),
+            encoding,
+            offsets,
+            busy: AtomicUsize::new(0),
+            free_pending: AtomicBool::new(false),
+        }
+    }
 }
 
 /// A parse of bytes as they arrive. Made by `parsec_byte_parser_new`,
@@ -121,6 +141,8 @@ pub const PARSEC_ERR_XPATH: parsec_status = 13;
 /// was, so it can't be used again: not edited, inserted, nor used as an
 /// XPath context. `parsec_detach` takes a node out to move it.
 pub const PARSEC_ERR_REMOVED: parsec_status = 14;
+/// The document can't be changed from inside a `parsec_select` callback.
+pub const PARSEC_ERR_BUSY: parsec_status = 15;
 
 /// Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 /// holds raw text.
@@ -206,6 +228,11 @@ unsafe fn doc_ref<'a>(doc: *const parsec_document) -> Result<&'a Document, parse
 }
 
 unsafe fn doc_mut<'a>(doc: *mut parsec_document) -> Result<&'a mut Document, parsec_status> {
+    // SAFETY: as doc_ref. A `parsec_select` callback may be calling, with
+    // the document borrowed, so look before borrowing it mutably.
+    if unsafe { handle(doc)? }.busy.load(Ordering::Acquire) != 0 {
+        return Err(PARSEC_ERR_BUSY);
+    }
     // SAFETY: as doc_ref, and no other call is using the document (writes
     // are one at a time, the header says).
     let d = unsafe { doc.as_mut() }.ok_or(PARSEC_ERR_NULL)?;
@@ -325,16 +352,22 @@ fn parse_status(e: ParseError) -> parsec_status {
     }
 }
 
+/// `html` is the text the parser read, made from `input`; when that
+/// replaced bytes that weren't UTF-8, and spans or errors are kept, the
+/// document keeps the offsets back to `input`.
 fn parsed(
     r: Result<Document, ParseError>,
+    (input, html): (&[u8], &Cow<'_, str>),
+    flags: u32,
     out: &mut *mut parsec_document,
 ) -> Result<(), parsec_status> {
-    *out = Box::into_raw(Box::new(parsec_document {
-        doc: r.map_err(parse_status)?,
-        index: OnceLock::new(),
-        encoding: None,
-        offsets: None,
-    }));
+    let keep = flags & (PARSEC_SPANS | PARSEC_ERRORS) != 0;
+    let offsets = (keep && matches!(html, Cow::Owned(_))).then(|| Offsets::lossy_utf8(input));
+    *out = Box::into_raw(Box::new(parsec_document::new(
+        r.map_err(parse_status)?,
+        None,
+        offsets,
+    )));
     Ok(())
 }
 
@@ -349,12 +382,11 @@ fn parsed_bytes(
     let offsets = bytes
         .map(|b| Offsets::new(b, p.encoding))
         .filter(|o| !o.is_identity());
-    *out = Box::into_raw(Box::new(parsec_document {
-        doc: p.document,
-        index: OnceLock::new(),
-        encoding: Some(format!("{}\0", p.encoding.name()).into()),
+    *out = Box::into_raw(Box::new(parsec_document::new(
+        p.document,
+        Some(format!("{}\0", p.encoding.name()).into()),
         offsets,
-    }));
+    )));
     Ok(p.encoding)
 }
 
@@ -415,13 +447,16 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
         PARSEC_ERR_PANIC => "internal error in Parsec (please report it)\0",
         PARSEC_ERR_XPATH => "the XPath expression isn't valid, or couldn't be evaluated\0",
         PARSEC_ERR_REMOVED => "the node was removed from its document, so it can't be used again\0",
+        PARSEC_ERR_BUSY => "the document can't be changed from a parsec_select callback\0",
         _ => "unknown status\0",
     };
     s.as_ptr().cast()
 }
 
 /// Frees a string a `parsec_*_html` or `parsec_text` call returned. NULL
-/// is fine and does nothing.
+/// is fine and does nothing. Anything else, a borrowed string or one
+/// already freed, is undefined behaviour: the size is read from the bytes
+/// just before the pointer.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_string_free(s: *mut c_char) {
     if s.is_null() {
@@ -478,13 +513,14 @@ pub unsafe extern "C" fn parsec_parse_with(
         status((|| {
             // SAFETY: as the header says for every argument.
             let out = unsafe { clear(out)? };
-            let html = unsafe { text(html, len)? };
+            let input = unsafe { bytes(html, len)? };
+            let html = String::from_utf8_lossy(input);
             let options = Options {
                 budget: (budget_us != 0).then(|| std::time::Duration::from_micros(budget_us)),
                 max_depth: (max_depth != 0).then_some(max_depth as usize),
                 ..options(flags)?
             };
-            parsed(html::parse_with(&html, options), out)
+            parsed(html::parse_with(&html, options), (input, &html), flags, out)
         })())
     })
 }
@@ -507,11 +543,14 @@ pub unsafe extern "C" fn parsec_parse_fragment(
         status((|| {
             // SAFETY: as the header says for every argument.
             let out = unsafe { clear(out)? };
-            let html = unsafe { text(html, len)? };
+            let input = unsafe { bytes(html, len)? };
+            let html = String::from_utf8_lossy(input);
             let context = unsafe { text(context, context_len)? };
             let options = options(flags)?;
             parsed(
                 html::parse_fragment_with(&html, namespace(ns)?, &context, options),
+                (input, &html),
+                flags,
                 out,
             )
         })())
@@ -659,12 +698,44 @@ pub unsafe extern "C" fn parsec_byte_parser_free(parser: *mut parsec_byte_parser
 }
 
 /// Frees a document and everything in it: its nodes, and every string
-/// borrowed from it. NULL is fine and does nothing.
+/// borrowed from it. NULL is fine and does nothing. Called from a
+/// `parsec_select` callback, it frees the document when `parsec_select`
+/// returns.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_document_free(doc: *mut parsec_document) {
     if !doc.is_null() {
-        // SAFETY: `doc` came from a parse and hasn't been freed.
-        guard((), || drop(unsafe { Box::from_raw(doc) }))
+        guard((), || {
+            // SAFETY: `doc` came from a parse and hasn't been freed.
+            let d = unsafe { &*doc };
+            if d.busy.load(Ordering::Acquire) != 0 {
+                d.free_pending.store(true, Ordering::Release);
+                return;
+            }
+            // SAFETY: as above, and no select is using it.
+            drop(unsafe { Box::from_raw(doc) })
+        })
+    }
+}
+
+/// Marks a document busy for a `parsec_select`'s callbacks, and on drop,
+/// panic or not, unmarks it and frees it if a callback asked to.
+struct Busy(*const parsec_document);
+
+impl Busy {
+    fn new(doc: &parsec_document) -> Busy {
+        doc.busy.fetch_add(1, Ordering::AcqRel);
+        Busy(doc)
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        // SAFETY: the document can't have been freed while busy.
+        let d = unsafe { &*self.0 };
+        if d.busy.fetch_sub(1, Ordering::AcqRel) == 1 && d.free_pending.load(Ordering::Acquire) {
+            // SAFETY: it came from Box::into_raw, and this was the last use.
+            drop(unsafe { Box::from_raw(self.0.cast_mut()) });
+        }
     }
 }
 
@@ -1159,8 +1230,10 @@ pub unsafe extern "C" fn parsec_selector_free(selector: *mut parsec_selector) {
 /// combinators look past it: `article .price` run on an article finds the
 /// prices inside it.
 ///
-/// Don't change the document from the callback; collect the nodes and
-/// change it afterwards.
+/// The callback may read the document but not change it: a change from
+/// there fails with `PARSEC_ERR_BUSY`, so collect the nodes and change it
+/// afterwards. `parsec_document_free` from there frees it when this
+/// returns.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_select(
     doc: *const parsec_document,
@@ -1172,11 +1245,12 @@ pub unsafe extern "C" fn parsec_select(
     guard(PARSEC_ERR_PANIC, || {
         status((|| {
             // SAFETY: NULL or live handles.
-            let d = unsafe { doc_ref(doc)? };
+            let h = unsafe { handle(doc)? };
             let s = unsafe { selector.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
             let callback = callback.ok_or(PARSEC_ERR_NULL)?;
-            let scope = node(d, scope)?;
-            for n in s.0.select_iter(d, scope) {
+            let scope = node(&h.doc, scope)?;
+            let _busy = Busy::new(h);
+            for n in s.0.select_iter(&h.doc, scope) {
                 // SAFETY: the caller's callback, with the caller's context.
                 if unsafe { callback(n, ctx) } != 0 {
                     break;
@@ -1766,8 +1840,25 @@ mod tests {
     }
 
     #[test]
+    fn the_header_has_this_version() {
+        let header = include_str!("../include/parsec.h");
+        let v: Vec<&str> = env!("CARGO_PKG_VERSION").split('.').collect();
+        for line in [
+            format!("#define PARSEC_VERSION \"{}\"", env!("CARGO_PKG_VERSION")),
+            format!("#define PARSEC_VERSION_MAJOR {}", v[0]),
+            format!("#define PARSEC_VERSION_MINOR {}", v[1]),
+            format!("#define PARSEC_VERSION_PATCH {}", v[2]),
+        ] {
+            assert!(
+                header.contains(&line),
+                "include/parsec.h lacks {line}: update cbindgen.toml"
+            );
+        }
+    }
+
+    #[test]
     fn every_status_has_a_message() {
-        for s in PARSEC_OK..=PARSEC_ERR_REMOVED {
+        for s in PARSEC_OK..=PARSEC_ERR_BUSY {
             let m = unsafe { std::ffi::CStr::from_ptr(parsec_status_message(s)) };
             assert_ne!(m.to_str().unwrap(), "unknown status", "{s}");
         }

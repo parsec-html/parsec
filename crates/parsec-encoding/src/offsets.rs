@@ -47,27 +47,15 @@ impl Offsets {
     /// and [`ByteParser`](crate::ByteParser) decode them in `encoding`:
     /// with the encoding's own byte order mark removed.
     pub fn new(bytes: &[u8], encoding: &'static Encoding) -> Offsets {
-        let mut map = Offsets { points: Vec::new() };
         let bom = match Encoding::for_bom(bytes) {
             Some((found, len)) if found == encoding => len,
             _ => 0,
         };
-        map.at(0, bom);
         if encoding == UTF_8 {
-            // Rust's lossy decoding replaces the same runs with U+FFFD as
-            // the Encoding Standard's, and far faster than byte by byte.
-            let (mut decoded, mut source) = (0, bom);
-            for chunk in bytes[bom..].utf8_chunks() {
-                decoded += chunk.valid().len();
-                source += chunk.valid().len();
-                if !chunk.invalid().is_empty() {
-                    decoded += '\u{FFFD}'.len_utf8();
-                    source += chunk.invalid().len();
-                    map.at(decoded, source);
-                }
-            }
-            return map;
+            return Offsets::utf8(bytes, bom);
         }
+        let mut map = Offsets { points: Vec::new() };
+        map.at(0, bom);
         if encoding.is_single_byte() {
             // One byte, one character, so one decode of the whole will do.
             let (text, _) = encoding.decode_without_bom_handling(bytes);
@@ -120,6 +108,33 @@ impl Offsets {
         map
     }
 
+    /// The offsets for `bytes` decoded as [`String::from_utf8_lossy`]
+    /// decodes them: a byte order mark kept, as text, and each run of
+    /// bytes that isn't UTF-8 one U+FFFD. Parsing such a string, the
+    /// parser counts offsets into it.
+    pub fn lossy_utf8(bytes: &[u8]) -> Offsets {
+        Offsets::utf8(bytes, 0)
+    }
+
+    /// UTF-8 from `bom` on. Rust's lossy decoding replaces the same runs
+    /// with U+FFFD as the Encoding Standard's, and far faster than byte
+    /// by byte.
+    fn utf8(bytes: &[u8], bom: usize) -> Offsets {
+        let mut map = Offsets { points: Vec::new() };
+        map.at(0, bom);
+        let (mut decoded, mut source) = (0, bom);
+        for chunk in bytes[bom..].utf8_chunks() {
+            decoded += chunk.valid().len();
+            source += chunk.valid().len();
+            if !chunk.invalid().is_empty() {
+                decoded += '\u{FFFD}'.len_utf8();
+                source += chunk.invalid().len();
+                map.at(decoded, source);
+            }
+        }
+        map
+    }
+
     /// Notes that decoded offset `decoded` is source offset `source`,
     /// unless counting on from the last point says so already.
     fn at(&mut self, decoded: usize, source: usize) {
@@ -137,22 +152,24 @@ impl Offsets {
     }
 
     /// The offset into the bytes of offset `decoded` into the decoded text.
+    /// An offset past the end maps past the end, saturating at `usize::MAX`.
     pub fn to_source(&self, decoded: usize) -> usize {
         let i = self.points.partition_point(|&(d, _)| d as usize <= decoded);
         match i.checked_sub(1).map(|i| self.points[i]) {
-            Some((d, s)) => s as usize + (decoded - d as usize),
+            Some((d, s)) => (s as usize).saturating_add(decoded - d as usize),
             None => decoded,
         }
     }
 
     /// The offset into the decoded text of offset `source` into the bytes.
     /// One inside a character's bytes gives one inside its decoding, never
-    /// past it.
+    /// past it. An offset past the end maps past the end, saturating at
+    /// `usize::MAX`.
     pub fn to_decoded(&self, source: usize) -> usize {
         let i = self.points.partition_point(|&(_, s)| s as usize <= source);
         match i.checked_sub(1).map(|i| self.points[i]) {
             Some((d, s)) => {
-                let at = d as usize + (source - s as usize);
+                let at = (d as usize).saturating_add(source - s as usize);
                 self.points
                     .get(i)
                     .map_or(at, |&(next, _)| at.min(next as usize))
@@ -166,6 +183,29 @@ impl Offsets {
 mod tests {
     use super::*;
     use encoding_rs::*;
+
+    #[test]
+    fn lossy_utf8_keeps_the_byte_order_mark() {
+        let bytes = b"\xEF\xBB\xBF\xFF\xFFab";
+        let text = String::from_utf8_lossy(bytes);
+        let map = Offsets::lossy_utf8(bytes);
+        let a = text.find('a').unwrap();
+        assert_eq!(map.to_source(a), 5);
+        assert_eq!(map.to_decoded(5), a);
+        assert_eq!(map.to_source(0), 0);
+        assert!(Offsets::lossy_utf8(b"plain").is_identity());
+    }
+
+    #[test]
+    fn offsets_past_the_end_saturate() {
+        // A byte order mark and a replaced byte, so neither map is identity.
+        let map = Offsets::new(b"\xEF\xBB\xBFa\xFFb", UTF_8);
+        assert!(!map.is_identity());
+        for far in [usize::MAX, usize::MAX - 1, usize::MAX / 2 + 7] {
+            assert!(map.to_decoded(far) >= far / 2);
+            assert!(map.to_source(far) >= far / 2);
+        }
+    }
 
     /// Every ASCII character of the decoding maps to the same byte in the
     /// source, and back.

@@ -20,7 +20,8 @@
  *   document is.
  * - Strings in are a pointer and a length in bytes, UTF-8, with no NUL
  *   needed. NULL with a length of 0 is the empty string. Bytes that aren't
- *   UTF-8 become U+FFFD. The exception is a page given to
+ *   UTF-8 become U+FFFD, though spans and error offsets still count the
+ *   bytes you passed. The exception is a page given to
  *   parsec_parse_bytes or a parsec_byte_parser, which is decoded as a
  *   browser decodes it, in whatever encoding it's in.
  * - Strings out come two ways. Borrowed ones (const char *, from
@@ -29,9 +30,11 @@
  *   and stay valid until the document is next changed or freed. Owned
  *   ones (char *, from parsec_inner_html, parsec_outer_html and
  *   parsec_text) are copies, NUL-terminated, freed with
- *   parsec_string_free and nothing else.
+ *   parsec_string_free, once, and nothing else. Freeing a borrowed
+ *   string, or an owned one twice, is undefined behaviour.
  * - Nothing panics into C. A bug in Parsec comes back as
- *   PARSEC_ERR_PANIC instead.
+ *   PARSEC_ERR_PANIC instead. That covers panics only: running out of
+ *   memory, or out of stack, ends the process as it would in C.
  * - Threads: any number of threads may read one document at once (every
  *   function taking a const parsec_document *, parsec_xpath_evaluate
  *   included), and a selector or a compiled XPath may be used from any
@@ -40,6 +43,10 @@
  *   parsec_byte_parser needs itself to itself for each call. A
  *   document or selector may be freed on a different thread from the one
  *   that made it.
+ * - A parsec_select callback may read the document, not change it: a
+ *   change from there fails with PARSEC_ERR_BUSY (a create function
+ *   returns PARSEC_NO_NODE), and parsec_document_free from there frees
+ *   the document once parsec_select returns.
  */
 
 #ifndef PARSEC_H
@@ -48,6 +55,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#define PARSEC_VERSION "0.1.0"
+#define PARSEC_VERSION_MAJOR 0
+#define PARSEC_VERSION_MINOR 1
+#define PARSEC_VERSION_PATCH 0
 
 // Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 // holds raw text.
@@ -195,6 +206,9 @@ typedef uint32_t parsec_xpath_type;
 // XPath context. `parsec_detach` takes a node out to move it.
 #define PARSEC_ERR_REMOVED 14
 
+// The document can't be changed from inside a `parsec_select` callback.
+#define PARSEC_ERR_BUSY 15
+
 // A node-set: `parsec_xpath_result_count` items, in document order.
 #define PARSEC_XPATH_NODES 1
 
@@ -221,7 +235,9 @@ const char *parsec_version(void);
 const char *parsec_status_message(parsec_status status);
 
 // Frees a string a `parsec_*_html` or `parsec_text` call returned. NULL
-// is fine and does nothing.
+// is fine and does nothing. Anything else, a borrowed string or one
+// already freed, is undefined behaviour: the size is read from the bytes
+// just before the pointer.
 void parsec_string_free(char *s);
 
 // Parses `len` bytes of UTF-8 as a whole document and puts it in `*out`.
@@ -312,7 +328,9 @@ parsec_status parsec_byte_parser_finish(parsec_byte_parser *parser, parsec_docum
 void parsec_byte_parser_free(parsec_byte_parser *parser);
 
 // Frees a document and everything in it: its nodes, and every string
-// borrowed from it. NULL is fine and does nothing.
+// borrowed from it. NULL is fine and does nothing. Called from a
+// `parsec_select` callback, it frees the document when `parsec_select`
+// returns.
 void parsec_document_free(parsec_document *doc);
 
 // How many nodes the document holds, removed ones included: every node
@@ -452,8 +470,10 @@ void parsec_selector_free(parsec_selector *selector);
 // combinators look past it: `article .price` run on an article finds the
 // prices inside it.
 //
-// Don't change the document from the callback; collect the nodes and
-// change it afterwards.
+// The callback may read the document but not change it: a change from
+// there fails with `PARSEC_ERR_BUSY`, so collect the nodes and change it
+// afterwards. `parsec_document_free` from there frees it when this
+// returns.
 parsec_status parsec_select(const parsec_document *doc,
                             const parsec_selector *selector,
                             parsec_node scope,

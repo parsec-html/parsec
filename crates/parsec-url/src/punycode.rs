@@ -17,6 +17,10 @@ const SKEW: u32 = 38;
 const DAMP: u32 = 700;
 const INITIAL_BIAS: u32 = 72;
 const INITIAL_N: u32 = 128;
+/// The longest label, in code points, that's encoded or decoded to. Both take time that grows with the square of a label's length;
+/// past this a label fails, as the arithmetic overflowing does. A label in
+/// DNS is at most 63 bytes, so no real one comes near it.
+pub const MAX_LABEL: usize = 4_000;
 
 fn adapt(mut delta: u32, points: u32, first: bool) -> u32 {
     delta /= if first { DAMP } else { 2 };
@@ -80,14 +84,21 @@ pub(crate) fn decode(input: &str) -> Option<Vec<char>> {
         bias = adapt(i - old_i, len, old_i == 0);
         n = n.checked_add(i / len)?;
         i %= len;
+        if out.len() >= MAX_LABEL {
+            return None;
+        }
         out.insert(i as usize, char::from_u32(n)?);
         i += 1;
     }
     Some(out)
 }
 
-/// Encodes code points as Punycode, or `None` on overflow.
+/// Encodes code points as Punycode, or `None` on overflow or past
+/// [`MAX_LABEL`].
 pub(crate) fn encode(input: &[char], out: &mut String) -> Option<()> {
+    if input.len() > MAX_LABEL {
+        return None;
+    }
     let start = out.len();
     out.extend(input.iter().filter(|c| c.is_ascii()));
     let basic = (out.len() - start) as u32;
@@ -140,7 +151,7 @@ fn digit(d: u32) -> char {
 }
 
 /// Encodes a label as Punycode: `"bücher"` becomes `"bcher-kva"`. `None`
-/// means the arithmetic overflowed, which takes a very long label.
+/// means the arithmetic overflowed, or the label is over [`MAX_LABEL`].
 pub fn encode_str(input: &str) -> Option<String> {
     let chars: Vec<char> = input.chars().collect();
     let mut out = String::with_capacity(input.len());
@@ -148,7 +159,8 @@ pub fn encode_str(input: &str) -> Option<String> {
     Some(out)
 }
 
-/// Decodes a Punycode label: `"bcher-kva"` becomes `"bücher"`.
+/// Decodes a Punycode label: `"bcher-kva"` becomes `"bücher"`. `None` if
+/// it isn't valid Punycode, or decodes to over [`MAX_LABEL`] code points.
 pub fn decode_to_string(input: &str) -> Option<String> {
     decode(input).map(|chars| chars.into_iter().collect())
 }
