@@ -8,7 +8,7 @@
 cmake_minimum_required(VERSION 3.21)
 project(parsec_capi_test C)
 
-find_package(parsec 0.1 REQUIRED CONFIG)
+find_package(parsec 0.2 REQUIRED CONFIG)
 enable_testing()
 
 add_executable(capi_shared capi.c)
