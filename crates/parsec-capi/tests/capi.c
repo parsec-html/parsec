@@ -547,6 +547,52 @@ static void select_callbacks_cant_edit(void) {
     parsec_selector_free(p);
 }
 
+/* A :has() of two compounds over deep nesting costs depth squared: the
+ * limits stop it with an error, and leave a normal query as it was. */
+static void select_limits(void) {
+    const size_t depth = 3000;
+    char *html = malloc(depth * 5 + 1);
+    CHECK(html != NULL);
+    for (size_t i = 0; i < depth; i++) memcpy(html + i * 5, "<div>", 5);
+    html[depth * 5] = '\0';
+    parsec_document *doc = NULL;
+    CHECK(parsec_parse(html, depth * 5, 0, &doc) == PARSEC_OK);
+    free(html);
+    parsec_selector *hostile = compile("div:has(span div)");
+    struct collected c = {{0}, 0, 0};
+    CHECK(parsec_select_with(doc, hostile, parsec_root(), 100000, 0, collect, &c)
+          == PARSEC_ERR_TIMEOUT);
+    CHECK(c.count == 0);
+    CHECK(parsec_select_with(doc, hostile, parsec_root(), 0, 1, collect, &c)
+          == PARSEC_ERR_TIMEOUT);
+    CHECK(c.count == 0);
+    parsec_selector *div = compile("div");
+    parsec_node outer = parsec_select_first(doc, div, parsec_root());
+    parsec_selector_free(div);
+    bool hit = true;
+    CHECK(parsec_matches_with(doc, hostile, outer, 100000, 0, &hit) == PARSEC_ERR_TIMEOUT);
+    CHECK(parsec_matches_with(NULL, hostile, outer, 0, 0, &hit) == PARSEC_ERR_NULL);
+    CHECK(parsec_matches_with(doc, hostile, 1u << 30, 0, 0, &hit) == PARSEC_ERR_NO_SUCH_NODE);
+    CHECK(parsec_select_with(doc, hostile, parsec_root(), 1, 0, NULL, NULL) == PARSEC_ERR_NULL);
+    parsec_selector_free(hostile);
+    parsec_document_free(doc);
+
+    const char *page = "<ul><li class=hit>one<li>two<li class=hit>three</ul>";
+    CHECK(parsec_parse(page, strlen(page), 0, &doc) == PARSEC_OK);
+    parsec_selector *hits = compile("li.hit");
+    struct collected plain = {{0}, 0, 0}, limited = {{0}, 0, 0};
+    CHECK(parsec_select(doc, hits, parsec_root(), collect, &plain) == PARSEC_OK);
+    CHECK(parsec_select_with(doc, hits, parsec_root(), 1000000, 10000000, collect, &limited)
+          == PARSEC_OK);
+    CHECK(plain.count == 2 && limited.count == 2);
+    CHECK(memcmp(plain.nodes, limited.nodes, 2 * sizeof(parsec_node)) == 0);
+    hit = false;
+    CHECK(parsec_matches_with(doc, hits, plain.nodes[0], 1000000, 0, &hit) == PARSEC_OK && hit);
+    CHECK(parsec_matches_with(doc, hits, parsec_root(), 1000000, 0, &hit) == PARSEC_OK && !hit);
+    parsec_selector_free(hits);
+    parsec_document_free(doc);
+}
+
 #if PARSEC_VERSION_MAJOR != 0 || !defined(PARSEC_VERSION_MINOR) || !defined(PARSEC_VERSION_PATCH)
 #error "parsec.h should define PARSEC_VERSION_MAJOR, _MINOR and _PATCH"
 #endif
@@ -861,6 +907,7 @@ int main(void) {
     positions();
     positions_in_bytes_that_arent_utf8();
     select_callbacks_cant_edit();
+    select_limits();
     syntax_errors();
     xpath();
     bytes_and_encodings();

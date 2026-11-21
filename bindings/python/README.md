@@ -25,7 +25,14 @@ What you get over selectolax:
   unparseable, and `:target` and `:local-link` once you pass the page's
   `url`.
 - **Limits** for pages you don't trust: `budget=` (seconds) and
-  `max_depth=`.
+  `max_depth=` when you parse, and `max_steps=` and `budget=` on `css()`
+  and the other selector calls, so a hostile `:has()` can't hold a worker
+  for minutes. A limit that runs out raises `TimeoutError`; you never get
+  half the matches.
+
+  ```python
+  page.css("div:has(span div)", max_steps=10_000_000, budget=0.5)
+  ```
 - **Nodes that outlive edits.** A removed node can still be read, and put
   back.
 - **XPath 1.0**, which selectolax doesn't have. `xpath()` gives back what

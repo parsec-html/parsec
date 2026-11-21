@@ -165,7 +165,9 @@ typedef uint32_t parsec_xpath_type;
 // The input is over the 512 MiB a document can hold.
 #define PARSEC_ERR_TOO_LARGE 3
 
-// The parse ran past the budget given to `parsec_parse_with`.
+// The parse ran past the budget given to `parsec_parse_with`, or a match
+// past the step limit or budget given to `parsec_select_with` or
+// `parsec_matches_with`.
 #define PARSEC_ERR_TIMEOUT 4
 
 // The selector doesn't parse, or uses something Parsec doesn't support.
@@ -482,6 +484,24 @@ parsec_status parsec_select(const parsec_document *doc,
                             parsec_match_fn callback,
                             void *ctx);
 
+// `parsec_select`, with limits for a selector or a page you don't
+// control: a `:has()` of more than one compound over a very deep tree can
+// take seconds. Past `max_steps` compounds matched, or past `budget_us`
+// microseconds (the clock is read every 1,024 compounds), it gives up
+// with `PARSEC_ERR_TIMEOUT`; 0 is no limit for either. A walk of the tree
+// is a compound or so an element.
+//
+// It finds every match before it calls `callback` with any, so a limit
+// that runs out calls it with none, never with part of the answer; and
+// stopping early from the callback saves no matching.
+parsec_status parsec_select_with(const parsec_document *doc,
+                                 const parsec_selector *selector,
+                                 parsec_node scope,
+                                 uint64_t max_steps,
+                                 uint64_t budget_us,
+                                 parsec_match_fn callback,
+                                 void *ctx);
+
 // The first element under `scope` that matches, without looking further;
 // `PARSEC_NO_NODE` if none does, or on a NULL handle or a bad `scope`.
 parsec_node parsec_select_first(const parsec_document *doc,
@@ -492,6 +512,16 @@ parsec_node parsec_select_first(const parsec_document *doc,
 // False for a NULL handle, a node that isn't an element, or one that isn't
 // in the document.
 bool parsec_matches(const parsec_document *doc, const parsec_selector *selector, parsec_node node);
+
+// `parsec_matches`, with the limits `parsec_select_with` takes: sets
+// `*out` (when not NULL) to whether `node` matches, false for a node that
+// isn't an element, or gives `PARSEC_ERR_TIMEOUT` past a limit.
+parsec_status parsec_matches_with(const parsec_document *doc,
+                                  const parsec_selector *selector,
+                                  parsec_node node,
+                                  uint64_t max_steps,
+                                  uint64_t budget_us,
+                                  bool *out);
 
 // A new element named `name` in namespace `ns`, not yet in the tree;
 // insert it with `parsec_append` or `parsec_insert_before`. HTML names are

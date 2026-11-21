@@ -47,6 +47,18 @@ Selectors are Level 4: `:has()`, `:is()`, `:not()` with lists,
 `:nth-child(… of S)`, `:lang()`, `:dir()`, the form states and more. A
 selector that doesn't parse throws.
 
+Most selectors cost one walk of the tree. A few cost far more on a page
+built to make them: `div:has(span div)` over a few thousand nested divs
+is millions of steps. If you run selectors or pages you don't control,
+give `select`, `selectFirst` and `matches` a `maxSteps`. Past it they
+throw an Error that names `maxSteps`, and you never get half the
+matches. There's no time limit, because wasm32 has no clock to read; a
+step count gives the same answer on every machine anyway.
+
+```js
+doc.select(selector, { maxSteps: 10_000_000 });
+```
+
 XPath is 1.0. `doc.xpath("//li")` gives an array of nodes, with
 attributes as their values (`doc.xpath("//a/@href")` is an array of
 strings), and `count()`, `string()` or `boolean()` give a number, a

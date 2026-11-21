@@ -209,6 +209,34 @@ def test_limits_and_url():
     assert page.css_first(":local-link").tag == "a"
 
 
+def test_selector_limits():
+    # A :has() of two compounds over deep nesting costs depth squared.
+    deep = HTMLParser("<div>" * 3000)
+    hostile = "div:has(span div)"
+    with pytest.raises(TimeoutError, match="100000 steps"):
+        deep.css(hostile, max_steps=100_000)
+    with pytest.raises(TimeoutError):
+        deep.css_first(hostile, budget=0.0)
+    with pytest.raises(TimeoutError):
+        deep.css_matches(hostile, max_steps=100_000)
+    with pytest.raises(TimeoutError):
+        deep.root.css(hostile, max_steps=100_000)
+    with pytest.raises(TimeoutError):
+        deep.root.any_css_matches([hostile], max_steps=100_000)
+    with pytest.raises(ValueError):
+        deep.css("div", budget=-1.0)
+    with pytest.raises(TypeError):
+        deep.css("div", 10)
+    # A generous limit leaves a normal query's answer as it was.
+    p = HTMLParser(PAGE)
+    for q in ("div b", "p, #a", ":has(> b)", "nothing"):
+        assert p.css(q, max_steps=10**6, budget=10.0) == p.css(q)
+        assert p.css_first(q, max_steps=10**6) == p.css_first(q)
+        assert p.css_matches(q, max_steps=10**6) == p.css_matches(q)
+        assert p.root.css(q, max_steps=10**6) == p.root.css(q)
+        assert p.root.css_first(q, budget=10.0, strict=False) == p.root.css_first(q)
+
+
 def test_one_document_shared_by_threads():
     p = HTMLParser("<ul>" + "<li class=i>x</li>" * 2000 + "</ul>")
     counts = []

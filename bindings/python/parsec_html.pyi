@@ -76,13 +76,44 @@ class HTMLParser:
         strip: bool = False,
         skip_empty: bool = False,
     ) -> str: ...
-    def css(self, query: str) -> list[Node]: ...
+    def css(
+        self, query: str, *, max_steps: Optional[int] = None, budget: Optional[float] = None
+    ) -> list[Node]:
+        """Every match. max_steps (compounds matched) and budget (seconds)
+        bound a selector or a page you don't control: past either, it
+        raises TimeoutError rather than give part of the answer. The
+        css_first, css_matches and any_css_matches arguments of the same
+        names do the same."""
     @overload
-    def css_first(self, query: str, default: None = None, strict: bool = False) -> Optional[Node]: ...
+    def css_first(
+        self,
+        query: str,
+        default: None = None,
+        strict: bool = False,
+        *,
+        max_steps: Optional[int] = None,
+        budget: Optional[float] = None,
+    ) -> Optional[Node]: ...
     @overload
-    def css_first(self, query: str, default: _T, strict: bool = False) -> Union[Node, _T]: ...
-    def css_matches(self, selector: str) -> bool: ...
-    def any_css_matches(self, selectors: Iterable[str]) -> bool: ...
+    def css_first(
+        self,
+        query: str,
+        default: _T,
+        strict: bool = False,
+        *,
+        max_steps: Optional[int] = None,
+        budget: Optional[float] = None,
+    ) -> Union[Node, _T]: ...
+    def css_matches(
+        self, selector: str, *, max_steps: Optional[int] = None, budget: Optional[float] = None
+    ) -> bool: ...
+    def any_css_matches(
+        self,
+        selectors: Iterable[str],
+        *,
+        max_steps: Optional[int] = None,
+        budget: Optional[float] = None,
+    ) -> bool: ...
     def tags(self, name: str) -> list[Node]: ...
     def xpath(self, query: str, **variables: XPathVariable) -> XPathResult: ...
     def line_col(self, offset: int) -> tuple[int, int]:
@@ -148,13 +179,44 @@ class Node:
     def is_empty_text_node(self) -> bool: ...
     def iter(self, include_text: bool = False, skip_empty: bool = False) -> Iterator[Node]: ...
     def traverse(self, include_text: bool = False, skip_empty: bool = False) -> Iterator[Node]: ...
-    def css(self, query: str) -> list[Node]: ...
+    def css(
+        self, query: str, *, max_steps: Optional[int] = None, budget: Optional[float] = None
+    ) -> list[Node]:
+        """Every match. max_steps (compounds matched) and budget (seconds)
+        bound a selector or a page you don't control: past either, it
+        raises TimeoutError rather than give part of the answer. The
+        css_first, css_matches and any_css_matches arguments of the same
+        names do the same."""
     @overload
-    def css_first(self, query: str, default: None = None, strict: bool = False) -> Optional[Node]: ...
+    def css_first(
+        self,
+        query: str,
+        default: None = None,
+        strict: bool = False,
+        *,
+        max_steps: Optional[int] = None,
+        budget: Optional[float] = None,
+    ) -> Optional[Node]: ...
     @overload
-    def css_first(self, query: str, default: _T, strict: bool = False) -> Union[Node, _T]: ...
-    def css_matches(self, selector: str) -> bool: ...
-    def any_css_matches(self, selectors: Iterable[str]) -> bool: ...
+    def css_first(
+        self,
+        query: str,
+        default: _T,
+        strict: bool = False,
+        *,
+        max_steps: Optional[int] = None,
+        budget: Optional[float] = None,
+    ) -> Union[Node, _T]: ...
+    def css_matches(
+        self, selector: str, *, max_steps: Optional[int] = None, budget: Optional[float] = None
+    ) -> bool: ...
+    def any_css_matches(
+        self,
+        selectors: Iterable[str],
+        *,
+        max_steps: Optional[int] = None,
+        budget: Optional[float] = None,
+    ) -> bool: ...
     def xpath(self, query: str, **variables: XPathVariable) -> XPathResult: ...
     @property
     def source_range(self) -> Optional[tuple[int, int]]: ...

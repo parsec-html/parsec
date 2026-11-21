@@ -41,6 +41,26 @@ test("options and fragments", () => {
   assert.equal(parseFragment("<td>1", "tr").html, "<td>1</td>");
 });
 
+test("a step limit throws rather than give part of the answer", () => {
+  // A :has() of two compounds over deep nesting costs depth squared.
+  const deep = parse("<div>".repeat(3000));
+  const hostile = "div:has(span div)";
+  assert.throws(() => deep.select(hostile, { maxSteps: 100_000 }), /maxSteps/);
+  assert.throws(() => deep.selectFirst(hostile, { maxSteps: 100_000 }), /maxSteps/);
+  const outer = deep.selectFirst("div");
+  assert.throws(() => outer.matches(hostile, { maxSteps: 100_000 }), /maxSteps/);
+  assert.throws(() => deep.select("div", { maxSteps: -1 }), /maxSteps/);
+  // A generous one changes nothing.
+  const doc = parse("<ul><li class=hit>one<li>two<li class=hit>three</ul>");
+  const html = (nodes) => nodes.map((n) => n.outerHTML);
+  for (const q of ["li.hit", "ul:has(> .hit)", "li + li", "nope"]) {
+    assert.deepEqual(html(doc.select(q, { maxSteps: 1e6 })), html(doc.select(q)));
+    assert.equal(doc.selectFirst(q, { maxSteps: 1e6 })?.outerHTML, doc.selectFirst(q)?.outerHTML);
+  }
+  assert.ok(doc.selectFirst("li").matches(".hit", { maxSteps: 1e6 }));
+  assert.ok(doc.selectFirst("li").matches(".hit", {}));
+});
+
 test("spans", () => {
   const src = "<p class=x>h\u00e9llo</p>\n<div>x</div>";
   const doc = parse(src, { spans: true });
@@ -114,7 +134,8 @@ test("the web build runs from bytes", async () => {
 test("the types ship with it", async () => {
   const types = await readFile(new URL("../node_modules/parsec-html/parsec_html.d.ts", import.meta.url), "utf8");
   assert.match(types, /export function parse\(html: string, options\?: ParseOptions \| null\): Document;/);
-  assert.match(types, /selectFirst\(selector: string\): Node \| undefined;/);
+  assert.match(types, /selectFirst\(selector: string, options\?: SelectOptions \| null\): Node \| undefined;/);
+  assert.match(types, /export interface SelectOptions \{/);
   assert.match(types, /xpath\(expr: string\): XPathResult;/);
   assert.match(types, /readonly span: Span \| undefined;/);
   assert.match(types, /export function parseBytes\(bytes: Uint8Array \| number\[\], options\?: ByteParseOptions \| null\): Document;/);

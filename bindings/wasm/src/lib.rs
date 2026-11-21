@@ -14,7 +14,7 @@ mod units;
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
-use parsec::css::SelectorList;
+use parsec::css::{MatchOptions, SelectorList};
 use parsec::{AttrNs, Kind, NodeId, Ns, Options};
 use parsec_encoding::{Confidence, Encoding};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
@@ -148,6 +148,19 @@ export interface ByteParseOptions extends ParseOptions {
 }
 
 /**
+ * Limits for `select`, `selectFirst` and `matches`, for a selector or a
+ * page you don't control: a `:has()` of more than one compound over a very
+ * deep tree can take seconds.
+ */
+export interface SelectOptions {
+    /** Give up after matching this many compounds, by throwing an Error
+     * that names `maxSteps`, never with part of the answer. A walk of the
+     * tree is a compound or so an element; a few hundred million is
+     * seconds of work. There's no time limit, as wasm32 has no clock. */
+    maxSteps?: number;
+}
+
+/**
  * What `xpath()` gives: an array for a node-set (attributes as their
  * values), or a string, a number or a boolean.
  */
@@ -175,6 +188,12 @@ extern "C" {
     fn transport_encoding(this: &ByteParseOptions) -> Option<String>;
     #[wasm_bindgen(method, getter, js_name = defaultEncoding)]
     fn default_encoding(this: &ByteParseOptions) -> Option<String>;
+
+    /// A plain object, read with the getter below.
+    #[wasm_bindgen(typescript_type = "SelectOptions")]
+    pub type SelectOptions;
+    #[wasm_bindgen(method, getter, js_name = maxSteps)]
+    fn max_steps(this: &SelectOptions) -> Option<f64>;
 }
 
 /// A parsed document or fragment.
@@ -193,6 +212,22 @@ pub struct Node {
 
 fn compile(selector: &str) -> Result<SelectorList, JsError> {
     SelectorList::parse(selector).map_err(|e| JsError::new(&format!("{selector:?}: {e}")))
+}
+
+/// The match options from `options`.
+fn match_options(options: Option<&SelectOptions>) -> Result<MatchOptions<'static>, JsError> {
+    let max_steps = options.and_then(SelectOptions::max_steps);
+    if max_steps.is_some_and(|n| !(n >= 0.0 && n.fract() == 0.0)) {
+        return Err(JsError::new("maxSteps must be a whole number, 0 or more"));
+    }
+    Ok(MatchOptions {
+        max_steps: max_steps.map(|n| n as u64),
+        ..MatchOptions::default()
+    })
+}
+
+fn match_error(e: parsec::css::MatchTimeout) -> JsError {
+    JsError::new(&format!("maxSteps: {e}"))
 }
 
 fn options(options: Option<&ParseOptions>) -> Options {
@@ -419,15 +454,26 @@ impl Document {
         node(&self.doc, id)
     }
 
-    /// Every element that matches, in document order.
-    pub fn select(&self, selector: &str) -> Result<Vec<Node>, JsError> {
-        self.root().select(selector)
+    /// Every element that matches, in document order. `options.maxSteps`
+    /// bounds the work: past it, this throws rather than give part of the
+    /// answer.
+    pub fn select(
+        &self,
+        selector: &str,
+        options: Option<SelectOptions>,
+    ) -> Result<Vec<Node>, JsError> {
+        self.root().select(selector, options)
     }
 
-    /// The first element that matches, found without looking further.
+    /// The first element that matches, found without looking further
+    /// unless there's a `maxSteps`, which only the whole walk reads.
     #[wasm_bindgen(js_name = selectFirst)]
-    pub fn select_first(&self, selector: &str) -> Result<Option<Node>, JsError> {
-        self.root().select_first(selector)
+    pub fn select_first(
+        &self,
+        selector: &str,
+        options: Option<SelectOptions>,
+    ) -> Result<Option<Node>, JsError> {
+        self.root().select_first(selector, options)
     }
 
     /// The whole document as markup.
@@ -596,16 +642,32 @@ impl Node {
 
     /// The elements under this node that match, in document order.
     /// Combinators look past it, as `querySelectorAll` does.
-    pub fn select(&self, selector: &str) -> Result<Vec<Node>, JsError> {
-        let list = compile(selector)?;
-        let ids = list.select(&self.doc.borrow(), self.id);
-        Ok(nodes(&self.doc, ids))
+    /// `options.maxSteps` is as `Document.select` takes it.
+    pub fn select(
+        &self,
+        selector: &str,
+        options: Option<SelectOptions>,
+    ) -> Result<Vec<Node>, JsError> {
+        let (list, options) = (compile(selector)?, match_options(options.as_ref())?);
+        let ids = list.try_select_with(&self.doc.borrow(), self.id, &options);
+        Ok(nodes(&self.doc, ids.map_err(match_error)?))
     }
 
     #[wasm_bindgen(js_name = selectFirst)]
-    pub fn select_first(&self, selector: &str) -> Result<Option<Node>, JsError> {
-        let list = compile(selector)?;
-        let id = list.select_first(&self.doc.borrow(), self.id);
+    pub fn select_first(
+        &self,
+        selector: &str,
+        options: Option<SelectOptions>,
+    ) -> Result<Option<Node>, JsError> {
+        let (list, options) = (compile(selector)?, match_options(options.as_ref())?);
+        let doc = self.doc.borrow();
+        let id = match options.max_steps {
+            None => list.select_first(&doc, self.id),
+            Some(_) => {
+                let ids = list.try_select_with(&doc, self.id, &options);
+                ids.map_err(match_error)?.first().copied()
+            }
+        };
         Ok(node(&self.doc, id))
     }
 
@@ -672,11 +734,14 @@ impl Node {
         span(&self.doc, &doc, doc.attr_span(self.id, i))
     }
 
-    /// Whether this element matches.
-    pub fn matches(&self, selector: &str) -> Result<bool, JsError> {
-        let list = compile(selector)?;
+    /// Whether this element matches, with the limit `select` takes.
+    pub fn matches(&self, selector: &str, options: Option<SelectOptions>) -> Result<bool, JsError> {
+        let (list, options) = (compile(selector)?, match_options(options.as_ref())?);
         let doc = self.doc.borrow();
-        Ok(matches!(doc.kind(self.id), Kind::Element { .. }) && list.matches(&doc, self.id, None))
+        Ok(matches!(doc.kind(self.id), Kind::Element { .. })
+            && list
+                .try_matches_with(&doc, self.id, None, &options)
+                .map_err(match_error)?)
     }
 
     #[wasm_bindgen(js_name = getAttribute)]

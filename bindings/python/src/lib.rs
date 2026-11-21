@@ -17,7 +17,7 @@ use std::borrow::Cow;
 use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
 use std::time::Duration;
 
-use parsec::css::{MatchOptions, SelectorList};
+use parsec::css::{MatchOptions, MatchTimeout, SelectorList};
 use parsec::{AttrNs, Document, Kind, NodeId, Ns, Options, ParseError};
 use parsec_encoding::{ByteParser, Confidence, Encoding};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath, XValue};
@@ -140,6 +140,31 @@ fn parse_error(e: ParseError) -> PyErr {
         ParseError::Timeout { .. } => PyTimeoutError::new_err(e.to_string()),
         ParseError::TooLarge { .. } => PyValueError::new_err(e.to_string()),
     }
+}
+
+/// The limits `css()` and the rest take, keyword-only: past `max_steps`
+/// compounds matched or `budget` seconds, the query raises `TimeoutError`.
+#[derive(Clone, Copy, Default)]
+struct Limits {
+    max_steps: Option<u64>,
+    budget: Option<Duration>,
+}
+
+impl Limits {
+    fn new(max_steps: Option<u64>, budget: Option<f64>) -> PyResult<Limits> {
+        Ok(Limits {
+            max_steps,
+            budget: seconds(budget)?,
+        })
+    }
+
+    fn any(self) -> bool {
+        self.max_steps.is_some() || self.budget.is_some()
+    }
+}
+
+fn match_error(e: MatchTimeout) -> PyErr {
+    PyTimeoutError::new_err(e.to_string())
 }
 
 fn is_element(doc: &Document, id: NodeId) -> bool {
@@ -416,6 +441,16 @@ fn attr_index(doc: &Document, id: NodeId, key: &str) -> Option<usize> {
     })
 }
 
+/// `budget`, in seconds, as a Duration.
+fn seconds(budget: Option<f64>) -> PyResult<Option<Duration>> {
+    budget
+        .map(|s| {
+            Duration::try_from_secs_f64(s)
+                .map_err(|e| PyValueError::new_err(format!("budget: {e}")))
+        })
+        .transpose()
+}
+
 fn options(
     scripting: bool,
     budget: Option<f64>,
@@ -423,15 +458,9 @@ fn options(
     positions: bool,
     errors: bool,
 ) -> PyResult<Options> {
-    let budget = budget
-        .map(|s| {
-            Duration::try_from_secs_f64(s)
-                .map_err(|e| PyValueError::new_err(format!("budget: {e}")))
-        })
-        .transpose()?;
     Ok(Options {
         scripting,
-        budget,
+        budget: seconds(budget)?,
         max_depth,
         spans: positions,
         errors,
@@ -569,35 +598,40 @@ impl HtmlParser {
         .map_err(|e: parsec_xpath::XPathError| XPathError::new_err(e.to_string()))
     }
 
-    fn options(&self) -> MatchOptions<'_> {
+    fn options(&self, limits: Limits) -> MatchOptions<'_> {
         MatchOptions {
             url: self.url.as_deref(),
-            ..MatchOptions::default()
+            max_steps: limits.max_steps,
+            budget: limits.budget,
         }
     }
 
     /// Matches under `scope`, and `scope` itself first if `include` and it
     /// matches, as selectolax's node queries count the node.
+    // shortcut: the scope's own match and the walk under it each get the
+    // whole of `limits`; share one count if that ever matters.
     fn select(
         &self,
         py: Python<'_>,
         list: &SelectorList,
         scope: NodeId,
         include: bool,
-    ) -> Vec<NodeId> {
+        limits: Limits,
+    ) -> PyResult<Vec<NodeId>> {
         py.detach(|| {
             let doc = self.doc.read().unwrap_or_else(PoisonError::into_inner);
-            let options = self.options();
+            let options = self.options(limits);
             let mut out = Vec::new();
             if include
                 && is_element(&doc, scope)
-                && list.matches_with(&doc, scope, Some(scope), &options)
+                && list.try_matches_with(&doc, scope, Some(scope), &options)?
             {
                 out.push(scope);
             }
-            out.extend(list.select_with(&doc, scope, &options));
-            out
+            out.extend(list.try_select_with(&doc, scope, &options)?);
+            Ok(out)
         })
+        .map_err(match_error)
     }
 
     fn select_first(
@@ -606,19 +640,24 @@ impl HtmlParser {
         list: &SelectorList,
         scope: NodeId,
         include: bool,
-    ) -> Option<NodeId> {
+        limits: Limits,
+    ) -> PyResult<Option<NodeId>> {
         let doc = self.read(py);
-        let options = self.options();
+        let options = self.options(limits);
         if include
             && is_element(&doc, scope)
-            && list.matches_with(&doc, scope, Some(scope), &options)
+            && list
+                .try_matches_with(&doc, scope, Some(scope), &options)
+                .map_err(match_error)?
         {
-            return Some(scope);
+            return Ok(Some(scope));
         }
-        if self.url.is_some() {
-            list.select_with(&doc, scope, &options).first().copied()
+        // With a limit or a URL, only the full walk reads them, so take its first.
+        if self.url.is_some() || limits.any() {
+            let found = list.try_select_with(&doc, scope, &options);
+            Ok(found.map_err(match_error)?.first().copied())
         } else {
-            list.select_first(&doc, scope)
+            Ok(list.select_first(&doc, scope))
         }
     }
 
@@ -688,7 +727,8 @@ fn matches_of(
     let mut out = Vec::new();
     for tag in tags.try_iter()? {
         let tag = tag?;
-        out.extend(parser.select(py, &compile(&tag.extract::<String>()?)?, scope, true));
+        let list = compile(&tag.extract::<String>()?)?;
+        out.extend(parser.select(py, &list, scope, true, Limits::default())?);
     }
     Ok(out)
 }
@@ -951,25 +991,37 @@ impl HtmlParser {
         text(&doc, doc.root(), deep, separator, strip, skip_empty)
     }
 
-    fn css(slf: &Bound<'_, Self>, query: &str) -> PyResult<Vec<Node>> {
-        let list = compile(query)?;
-        let found = slf.get().select(slf.py(), &list, 0, false);
+    /// Every match. `max_steps` (compounds matched) and `budget`
+    /// (seconds) bound a selector or a page you don't control: past either,
+    /// it raises `TimeoutError`, never a part of the answer.
+    #[pyo3(signature = (query, *, max_steps = None, budget = None))]
+    fn css(
+        slf: &Bound<'_, Self>,
+        query: &str,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
+    ) -> PyResult<Vec<Node>> {
+        let (list, limits) = (compile(query)?, Limits::new(max_steps, budget)?);
+        let found = slf.get().select(slf.py(), &list, 0, false, limits)?;
         Ok(nodes(slf.py(), slf.as_unbound(), found))
     }
 
-    #[pyo3(signature = (query, default = None, strict = false))]
+    #[pyo3(signature = (query, default = None, strict = false, *, max_steps = None, budget = None))]
     fn css_first(
         slf: &Bound<'_, Self>,
         query: &str,
         default: Option<Py<PyAny>>,
         strict: bool,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
     ) -> PyResult<Py<PyAny>> {
         let (py, list) = (slf.py(), compile(query)?);
+        let limits = Limits::new(max_steps, budget)?;
         let found = if strict {
-            slf.get().select(py, &list, 0, false)
+            slf.get().select(py, &list, 0, false, limits)?
         } else {
             slf.get()
-                .select_first(py, &list, 0, false)
+                .select_first(py, &list, 0, false, limits)?
                 .into_iter()
                 .collect()
         };
@@ -977,16 +1029,32 @@ impl HtmlParser {
     }
 
     /// Whether anything in the document matches.
-    fn css_matches(&self, py: Python<'_>, selector: &str) -> PyResult<bool> {
+    #[pyo3(signature = (selector, *, max_steps = None, budget = None))]
+    fn css_matches(
+        &self,
+        py: Python<'_>,
+        selector: &str,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
+    ) -> PyResult<bool> {
+        let limits = Limits::new(max_steps, budget)?;
         Ok(self
-            .select_first(py, &compile(selector)?, 0, false)
+            .select_first(py, &compile(selector)?, 0, false, limits)?
             .is_some())
     }
 
-    fn any_css_matches(&self, py: Python<'_>, selectors: &Bound<'_, PyAny>) -> PyResult<bool> {
+    #[pyo3(signature = (selectors, *, max_steps = None, budget = None))]
+    fn any_css_matches(
+        &self,
+        py: Python<'_>,
+        selectors: &Bound<'_, PyAny>,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
+    ) -> PyResult<bool> {
+        let limits = Limits::new(max_steps, budget)?;
         for s in selectors.try_iter()? {
             if self
-                .select_first(py, &compile(&s?.extract::<String>()?)?, 0, false)
+                .select_first(py, &compile(&s?.extract::<String>()?)?, 0, false, limits)?
                 .is_some()
             {
                 return Ok(true);
@@ -1437,26 +1505,37 @@ impl Node {
         doc.attr_span(self.id, i).map(|r| self.p().range(r))
     }
 
-    /// The node, if it matches, then the matches under it.
-    fn css(&self, py: Python<'_>, query: &str) -> PyResult<Vec<Node>> {
-        let found = self.p().select(py, &compile(query)?, self.id, true);
+    /// The node, if it matches, then the matches under it, with the
+    /// limits `HTMLParser.css()` takes.
+    #[pyo3(signature = (query, *, max_steps = None, budget = None))]
+    fn css(
+        &self,
+        py: Python<'_>,
+        query: &str,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
+    ) -> PyResult<Vec<Node>> {
+        let (list, limits) = (compile(query)?, Limits::new(max_steps, budget)?);
+        let found = self.p().select(py, &list, self.id, true, limits)?;
         Ok(nodes(py, &self.parser, found))
     }
 
-    #[pyo3(signature = (query, default = None, strict = false))]
+    #[pyo3(signature = (query, default = None, strict = false, *, max_steps = None, budget = None))]
     fn css_first(
         &self,
         py: Python<'_>,
         query: &str,
         default: Option<Py<PyAny>>,
         strict: bool,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
     ) -> PyResult<Py<PyAny>> {
-        let list = compile(query)?;
+        let (list, limits) = (compile(query)?, Limits::new(max_steps, budget)?);
         let found = if strict {
-            self.p().select(py, &list, self.id, true)
+            self.p().select(py, &list, self.id, true, limits)?
         } else {
             self.p()
-                .select_first(py, &list, self.id, true)
+                .select_first(py, &list, self.id, true, limits)?
                 .into_iter()
                 .collect()
         };
@@ -1464,18 +1543,40 @@ impl Node {
     }
 
     /// Whether the node or anything under it matches.
-    fn css_matches(&self, py: Python<'_>, selector: &str) -> PyResult<bool> {
+    #[pyo3(signature = (selector, *, max_steps = None, budget = None))]
+    fn css_matches(
+        &self,
+        py: Python<'_>,
+        selector: &str,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
+    ) -> PyResult<bool> {
+        let limits = Limits::new(max_steps, budget)?;
         Ok(self
             .p()
-            .select_first(py, &compile(selector)?, self.id, true)
+            .select_first(py, &compile(selector)?, self.id, true, limits)?
             .is_some())
     }
 
-    fn any_css_matches(&self, py: Python<'_>, selectors: &Bound<'_, PyAny>) -> PyResult<bool> {
+    #[pyo3(signature = (selectors, *, max_steps = None, budget = None))]
+    fn any_css_matches(
+        &self,
+        py: Python<'_>,
+        selectors: &Bound<'_, PyAny>,
+        max_steps: Option<u64>,
+        budget: Option<f64>,
+    ) -> PyResult<bool> {
+        let limits = Limits::new(max_steps, budget)?;
         for s in selectors.try_iter()? {
             if self
                 .p()
-                .select_first(py, &compile(&s?.extract::<String>()?)?, self.id, true)
+                .select_first(
+                    py,
+                    &compile(&s?.extract::<String>()?)?,
+                    self.id,
+                    true,
+                    limits,
+                )?
                 .is_some()
             {
                 return Ok(true);

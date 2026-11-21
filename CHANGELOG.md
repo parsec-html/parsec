@@ -4,6 +4,26 @@ Every change people using Parsec would notice, newest first. Version
 numbers follow [Semantic Versioning](https://semver.org/); until 1.0, a
 minor release can break the API and a patch release won't.
 
+## Unreleased
+
+### Added
+
+- Every binding can now put a limit on selector matching. Most
+  selectors cost one walk of the tree, but `div:has(span div)` over a
+  few thousand nested divs costs millions of steps, and a crawler
+  running selectors or pages it doesn't control needs a way to stop
+  that. A limit that runs out is an error, never half the matches
+  ([#135](https://github.com/parsec-html/parsec/issues/135)).
+  - C: `parsec_select_with` and `parsec_matches_with` take `max_steps`
+    and `budget_us` (0 for none) and give `PARSEC_ERR_TIMEOUT` past
+    either. `parsec_select` is unchanged.
+  - Python: `css()`, `css_first()`, `css_matches()` and
+    `any_css_matches()` take keyword-only `max_steps=` and `budget=`
+    (seconds), and raise `TimeoutError`, as a parse `budget=` does.
+  - WebAssembly: `select`, `selectFirst` and `matches` take
+    `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
+    time limit there, since wasm32 has no clock.
+
 ## 0.2.0
 
 A security release. A page could crash any program using Parsec

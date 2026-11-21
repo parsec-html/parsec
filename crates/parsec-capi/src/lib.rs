@@ -23,7 +23,7 @@ use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use encoding::{Encoding, Offsets, Parsed};
-use html::css::SelectorList;
+use html::css::{MatchOptions, SelectorList};
 use html::{Document, Kind, NodeId, Ns, Options, ParseError};
 use xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
 
@@ -111,7 +111,9 @@ pub const PARSEC_ERR_NULL: parsec_status = 1;
 pub const PARSEC_ERR_INVALID: parsec_status = 2;
 /// The input is over the 512 MiB a document can hold.
 pub const PARSEC_ERR_TOO_LARGE: parsec_status = 3;
-/// The parse ran past the budget given to `parsec_parse_with`.
+/// The parse ran past the budget given to `parsec_parse_with`, or a match
+/// past the step limit or budget given to `parsec_select_with` or
+/// `parsec_matches_with`.
 pub const PARSEC_ERR_TIMEOUT: parsec_status = 4;
 /// The selector doesn't parse, or uses something Parsec doesn't support.
 pub const PARSEC_ERR_SELECTOR: parsec_status = 5;
@@ -435,7 +437,7 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
         PARSEC_ERR_NULL => "a pointer that must not be NULL was NULL\0",
         PARSEC_ERR_INVALID => "an argument was out of range\0",
         PARSEC_ERR_TOO_LARGE => "the input is over the 512 MiB limit\0",
-        PARSEC_ERR_TIMEOUT => "the parse ran past its budget\0",
+        PARSEC_ERR_TIMEOUT => "the parse or the match ran past its limit\0",
         PARSEC_ERR_SELECTOR => "the selector isn't valid, or isn't supported\0",
         PARSEC_ERR_NO_SUCH_NODE => "no such node in this document\0",
         PARSEC_ERR_NOT_AN_ELEMENT => "the node isn't an element\0",
@@ -1263,6 +1265,59 @@ pub unsafe extern "C" fn parsec_select(
     })
 }
 
+/// The limits `parsec_select_with` and `parsec_matches_with` take, 0 for
+/// none.
+fn match_options<'a>(max_steps: u64, budget_us: u64) -> MatchOptions<'a> {
+    MatchOptions {
+        max_steps: (max_steps != 0).then_some(max_steps),
+        budget: (budget_us != 0).then(|| std::time::Duration::from_micros(budget_us)),
+        ..MatchOptions::default()
+    }
+}
+
+/// `parsec_select`, with limits for a selector or a page you don't
+/// control: a `:has()` of more than one compound over a very deep tree can
+/// take seconds. Past `max_steps` compounds matched, or past `budget_us`
+/// microseconds (the clock is read every 1,024 compounds), it gives up
+/// with `PARSEC_ERR_TIMEOUT`; 0 is no limit for either. A walk of the tree
+/// is a compound or so an element.
+///
+/// It finds every match before it calls `callback` with any, so a limit
+/// that runs out calls it with none, never with part of the answer; and
+/// stopping early from the callback saves no matching.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_select_with(
+    doc: *const parsec_document,
+    selector: *const parsec_selector,
+    scope: parsec_node,
+    max_steps: u64,
+    budget_us: u64,
+    callback: parsec_match_fn,
+    ctx: *mut c_void,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or live handles.
+            let h = unsafe { handle(doc)? };
+            let s = unsafe { selector.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
+            let callback = callback.ok_or(PARSEC_ERR_NULL)?;
+            let scope = node(&h.doc, scope)?;
+            let options = match_options(max_steps, budget_us);
+            let found =
+                s.0.try_select_with(&h.doc, scope, &options)
+                    .map_err(|_| PARSEC_ERR_TIMEOUT)?;
+            let _busy = Busy::new(h);
+            for n in found {
+                // SAFETY: the caller's callback, with the caller's context.
+                if unsafe { callback(n, ctx) } != 0 {
+                    break;
+                }
+            }
+            Ok(())
+        })())
+    })
+}
+
 /// The first element under `scope` that matches, without looking further;
 /// `PARSEC_NO_NODE` if none does, or on a NULL handle or a bad `scope`.
 #[unsafe(no_mangle)]
@@ -1298,6 +1353,35 @@ pub unsafe extern "C" fn parsec_matches(
         };
         node_of(d, node)
             .is_some_and(|n| matches!(d.kind(n), Kind::Element { .. }) && s.0.matches(d, n, None))
+    })
+}
+
+/// `parsec_matches`, with the limits `parsec_select_with` takes: sets
+/// `*out` (when not NULL) to whether `node` matches, false for a node that
+/// isn't an element, or gives `PARSEC_ERR_TIMEOUT` past a limit.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_matches_with(
+    doc: *const parsec_document,
+    selector: *const parsec_selector,
+    node: parsec_node,
+    max_steps: u64,
+    budget_us: u64,
+    out: *mut bool,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: NULL or live handles.
+            let d = unsafe { doc_ref(doc)? };
+            let s = unsafe { selector.as_ref() }.ok_or(PARSEC_ERR_NULL)?;
+            let n = self::node(d, node)?;
+            let found = matches!(d.kind(n), Kind::Element { .. })
+                && s.0
+                    .try_matches_with(d, n, None, &match_options(max_steps, budget_us))
+                    .map_err(|_| PARSEC_ERR_TIMEOUT)?;
+            // SAFETY: NULL or writable space for a bool.
+            unsafe { put(out, found) };
+            Ok(())
+        })())
     })
 }
 
@@ -1857,6 +1941,38 @@ mod tests {
                 header.contains(&line),
                 "include/parsec.h lacks {line}: update cbindgen.toml"
             );
+        }
+    }
+
+    unsafe extern "C" fn count(_: parsec_node, ctx: *mut c_void) -> c_int {
+        unsafe { *ctx.cast::<usize>() += 1 };
+        0
+    }
+
+    #[test]
+    fn a_limit_that_runs_out_is_an_error_not_a_partial_result() {
+        let html = "<div>".repeat(3000);
+        let (mut doc, mut sel) = (ptr::null_mut(), ptr::null_mut());
+        let hostile = "div:has(span div)";
+        unsafe {
+            assert_eq!(
+                parsec_parse(html.as_ptr().cast(), html.len(), 0, &mut doc),
+                PARSEC_OK
+            );
+            parsec_selector_compile(
+                hostile.as_ptr().cast(),
+                hostile.len(),
+                &mut sel,
+                ptr::null_mut(),
+            );
+            let mut n = 0usize;
+            let ctx = (&raw mut n).cast();
+            let r = parsec_select_with(doc, sel, 0, 100_000, 0, Some(count), ctx);
+            assert_eq!((r, n), (PARSEC_ERR_TIMEOUT, 0));
+            let r = parsec_select_with(doc, sel, 0, 0, 0, Some(count), ctx);
+            assert_eq!((r, n), (PARSEC_OK, 0));
+            parsec_selector_free(sel);
+            parsec_document_free(doc);
         }
     }
 
