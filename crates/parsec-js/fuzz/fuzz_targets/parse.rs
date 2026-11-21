@@ -6,16 +6,15 @@
 //! and every error's is inside the input and on character boundaries,
 //! a tree that parsed writes out as ESTree JSON, and its scope analysis
 //! holds together: each reference is an identifier in a scope that
-//! exists, resolved to a binding that exists or listed as free. Each
-//! regular expression literal's pattern is validated too, any error
-//! inside the pattern.
+//! exists, resolved to a binding that exists or listed as free; and its
+//! early errors, regular expression patterns' included, have spans in
+//! the input.
 
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use parsec_js::scope::Scopes;
-use parsec_js::ast::LiteralKind;
-use parsec_js::{Ast, Limits, Node, Options, SourceType, parse, regexp};
+use parsec_js::{Ast, Limits, Node, Options, SourceType, early_errors, parse};
 
 fn on_boundaries(src: &str, start: u32, end: u32) -> bool {
     start <= end
@@ -24,16 +23,9 @@ fn on_boundaries(src: &str, start: u32, end: u32) -> bool {
         && src.is_char_boundary(end as usize)
 }
 
-fn check_regexps(ast: &Ast, src: &str) {
-    for id in ast.ids() {
-        if let Node::Literal(LiteralKind::RegExp) = ast.node(id) {
-            let text = ast.span(id).text(src);
-            let slash = text.rfind('/').unwrap();
-            let pattern = &text[1..slash];
-            if let Err(d) = regexp::validate(pattern, &text[slash + 1..]) {
-                assert!(on_boundaries(pattern, d.span.start, d.span.end), "{d}");
-            }
-        }
+fn check_early_errors(ast: &Ast, src: &str) {
+    for d in early_errors(ast, src) {
+        assert!(on_boundaries(src, d.span.start, d.span.end), "{d}");
     }
 }
 
@@ -76,7 +68,7 @@ fuzz_target!(|data: &[u8]| {
                         assert!(on_boundaries(&src, c.span.start, c.span.end), "{c:?}");
                     }
                     check_scopes(&ast, &src);
-                    check_regexps(&ast, &src);
+                    check_early_errors(&ast, &src);
                     let json = ast.to_estree(&src);
                     assert!(json.starts_with(r#"{"type":"Program""#));
                 }

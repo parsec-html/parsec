@@ -29,6 +29,9 @@
 //! [`regexp`] checks a regular expression's pattern by its own grammar,
 //! the error a `RegExp` built from it would throw.
 //!
+//! [`early_errors`] gives the early errors the parser leaves for a later
+//! pass: those two, and an export of a name a module never declares.
+//!
 //! [`data`] reads the state pages keep in scripts, `window.__NUXT__ = …`
 //! and its kin, as JSON, without running anything.
 //!
@@ -66,6 +69,7 @@
 
 pub mod ast;
 pub mod data;
+pub mod early;
 mod estree;
 mod lexer;
 mod parser;
@@ -76,6 +80,7 @@ mod token;
 mod unicode;
 
 pub use ast::{Ast, Comment, CommentKind, List, Node, NodeId};
+pub use early::{early_errors, early_errors_in};
 pub use estree::EstreeOptions;
 pub use lexer::{Goal, Lexer, SourceType};
 pub use parsec_base::{Diagnostic, Limits, LineIndex, Severity, Span};

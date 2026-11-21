@@ -59,6 +59,11 @@ minor release can break the API and a patch release won't.
     (no flag with Annex B's additions, `u`, `v`), and gives the error a
     `RegExp` would throw, with a code like `regexp-range-order` or
     `regexp-property`.
+  - `parsec_js::early_errors` gives the early errors the parser leaves
+    for a later pass: names declared twice, an export of a name the
+    module never declares (`export-undeclared`), and regular expression
+    patterns. With it, all 4,374 of test262's parse negatives fail
+    ([#159](https://github.com/parsec-html/parsec/issues/159)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

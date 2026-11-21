@@ -301,6 +301,14 @@ and what each module imports and exports
   `\p{…}` name and value in Unicode 17.0 are checked. All 358 of
   test262's pattern negatives fail, and every pattern in the files that
   should parse validates. A `regexp` fuzz target joins the nightly run.
+- Done: the spec's early errors
+  ([#159](https://github.com/parsec-html/parsec/issues/159)). The parser
+  checks most as it goes; `early_errors` gives the rest for a tree it
+  accepted: names declared twice, exports of names a module never
+  declares, and regular expression patterns. The `early_errors` docs
+  table every rule with its code and where it's checked. test262's
+  harness no longer skips any parse negative for the kind of error it
+  has: all 4,374 fail, and all 48,408 files that should parse do.
 
 ## M12. Data from scripts
 
