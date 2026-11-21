@@ -24,6 +24,14 @@ minor release can break the API and a patch release won't.
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
 
+### Fixed
+
+- XPath read an element's attributes by walking every one before the
+  one it wanted, so a name test like `@id` on an element with 20,000
+  attributes took quadratic time: 3.9 seconds where it now takes 4 ms.
+  A page built to stall a crawler's XPath could have used it.
+  `Document::attr_at(id, i)` reads one attribute in constant time.
+
 ## 0.2.0
 
 A security release. A page could crash any program using Parsec
