@@ -192,6 +192,26 @@ Done. XPath 1.0 over Parsec's tree, shared with Netweir: `crates/parsec-xpath`,
 with libxml2's expression tests in `cargo test` and queries that would be
 quadratic stopped by a work limit.
 
+## M9. JavaScript tokens
+
+The first step towards `parsec-js`, a JavaScript parser of Parsec's own:
+a parser, not an engine, so nothing runs.
+
+- Done: `crates/parsec-base`, what the parsers share and nothing they
+  don't: spans, a line index with UTF-16 columns, diagnostics, limits
+  and a step budget, with no dependencies
+  ([#143](https://github.com/parsec-html/parsec/issues/143)).
+- Done: `crates/parsec-js`'s lexer, ECMAScript 2025's lexical grammar
+  with Annex B's HTML-like comments in scripts and legacy octal flagged.
+  The caller passes the goal, so `/` and `}` are never guessed; every
+  token has a span and none allocates
+  ([#147](https://github.com/parsec-html/parsec/issues/147)).
+- Done: a fuzz target for the lexer in the nightly fuzz run
+  ([#150](https://github.com/parsec-html/parsec/issues/150)); its corpus
+  comes with test262.
+- Still to come: test262 in CI, with the counts in every run's summary
+  ([#148](https://github.com/parsec-html/parsec/issues/148)).
+
 ## 0.1.0
 
 The first release goes to crates.io, PyPI and npm as `parsec-html` once

@@ -1,0 +1,23 @@
+[package]
+name = "parsec-js"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "JavaScript for Parsec: a lexer for the ECMAScript 2025 lexical grammar, with spans on every token and nothing allocated per token."
+repository.workspace = true
+license.workspace = true
+readme = "../../README.md"
+keywords = ["javascript", "ecmascript", "lexer", "tokenizer", "parser"]
+categories = ["parser-implementations", "web-programming"]
+documentation = "https://docs.rs/parsec-js"
+
+# The conformance suites run from the repository; their data would be most
+# of the package and nothing a build needs.
+exclude = ["tests/"]
+
+[lib]
+name = "parsec_js"
+
+[dependencies]
+# Spans, diagnostics and limits, shared with Parsec's other parsers.
+parsec-base = { path = "../parsec-base", version = "0.2.0" }

@@ -1,0 +1,15 @@
+[package]
+name = "parsec-base"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "What Parsec's parsers share: spans, line and column (UTF-16 too), diagnostics and limits. No dependencies."
+repository.workspace = true
+license.workspace = true
+readme = "../../README.md"
+keywords = ["parser", "span", "diagnostics", "line-index", "utf16"]
+categories = ["parser-implementations", "text-processing"]
+documentation = "https://docs.rs/parsec-base"
+
+[lib]
+name = "parsec_base"

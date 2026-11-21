@@ -6,6 +6,9 @@
 /crates/parsec-css/fuzz/corpus
 /crates/parsec-css/fuzz/artifacts
 /crates/parsec-css/fuzz/Cargo.lock
+/crates/parsec-js/fuzz/target
+/crates/parsec-js/fuzz/artifacts
+/crates/parsec-js/fuzz/Cargo.lock
 /bench/target
 /bench/corpus
 /bindings/wasm/pkg

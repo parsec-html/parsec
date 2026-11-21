@@ -8,8 +8,9 @@ from the HTML Standard (https://html.spec.whatwg.org/), © WHATWG (Apple,
 Google, Mozilla, Microsoft), licensed under the Creative Commons
 Attribution 4.0 International License.
 
-Parsec's HTML parser also includes Unicode property tables generated
-from the Unicode Character Database (https://www.unicode.org/ucd/),
+Parsec's HTML parser and its JavaScript lexer also include Unicode
+property tables generated from the Unicode Character Database
+(https://www.unicode.org/ucd/),
 © 1991-2025 Unicode, Inc., licensed under the Unicode License v3
 (https://www.unicode.org/license.txt).
 
