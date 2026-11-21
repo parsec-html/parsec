@@ -71,6 +71,11 @@ submodule, so fetch it before you test:
 git submodule update --init
 ```
 
+The W3C XML conformance suite isn't in the repository at all: its
+tarball is pinned by address and SHA-256, and
+`crates/parsec-xml/scripts/fetch-xmlconf.sh` downloads it. Without it,
+`cargo test` skips that suite and says so; CI always runs it.
+
 The tree-construction tests aren't a submodule. They moved from
 html5lib-tests to web-platform-tests, and the files are pinned in
 `crates/parsec/tests/tree-construction`, with the WPT commit in `COMMIT`

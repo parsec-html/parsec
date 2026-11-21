@@ -30,6 +30,9 @@ minor release can break the API and a patch release won't.
     its span, and the line and column.
   - `to_xml` and `write_xml` write a document or a subtree back out,
     prefixes and namespace declarations as they were.
+  - The W3C XML Conformance Test Suite runs in `cargo test`
+    ([#170](https://github.com/parsec-html/parsec/issues/170)): 1,915
+    cases pass and none fail, and every skipped case says why.
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).
