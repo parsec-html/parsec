@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/parsec-html/parsec/main/assets/parsec-header.svg" alt="Parsec" width="100%">
+  <img src="https://raw.githubusercontent.com/parsec-html/parsec/main/assets/parsec-header.svg" alt="Parsec, the parsing foundation for the web, in Rust" width="100%">
 </h1>
 
 <p align="center">
@@ -8,8 +8,9 @@
   <a href="https://github.com/parsec-html/parsec/actions/workflows/ci.yml"><img src="https://github.com/parsec-html/parsec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
-Parsers for the web, in Rust, that you can take one at a time. The HTML
-parser reads pages the way a browser does, finds what you're after with
+The parsing foundation for the web, in Rust: HTML, CSS, JavaScript and
+XML, one crate at a time, so you build on exactly the parsers you need.
+The HTML parser reads pages the way a browser does, finds what you're after with
 CSS selectors, and lets you change the tree and write it back out. Beside
 it sit CSS with the cascade, XPath, and the WHATWG Encoding and URL
 standards. JavaScript is next, then XML, each with its own tree, so

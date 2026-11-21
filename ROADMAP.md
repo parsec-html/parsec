@@ -4,8 +4,8 @@ Parsec started with one aim: to be the HTML parser you'd pick over Lexbor
 on every count that matters to you. Milestones M0 to M8 got it there, and
 the benchmarks and conformance counts that say so are on the wiki.
 
-What we're building now is bigger: a set of parsers for the web you can
-take one at a time. HTML, CSS, JavaScript and XML, each with its own tree
+What we're building now is bigger: the parsing foundation for the web,
+one crate per language. HTML, CSS, JavaScript and XML, each with its own tree
 and its own error handling, over shared plumbing for input, positions,
 diagnostics and limits. If you only parse HTML, you never compile the
 JavaScript parser. If you parse XML, you get XML's rules, not HTML's
