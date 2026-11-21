@@ -1,14 +1,21 @@
 # Roadmap
 
-Parsec has one aim: to be the parser you'd pick over Lexbor on every count
-that matters to you. That means faster on the same pages, measured in one
-process against Lexbor's own C; at least as conformant on every public test
-suite; memory-safe; and pleasant to use from Rust, C, Python and the
-browser.
+Parsec started with one aim: to be the HTML parser you'd pick over Lexbor
+on every count that matters to you. Milestones M0 to M8 got it there, and
+the benchmarks and conformance counts that say so are on the wiki.
+
+What we're building now is bigger: a set of parsers for the web you can
+take one at a time. HTML, CSS, JavaScript and XML, each with its own tree
+and its own error handling, over shared plumbing for input, positions,
+diagnostics and limits. If you only parse HTML, you never compile the
+JavaScript parser. If you parse XML, you get XML's rules, not HTML's
+recovery.
 
 Here's the order we're working in. Each milestone has an issue list on
-GitHub, and nothing moves from "planned" to "done" in the README until it
-ships with its tests.
+GitHub and a place on the [Road to the parsing
+platform](https://github.com/orgs/parsec-html/projects/2) board, and
+nothing moves from "planned" to "done" in the README until it ships with
+its tests.
 
 ## When
 
@@ -17,14 +24,15 @@ the order can change when users show us something more urgent.
 
 | Milestone | Target |
 |---|---|
-| M1. Proof | done, November 2026 |
-| M2. HTML, past Lexbor | done, November 2026 |
-| M3. Selectors | early 2027, alongside M2 |
-| M4. Every way in, then 0.1.0 | spring 2027 |
-| M5. Encoding | done, November 2026 |
-| M6. URL | done, November 2026 |
-| M8. XPath | summer 2027 |
-| M7. CSS | late 2027 into 2028, in parts; syntax, values and the cascade done, November 2026 |
+| M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 |
+| M15. One toolkit, in pieces | December 2026 |
+| M9. JavaScript tokens | December 2026 |
+| M10. JavaScript syntax tree | early 2027, with 0.3.0 |
+| M11. JavaScript scope and modules | spring 2027 |
+| M12. Data from scripts | spring 2027 |
+| M14. XML | summer 2027 |
+| M16. Every language, every way in | alongside each parser |
+| M13. JavaScript diagnostics and incremental parsing | late 2027 |
 
 ## M0. Foundations
 
@@ -192,19 +200,79 @@ Done. XPath 1.0 over Parsec's tree, shared with Netweir: `crates/parsec-xpath`,
 with libxml2's expression tests in `cargo test` and queries that would be
 quadratic stopped by a work limit.
 
-## 0.1.0
+## M9. JavaScript tokens
 
-The first release goes to crates.io, PyPI and npm as `parsec-html` once
-M1 to M4 are done and the benchmarks show Parsec ahead on every page in the
-corpus.
+The start of `parsec-js`, a JavaScript parser of our own, written from
+scratch. A parser, not an engine: nothing in it runs code. First the
+whole ECMAScript 2025 lexical grammar, with the caller choosing between
+division and a regular expression the way the spec's goal symbols do, so
+the lexer never guesses. test262 in CI, a fuzz target, and a bench
+against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
+
+## M10. JavaScript syntax tree
+
+Every script and module ECMAScript 2025 allows, parsed to an arena tree
+with a span on every node and written out as ESTree JSON, so tools built
+for acorn can read it. test262's syntax tests in CI, a depth limit that
+returns an error where other parsers overflow the stack, and a bench on
+real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
+
+## M11. JavaScript scope and modules
+
+What a name refers to, which programs the spec rejects before they run,
+and what each module imports and exports
+([#157](https://github.com/parsec-html/parsec/issues/157)).
+
+## M12. Data from scripts
+
+The reason JavaScript matters for scraping. Pages ship their data inside
+`<script>`: `__NEXT_DATA__`, `window.__NUXT__`, a Redux store assigned to
+a variable. Parsec will read those straight from the source as JSON,
+without executing a line, where scrapers today run a browser or a regex
+that breaks on the first nested brace. Netweir is the first user
+([#161](https://github.com/parsec-html/parsec/issues/161)).
+
+## M13. JavaScript diagnostics and incremental parsing
+
+Errors with codes, labels and code frames, comments kept for tools, and
+reparsing only what an edit touched
+([#165](https://github.com/parsec-html/parsec/issues/165)).
+
+## M14. XML
+
+`parsec-xml`: XML 1.0 and Namespaces with XML's own rules. Non-validating,
+entity expansion capped so billion laughs stops with an error, nothing
+ever fetched. The W3C conformance suite in CI, XPath over XML, and a bench
+against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
+
+## M15. One toolkit, in pieces
+
+`parsec-base` for what every parser shares (spans, line indexes,
+diagnostics, limits), a CI check that each crate depends only on what it
+should, and the architecture written down on the wiki
+([#140](https://github.com/parsec-html/parsec/issues/140)).
+
+## M16. Every language, every way in
+
+JavaScript and XML through the C API, Python and WebAssembly, the way
+HTML is today, and a native Node.js package beside the WebAssembly one
+([#173](https://github.com/parsec-html/parsec/issues/173)).
+
+## Releases
+
+0.1.0 shipped in November 2026 once M1 to M4 were done and the benchmarks
+showed Parsec ahead on every page in the corpus; 0.2.0 followed with
+security fixes. 0.2.1 brings selector step limits to the bindings. 0.3.0
+is the first release with `parsec-js`.
 
 ## Not planned
 
 Some things we've decided not to do, so nobody waits for them:
 
-- **Running JavaScript.** Parsec builds the tree the HTML Standard
-  describes for a page without scripts running. Pages that need scripts
-  need a browser; Netweir drives one.
+- **Running JavaScript.** `parsec-js` parses scripts; it never runs
+  them. The HTML parser builds the tree the HTML Standard describes for a
+  page without scripts running. Pages that need scripts run need a
+  browser; Netweir drives one.
 - **Layout and rendering.** No boxes, fonts or painting. Computed CSS
   values (M7) stop short of layout.
 - **A "relaxed" mode that breaks the spec.** Parsec parses the way
