@@ -55,10 +55,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#define PARSEC_VERSION "0.1.1"
+#define PARSEC_VERSION "0.2.0"
 #define PARSEC_VERSION_MAJOR 0
-#define PARSEC_VERSION_MINOR 1
-#define PARSEC_VERSION_PATCH 1
+#define PARSEC_VERSION_MINOR 2
+#define PARSEC_VERSION_PATCH 0
 
 // Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 // holds raw text.
@@ -228,7 +228,7 @@ typedef uint32_t parsec_xpath_type;
 extern "C" {
 #endif // __cplusplus
 
-// The library's version, such as "0.1.1", NUL-terminated and static.
+// The library's version, such as "0.2.0", NUL-terminated and static.
 const char *parsec_version(void);
 
 // A sentence saying what `status` means, NUL-terminated and static.
@@ -418,7 +418,9 @@ const char *parsec_attr_get(const parsec_document *doc,
 
 // Sets an attribute, as `setAttribute` does: it replaces the first one of
 // that name or adds one at the end. HTML elements' attribute names are
-// lowercased.
+// lowercased. A name `setAttribute` refuses (empty, or with whitespace,
+// `/`, `>`, `=`, a quote or a control character in it) is
+// `PARSEC_ERR_INVALID`.
 parsec_status parsec_attr_set(parsec_document *doc,
                               parsec_node node,
                               const char *name,
@@ -494,7 +496,9 @@ bool parsec_matches(const parsec_document *doc, const parsec_selector *selector,
 // A new element named `name` in namespace `ns`, not yet in the tree;
 // insert it with `parsec_append` or `parsec_insert_before`. HTML names are
 // lowercased, as `createElement` does. `PARSEC_NO_NODE` on a NULL
-// document or an unknown namespace.
+// document, an unknown namespace, or a name `createElement` refuses: an
+// empty one, or one with whitespace, `/`, `>`, `=`, a quote or a control
+// character in it.
 parsec_node parsec_create_element(parsec_document *doc, parsec_ns ns, const char *name, size_t len);
 
 // A new text node, not yet in the tree.

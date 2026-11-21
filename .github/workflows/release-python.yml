@@ -34,9 +34,13 @@ jobs:
           - { runner: macos-15-intel, target: x86_64 }
           - { runner: macos-latest, target: aarch64 }
           - { runner: windows-latest, target: x64 }
-          - { runner: windows-11-arm, target: aarch64 }
+          - { runner: windows-11-arm, target: aarch64, pythons: "3.11 3.12 3.13 3.14 3.15 3.14t 3.15t" }
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
+    env:
+      # The versions with a wheel of their own. Windows on ARM has CPython
+      # from 3.11.
+      PYTHONS: ${{ matrix.platform.pythons || '3.9 3.10 3.11 3.12 3.13 3.14 3.15 3.14t 3.15t' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,18 +72,28 @@ jobs:
             3.15
             3.14t
             3.15t
+      # The manylinux images name each version python3.14, python3.14t and
+      # so on. On macOS and Windows those names aren't to be trusted (the
+      # free-threaded python3.14 shadows the other on macOS), so each
+      # interpreter is found by asking it what it is.
+      - name: The interpreters
+        id: pythons
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            list=$(for v in $PYTHONS; do printf 'python%s ' "$v"; done)
+          else
+            # shellcheck disable=SC2086 # one argument a version
+            list=$(python scripts/find-pythons.py $PYTHONS | tr '\n' ' ')
+          fi
+          echo "list=$list" >> "$GITHUB_OUTPUT"
       - name: Wheels for each version
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           working-directory: bindings/python
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux }}
-          # The manylinux images hold free-threaded 3.13 too, which PyO3
-          # doesn't support, so Linux names its versions; elsewhere
-          # setup-python installed only the ones wanted.
-          args: >-
-            --release --out dist
-            ${{ matrix.platform.manylinux && '--interpreter python3.9 python3.10 python3.11 python3.12 python3.13 python3.14 python3.15 python3.14t python3.15t' || '--find-interpreter' }}
+          args: --release --out dist --interpreter ${{ steps.pythons.outputs.list }}
       - name: The abi3t wheel
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
@@ -87,6 +101,29 @@ jobs:
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux }}
           args: --release --out dist --features abi3t --interpreter python3.15
+      # A wheel missing is a version PyPI users get no wheel for, so it
+      # fails here rather than going out short.
+      - name: Every wheel is there
+        shell: bash
+        working-directory: bindings/python
+        run: |
+          ls dist
+          missing=0
+          for v in $PYTHONS abi3t; do
+            case "$v" in
+              abi3t) tag=cp315-abi3.abi3t ;;
+              *t) n=${v%t}; n=${n/./}; tag=cp$n-cp${n}t ;;
+              *) n=${v/./}; tag=cp$n-cp$n ;;
+            esac
+            if ! ls dist/*-"$tag"-*.whl > /dev/null 2>&1; then
+              echo "no $tag wheel" >&2
+              missing=1
+            fi
+          done
+          count=$(find dist -name '*.whl' | wc -l)
+          want=$(( $(echo "$PYTHONS" | wc -w) + 1 ))
+          [ "$count" -eq "$want" ] || { echo "$count wheels, not $want" >&2; missing=1; }
+          exit "$missing"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wheels-${{ matrix.platform.runner }}-${{ matrix.platform.target }}-${{ matrix.platform.manylinux || 'native' }}

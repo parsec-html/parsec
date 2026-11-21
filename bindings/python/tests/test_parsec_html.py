@@ -474,3 +474,43 @@ def test_what_unwrap_strip_and_merge_drop_is_gone():
     assert words.html == "" and words.parent is None
     div.inner_html = "<i>new</i>"
     assert div.first_child.tag == "i"
+
+
+def test_node_strip_and_unwrap_tags_include_the_node():
+    # As selectolax: the node itself is one of the matches.
+    p = HTMLParser("<div><p>x</p><div><b>y</b></div></div>")
+    p.css_first("div").strip_tags(["div"])
+    assert p.body.html == "<body></body>"
+    p = HTMLParser("<section><div><b>x</b></div></section>")
+    p.css_first("div").unwrap_tags(["div"])
+    assert p.body.html == "<body><section><b>x</b></section></body>"
+    # A node that doesn't match is only a scope.
+    p = HTMLParser("<div><p>x</p><i>y</i></div>")
+    p.css_first("div").strip_tags(["p"])
+    assert p.body.html == "<body><div><i>y</i></div></body>"
+
+
+def test_decompose_refuses_only_the_document():
+    p = HTMLParser("<p>x")
+    with pytest.raises(ValueError):
+        p.root.parent.decompose()
+    p.root.decompose()
+    assert p.html == ""
+
+
+def test_xpath_numbers_follow_the_spec():
+    # The shortest digits that read back as the same number, never an
+    # exponent: XPath 1.0's rule, which lxml doesn't keep.
+    p = HTMLParser("<p>x")
+    assert p.xpath("string(1 div 3)") == "0.3333333333333333"
+    assert p.xpath("string(0.1 + 0.2)") == "0.30000000000000004"
+    assert p.xpath("string(10000000000000000)") == "10000000000000000"
+    assert p.xpath("string(-0)") == "0"
+    assert p.xpath("number('1e3')") != p.xpath("number('1e3')")  # NaN
+
+
+def test_wheel_carries_the_licence_and_notice():
+    from importlib.metadata import distribution
+
+    files = {f.name for f in distribution("parsec-html").files or []}
+    assert {"LICENSE", "NOTICE"} <= files

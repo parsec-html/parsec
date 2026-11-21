@@ -12,15 +12,16 @@ categories = ["parser-implementations", "web-programming"]
 documentation = "https://docs.rs/parsec-html-css"
 
 # The conformance suites run from the repository; their vendored data
-# would be most of the package and nothing a build needs.
-exclude = ["tests/"]
+# would be most of the package and nothing a build needs. Nor is data/,
+# what scripts/ generates src/values/generated.rs from.
+exclude = ["tests/", "data/"]
 
 [lib]
 name = "parsec_css"
 
 [dependencies]
 # The document the cascade styles, and its selector engine.
-parsec-html-core = { path = "../parsec", version = "0.1.1" }
+parsec-html-core = { path = "../parsec", version = "0.2.0" }
 # For stylesheets given as bytes; already Parsec's, through parsec-html-encoding.
 encoding_rs = "0.8.35"
 

@@ -371,7 +371,9 @@ impl Styler {
                         for n in layer_names(&a.prelude) {
                             let mut path = layer.clone();
                             path.extend(n);
-                            declared.push(path);
+                            if path.len() <= MAX_LAYER_DEPTH {
+                                declared.push(path);
+                            }
                         }
                     }
                     "import" => {
@@ -391,6 +393,9 @@ impl Styler {
                             // Each anonymous layer its own.
                             Some(None) => path.push(format!("\u{0}import{count}")),
                             None => {}
+                        }
+                        if path.len() > MAX_LAYER_DEPTH {
+                            continue;
                         }
                         // The layer is named whether the sheet loads or not.
                         if import.layer.is_some() {
@@ -452,6 +457,7 @@ impl Styler {
                 scope: None,
                 containers: Vec::new(),
                 at,
+                depth: 0,
             };
             // An `@import … scope()`'s sheet is as if in that `@scope`.
             if unit.scopes.iter().all(|b| cx.enter_scope(b, &[])) {
@@ -830,6 +836,7 @@ fn ua_entries() -> &'static (Vec<Entry<'static>>, u32) {
             scope: None,
             containers: Vec::new(),
             at: &mut at,
+            depth: 0,
         };
         cx.rules(&sheet.rules, &[], &[]);
         (entries, order)
@@ -1111,46 +1118,41 @@ struct Layers {
     /// Every layer's full name, `a.b`, in the order first seen; index 0
     /// is the unlayered declarations.
     names: Vec<Vec<String>>,
+    /// Each name's index in `names`.
+    index: HashMap<Vec<String>, usize>,
 }
+
+/// How many parts a layer's full name may have, nesting included; a
+/// deeper `@layer`, or `@import` into one, is ignored. Each part costs
+/// a lookup of every name above it.
+const MAX_LAYER_DEPTH: usize = 64;
 
 impl Layers {
     fn id(&mut self, path: &[String]) -> usize {
-        if self.names.is_empty() {
-            self.names.push(Vec::new());
-        }
-        // Naming `a.b` names `a` first.
-        for n in 1..path.len() {
-            if !self.names.iter().any(|p| p == &path[..n]) {
+        // Naming `a.b` names `a` first; the empty name, unlayered, is 0.
+        for n in 0..=path.len() {
+            if !self.index.contains_key(&path[..n]) {
+                self.index.insert(path[..n].to_vec(), self.names.len());
                 self.names.push(path[..n].to_vec());
             }
         }
-        match self.names.iter().position(|p| p == path) {
-            Some(i) => i,
-            None => {
-                self.names.push(path.to_vec());
-                self.names.len() - 1
-            }
-        }
+        self.index[path]
     }
 
     /// Each layer's rank: higher wins for normal declarations.
     fn ranks(&mut self) -> Vec<u32> {
-        if self.names.is_empty() {
-            self.names.push(Vec::new());
-        }
+        self.id(&[]);
         // Order of first mention among siblings, depth first, a layer
         // after its sublayers; unlayered (the empty path) at the end.
         let mut order: Vec<usize> = (0..self.names.len()).collect();
-        let first = |path: &[String], names: &[Vec<String>]| -> Vec<usize> {
-            (1..=path.len())
-                .map(|n| names.iter().position(|p| p[..] == path[..n]).unwrap())
-                .collect()
+        let first = |path: &[String]| -> Vec<usize> {
+            (1..=path.len()).map(|n| self.index[&path[..n]]).collect()
         };
         let keys: Vec<Vec<usize>> = self
             .names
             .iter()
             .map(|p| {
-                let mut k = first(p, &self.names);
+                let mut k = first(p);
                 // A layer's own declarations come after its sublayers.
                 k.push(usize::MAX);
                 k
@@ -1179,7 +1181,12 @@ struct Collect<'c, 's> {
     scope: Option<Arc<Scope>>,
     containers: Vec<Arc<Vec<ContainerQuery>>>,
     at: &'c mut Collected,
+    /// How many rules deep `rule` is.
+    depth: usize,
 }
+
+/// How deep rules may nest for the cascade to see them.
+const MAX_RULE_DEPTH: usize = 128;
 
 /// One stylesheet to collect: its text, where it's from, and the layer
 /// an `@import` put it in; or, with no text, layers to name first.
@@ -1269,6 +1276,11 @@ fn complex_selectors(prelude: &[ComponentValue<'_>]) -> Vec<String> {
         .collect()
 }
 
+/// How long the selectors of a nested style rule may grow, all told, with
+/// their parents' written in. Each level of nesting writes in the one
+/// above, so past this the rule, and what's nested in it, is ignored.
+const MAX_NESTED_SELECTORS: usize = 64 * 1024;
+
 /// A nested selector against its parent's: `&` replaced by `:is(parent)`,
 /// or the parent put in front, as CSS Nesting reads them.
 fn nest(selector: &str, parents: &[String]) -> String {
@@ -1286,6 +1298,22 @@ fn nest(selector: &str, parents: &[String]) -> String {
             return selector.to_string();
         }
         return format!("{scope} {selector}");
+    }
+    if let [parent] = parents {
+        // One parent, standing alone where `&` is: written in as it is,
+        // which matches the same and costs the same as `:is()` of it.
+        // Nested `:is()`s are matched again for every ancestor, so each
+        // level of them doubles the work.
+        let alone = |rest: &str| rest.chars().next().is_none_or(|c| " \t\n>+~".contains(c));
+        if !selector.contains('&') {
+            return format!("{parent} {selector}");
+        }
+        if let Some(rest) = selector.strip_prefix('&')
+            && !rest.contains('&')
+            && alone(rest)
+        {
+            return format!("{parent}{rest}");
+        }
     }
     let parent = format!(":is({})", parents.join(", "));
     if selector.contains('&') {
@@ -1412,12 +1440,34 @@ impl<'s> Collect<'_, 's> {
     }
 
     fn rule(&mut self, r: &'s Rule<'s, Block<'s>>, parents: &[String], layer: &[String]) {
+        // This recurses on the rules' nesting, which the parser keeps
+        // within MAX_NESTING; a frame here is bigger than a value's, so
+        // rules deeper than this are ignored.
+        if self.depth >= MAX_RULE_DEPTH {
+            return;
+        }
+        self.depth += 1;
+        self.rule_in(r, parents, layer);
+        self.depth -= 1;
+    }
+
+    fn rule_in(&mut self, r: &'s Rule<'s, Block<'s>>, parents: &[String], layer: &[String]) {
         match r {
             Rule::Qualified(q) => {
-                let selectors: Vec<String> = complex_selectors(&q.prelude)
-                    .iter()
-                    .map(|s| nest(s, parents))
-                    .collect();
+                let selectors = complex_selectors(&q.prelude);
+                if !parents.is_empty() {
+                    // Their size before writing them: each `&` is a copy
+                    // of the parents, or one copy in front without one.
+                    let parent: usize = parents.iter().map(|p| p.len() + 2).sum::<usize>() + 4;
+                    let size = selectors.iter().fold(0usize, |n, s| {
+                        let copies = s.matches('&').count().max(1);
+                        n.saturating_add(s.len() + copies.saturating_mul(parent))
+                    });
+                    if size > MAX_NESTED_SELECTORS {
+                        return;
+                    }
+                }
+                let selectors: Vec<String> = selectors.iter().map(|s| nest(s, parents)).collect();
                 // A selector list with one bad selector is no rule at all.
                 if selectors.iter().any(|s| SelectorList::parse(s).is_err()) {
                     return;
@@ -1495,7 +1545,9 @@ impl<'s> Collect<'_, 's> {
                                 for n in &names {
                                     let mut path = layer.to_vec();
                                     path.extend(n.iter().cloned());
-                                    self.layers.id(&path);
+                                    if path.len() <= MAX_LAYER_DEPTH {
+                                        self.layers.id(&path);
+                                    }
                                 }
                             }
                             Some(b) => {
@@ -1507,6 +1559,9 @@ impl<'s> Collect<'_, 's> {
                                     Some(n) if !n.is_empty() => return,
                                     // An anonymous layer, its own each time.
                                     _ => path.push(format!("\u{0}{}", *self.order)),
+                                }
+                                if path.len() > MAX_LAYER_DEPTH {
+                                    return;
                                 }
                                 *self.order += 1;
                                 self.layers.id(&path);

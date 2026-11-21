@@ -19,6 +19,11 @@ use crate::tokenizer::Token;
 /// can grow a value exponentially (`--b: var(--a) var(--a)`, and so on);
 /// past this the value is invalid, as the spec lets a browser decide.
 const MAX_VALUES: usize = 100_000;
+/// How many bytes of the stylesheet a substituted value may copy in, a
+/// value counted as the text it was parsed from: a few values can be long
+/// strings, so counting values alone doesn't bound the copying. Browsers
+/// cap it about here too.
+const MAX_BYTES: usize = 1 << 20;
 /// How deep `var()` fallbacks and functions may nest while substituting.
 const MAX_DEPTH: usize = 128;
 
@@ -219,7 +224,7 @@ pub fn substitute<'a>(
     custom: &Resolved<'a>,
 ) -> Result<Vec<ComponentValue<'a>>, GuaranteedInvalid> {
     let mut out = Vec::new();
-    let mut count = 0;
+    let mut count = Count::default();
     substitute_into(value, custom, &mut out, &mut count, 0)?;
     Ok(out)
 }
@@ -242,19 +247,44 @@ pub fn substitute_value<'a>(
     parse_value(property, &values)
 }
 
+/// What a substitution has copied so far, against [`MAX_VALUES`] and
+/// [`MAX_BYTES`].
+#[derive(Default)]
+struct Count {
+    values: usize,
+    bytes: usize,
+}
+
+impl Count {
+    fn add(&mut self, values: &[ComponentValue<'_>]) -> Result<(), GuaranteedInvalid> {
+        self.values += values.len();
+        values.iter().try_for_each(|v| self.copy(v))
+    }
+
+    /// The bytes of one value copied in.
+    fn copy(&mut self, v: &ComponentValue<'_>) -> Result<(), GuaranteedInvalid> {
+        let span = v.span();
+        self.bytes += span.end.saturating_sub(span.start);
+        match self.values > MAX_VALUES || self.bytes > MAX_BYTES {
+            true => Err(GuaranteedInvalid),
+            false => Ok(()),
+        }
+    }
+}
+
 fn substitute_into<'a>(
     value: &[ComponentValue<'a>],
     custom: &Resolved<'a>,
     out: &mut Vec<ComponentValue<'a>>,
-    count: &mut usize,
+    count: &mut Count,
     depth: usize,
 ) -> Result<(), GuaranteedInvalid> {
     if depth > MAX_DEPTH {
         return Err(GuaranteedInvalid);
     }
     for v in value {
-        *count += 1;
-        if *count > MAX_VALUES {
+        count.values += 1;
+        if count.values > MAX_VALUES {
             return Err(GuaranteedInvalid);
         }
         match v {
@@ -262,10 +292,7 @@ fn substitute_into<'a>(
                 let (name, fallback) = var_parts(f).ok_or(GuaranteedInvalid)?;
                 match custom.get(name) {
                     Some(found) => {
-                        *count += found.len();
-                        if *count > MAX_VALUES {
-                            return Err(GuaranteedInvalid);
-                        }
+                        count.add(found)?;
                         out.extend(found.iter().cloned());
                     }
                     None => {
@@ -292,7 +319,10 @@ fn substitute_into<'a>(
                     span: b.span,
                 }));
             }
-            v => out.push(v.clone()),
+            v => {
+                count.copy(v)?;
+                out.push(v.clone());
+            }
         }
     }
     Ok(())

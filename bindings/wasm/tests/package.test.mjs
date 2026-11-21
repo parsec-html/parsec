@@ -121,6 +121,19 @@ test("the types ship with it", async () => {
   assert.match(types, /export interface ByteParseOptions extends ParseOptions/);
   assert.match(types, /feed\(chunk: Uint8Array \| number\[\]\): void;/);
   assert.match(types, /readonly encodingConfidence: "certain" \| "tentative" \| undefined;/);
+  // `[Symbol.dispose]` needs this lib, which a project may not list.
+  for (const build of ["parsec_html.d.ts", "node/parsec_html.d.ts"]) {
+    const d = await readFile(new URL(`../node_modules/parsec-html/${build}`, import.meta.url), "utf8");
+    assert.ok(d.startsWith('/// <reference lib="esnext.disposable" />\n'), build);
+  }
+});
+
+test("package.json can be imported, and main is the Node build", () => {
+  const require = createRequire(import.meta.url);
+  const pkg = require("parsec-html/package.json");
+  assert.equal(pkg.name, "parsec-html");
+  // Tools that predate "exports" go by main: the same file Node's require gets.
+  assert.ok(require.resolve("parsec-html").endsWith(pkg.main.slice(2)), pkg.main);
 });
 
 test("bytes, sniffed as a browser sniffs them", () => {

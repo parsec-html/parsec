@@ -74,9 +74,10 @@ fn clone_into(doc: &mut Document, from: NodeId, into: NodeId) {
                     .attrs(n)
                     .map(|(a, k, v)| (a, k.to_string(), v.to_string()))
                     .collect();
-                let e = doc.create_element(ns, &name);
+                // A copy of parsed nodes, so names are kept as parsed.
+                let e = doc.create_element_as_parsed(ns, &name);
                 for (a, k, v) in &attrs {
-                    doc.add_attr(e, *a, k, v);
+                    doc.add_attr_as_parsed(e, *a, k, v);
                 }
                 e
             }

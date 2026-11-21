@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The merge queue's run, on the pull request merged onto the latest main.
+  merge_group:
   workflow_dispatch:
 
 # A new push to a pull request ends the run on its old commit. Runs on
@@ -32,6 +34,15 @@ jobs:
           components: clippy, rustfmt
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # A crate at a time: three of them name their library `parsec`, which
+      # one `cargo doc --workspace` can't write side by side.
+      - name: The API docs build without warnings
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          for p in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+            cargo doc --no-deps -p "$p" || exit 1
+          done
       # The fuzz crates sit outside the workspace and build only in the
       # nightly fuzz run, so a manifest that cargo can't load fails there.
       - run: for m in crates/*/fuzz/Cargo.toml; do cargo metadata --no-deps --format-version 1 --manifest-path "$m" > /dev/null || exit 1; done
@@ -145,6 +156,25 @@ jobs:
           (cd target/package && sha256sum -- *.crate) > "$RUNNER_TEMP/here"
           cat "$RUNNER_TEMP/twice"
           diff "$RUNNER_TEMP/twice" "$RUNNER_TEMP/here"
+      # The conformance data runs from the repository; in a package it's
+      # only weight for everyone who builds it.
+      - name: No crate ships test data
+        run: |
+          for p in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name'); do
+            [ "$p" = parsec-capi ] && continue
+            if cargo package --list --locked -p "$p" | grep -E '^(tests|data)/'; then
+              echo "$p's package holds the files above" >&2
+              exit 1
+            fi
+          done
+      # crates.io shows README.md as each crate's page, where a link
+      # relative to the repository goes nowhere.
+      - name: README.md's links are absolute
+        run: |
+          if grep -nE '\]\([^h#)]|src="[^h]' README.md; then
+            echo "use https:// links in README.md: crates.io can't follow relative ones" >&2
+            exit 1
+          fi
 
   test:
     strategy:

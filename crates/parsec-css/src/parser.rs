@@ -11,7 +11,10 @@
 //! [`SimpleBlock::contents`], with the same result as parsing them at once.
 //!
 //! Nothing here recurses on the input's nesting, so `((((…` a million deep
-//! parses, serializes and drops on any stack.
+//! parses, serializes and drops on any stack. Past [`MAX_NESTING`] levels
+//! a function or block is dropped whole, as it's read: what's kept is never
+//! deeper than that, so code that does recurse on it (a derived `Clone`, the
+//! cascade) stays on the stack too.
 
 use std::borrow::Cow;
 
@@ -160,7 +163,7 @@ impl<'a> SimpleBlock<'a> {
 ///
 /// `B` is what the `{}` block is kept as: a [`SimpleBlock`], unparsed,
 /// from [`parse_stylesheet`] and the other entry points, or a [`Block`],
-/// its contents parsed, from [`parse_stylesheet_deep`].
+/// its contents parsed, from [`parse_stylesheet_deep`](crate::parse_stylesheet_deep).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AtRule<'a, B = SimpleBlock<'a>> {
     pub name: Cow<'a, str>,
@@ -229,7 +232,7 @@ pub enum Item<'a, B = SimpleBlock<'a>> {
 }
 
 /// A rule's `{}` block with its contents parsed, as declarations and
-/// rules, and its rules' blocks too: what [`parse_stylesheet_deep`] makes.
+/// rules, and its rules' blocks too: what [`parse_stylesheet_deep`](crate::parse_stylesheet_deep) makes.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Block<'a> {
     pub items: Vec<Item<'a, Block<'a>>>,
@@ -238,7 +241,7 @@ pub struct Block<'a> {
 }
 
 impl Drop for Block<'_> {
-    /// Takes the blocks inside out a level at a time, as [`drop_flat`]
+    /// Takes the blocks inside out a level at a time, as `drop_flat`
     /// does for component values, so deep nesting stays off the stack.
     fn drop(&mut self) {
         if self.items.iter().all(|i| matches!(i, Item::Declaration(_))) {
@@ -321,7 +324,14 @@ pub(crate) struct Values<'a> {
     pub(crate) tokens: Tokenizer<'a>,
     open: Vec<Open<'a>>,
     buffer: Vec<ComponentValue<'a>>,
+    /// How deep a value may nest; [`MAX_NESTING`] less the rules a
+    /// stylesheet parse has open around it.
+    pub(crate) limit: usize,
 }
+
+/// How deep functions, blocks and rules may nest, together. One that
+/// would open deeper is dropped with everything in it.
+pub const MAX_NESTING: usize = 256;
 
 impl<'a> Values<'a> {
     pub(crate) fn new(tokens: Tokenizer<'a>) -> Values<'a> {
@@ -329,7 +339,40 @@ impl<'a> Values<'a> {
             tokens,
             open: Vec::new(),
             buffer: Vec::new(),
+            limit: MAX_NESTING,
         }
+    }
+
+    /// Reads past the function or block `bracket` opened, to its closer
+    /// or the end of the input, keeping nothing. Only the closers matter,
+    /// so the stack of what's open inside it is a byte a level.
+    fn skip(&mut self, bracket: Option<Bracket>) -> usize {
+        let mut open = vec![bracket];
+        while let Some((token, span)) = self.tokens.next_token() {
+            let closes = |b: Option<Bracket>| {
+                matches!(
+                    (b, &token),
+                    (None | Some(Bracket::Paren), Token::RightParen)
+                        | (Some(Bracket::Square), Token::RightBracket)
+                        | (Some(Bracket::Curly), Token::RightBrace)
+                )
+            };
+            if closes(*open.last().unwrap()) {
+                open.pop();
+                if open.is_empty() {
+                    return span.end;
+                }
+                continue;
+            }
+            match token {
+                Token::Function(_) => open.push(None),
+                Token::LeftParen => open.push(Some(Bracket::Paren)),
+                Token::LeftBracket => open.push(Some(Bracket::Square)),
+                Token::LeftBrace => open.push(Some(Bracket::Curly)),
+                _ => {}
+            }
+        }
+        self.tokens.source().len()
     }
 }
 
@@ -453,6 +496,9 @@ impl<'a> Values<'a> {
                 continue;
             }
             match opens(token, span.start, self.buffer.len()) {
+                Ok(open) if self.open.len() >= self.limit => {
+                    self.skip(open.bracket);
+                }
                 Ok(open) => self.open.push(open),
                 Err(token) => self.buffer.push(ComponentValue::Token(token, span)),
             }
@@ -477,12 +523,81 @@ impl<'a> Source<'a> for std::vec::IntoIter<ComponentValue<'a>> {
     }
 }
 
-/// How many values come before the next `;` (or, nested, `}`).
-fn before_semicolon(values: &[ComponentValue<'_>], nested: bool) -> usize {
-    values
-        .iter()
-        .position(|v| v.is(&Token::Semicolon) || (nested && v.is(&Token::RightBrace)))
-        .unwrap_or(values.len())
+/// How many values come before the next `;` (or, nested, `}`), or `None`
+/// if, nested, they stop being a declaration before that.
+fn before_semicolon(values: &[ComponentValue<'_>], nested: bool) -> Option<usize> {
+    let mut watch = Watch::Name;
+    for (i, v) in values.iter().enumerate() {
+        if v.is(&Token::Semicolon) || (nested && v.is(&Token::RightBrace)) {
+            return Some(i);
+        }
+        if nested && !watch.see(v) {
+            return None;
+        }
+    }
+    Some(values.len())
+}
+
+/// Watches a nested declaration's values go by, to say as soon as they
+/// can't be one: no colon after the name, or a `{}` block with anything
+/// but `!important` beside it in a property's value. A block's contents
+/// that aren't a declaration are read again as a rule, so stopping there
+/// rather than at the `;` keeps `a{}a{}…` from being scanned to its end
+/// once for each `a`.
+#[derive(Clone, Copy)]
+pub(crate) enum Watch {
+    Name,
+    Colon {
+        custom: bool,
+    },
+    /// A custom property's value, which may hold anything.
+    Custom,
+    Value(Seen),
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum Seen {
+    Nothing,
+    Other,
+    /// A `{}` block, then this much of `!important`.
+    Block(u8),
+}
+
+impl Watch {
+    /// False once the values seen so far can't be a declaration.
+    pub(crate) fn see(&mut self, v: &ComponentValue<'_>) -> bool {
+        if v.is_whitespace() {
+            return true;
+        }
+        *self = match *self {
+            Watch::Name => match v {
+                ComponentValue::Token(Token::Ident(n), _) => Watch::Colon {
+                    custom: n.starts_with("--"),
+                },
+                _ => return false,
+            },
+            Watch::Colon { custom } if v.is(&Token::Colon) => match custom {
+                true => Watch::Custom,
+                false => Watch::Value(Seen::Nothing),
+            },
+            Watch::Colon { .. } => return false,
+            Watch::Custom => Watch::Custom,
+            Watch::Value(seen) => Watch::Value(match (seen, v.is_curly()) {
+                (Seen::Nothing, true) => Seen::Block(0),
+                (Seen::Nothing | Seen::Other, false) => Seen::Other,
+                (Seen::Other, true) => return false,
+                (Seen::Block(0), _) if v.is(&Token::Delim('!')) => Seen::Block(1),
+                (Seen::Block(1), _)
+                    if matches!(v, ComponentValue::Token(Token::Ident(w), _)
+                        if w.eq_ignore_ascii_case("important")) =>
+                {
+                    Seen::Block(2)
+                }
+                (Seen::Block(_), _) => return false,
+            }),
+        };
+        true
+    }
 }
 
 /// A stream of component values with the spec's one item of lookahead,
@@ -671,15 +786,26 @@ impl<'a, I: Source<'a>> Parser<'a, I> {
 
     /// Everything up to the next `;` (or the `}` ending a nested block), the
     /// most a declaration can be.
-    fn up_to_semicolon(&mut self, nested: bool) -> Vec<ComponentValue<'a>> {
+    /// Nested, it stops early, `Err` with what it took, where [`Watch`]
+    /// sees they can't be a declaration.
+    fn up_to_semicolon(
+        &mut self,
+        nested: bool,
+    ) -> Result<Vec<ComponentValue<'a>>, Vec<ComponentValue<'a>>> {
         let mut values = Vec::new();
+        let mut watch = Watch::Name;
         while let Some(next) = self.peek() {
             if next.is(&Token::Semicolon) || (nested && next.is(&Token::RightBrace)) {
                 break;
             }
-            values.push(self.next().unwrap());
+            let next = self.next().unwrap();
+            let hopeless = nested && !watch.see(&next);
+            values.push(next);
+            if hopeless {
+                return Err(values);
+            }
         }
-        values
+        Ok(values)
     }
 
     /// Consume a declaration: takes what one could be, and gives it back if
@@ -689,7 +815,9 @@ impl<'a, I: Source<'a>> Parser<'a, I> {
         if self.back.is_empty()
             && let Some(rest) = self.input.rest()
         {
-            let n = before_semicolon(rest, nested);
+            let Some(n) = before_semicolon(rest, nested) else {
+                return Err(Vec::new());
+            };
             if let Some(plan) = plan(&rest[..n]) {
                 let name = self.input.next().unwrap();
                 // Not `skip(…).take(…)`: an empty take never runs the skip,
@@ -710,7 +838,7 @@ impl<'a, I: Source<'a>> Parser<'a, I> {
             }
             return Err(self.input.by_ref().take(n).collect());
         }
-        let values = self.up_to_semicolon(nested);
+        let values = self.up_to_semicolon(nested)?;
         declaration_from(values, self.src)
     }
 

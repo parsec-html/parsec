@@ -35,6 +35,9 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.15"
+      # The wheels and the sdist carry these copies.
+      - name: bindings/python's LICENSE and NOTICE are the repository's
+        run: cmp LICENSE bindings/python/LICENSE && cmp NOTICE bindings/python/NOTICE
       - run: cargo fmt --manifest-path bindings/python/Cargo.toml --check
       - run: cargo clippy --manifest-path bindings/python/Cargo.toml -- -D warnings
       - run: cargo clippy --manifest-path bindings/python/Cargo.toml --features abi3t -- -D warnings

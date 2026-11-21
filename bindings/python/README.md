@@ -39,6 +39,10 @@ What you get over selectolax:
 
   Elements and comments come back as nodes, text and attribute values as
   `str`, and a number, string or boolean as `float`, `str` or `bool`.
+  One place they part: a number turned into a string follows XPath 1.0
+  here, shortest digits and never an exponent. So `string(0.1 + 0.2)` is
+  `'0.30000000000000004'`, where lxml rounds to 15 digits and says `'0.3'`,
+  and 10<sup>16</sup> comes out as `'10000000000000000'`, not `'1e+16'`.
 - **Where everything was written.** Parse with `positions=True` and every
   node knows its place in your input: `node.source_range` and
   `node.end_tag_range` are `(start, end)` indexes into what you passed
@@ -134,14 +138,16 @@ Where it behaves differently:
 | A selector that doesn't parse | `SelectolaxError` | `SelectorError`, a `ValueError` |
 | A node after `decompose()` | freed | reads as empty (no parent, children, attributes or text, `html` is `""`, no selector matches) but keeps its `tag`; `xpath()` and putting it back raise `ValueError` |
 | `remove()` | the same as `decompose()` | takes the node out but keeps it readable, to put back with `move=True` |
+| `root.decompose()` | `SelectolaxError` | decomposes `<html>`; only the document node itself raises `ValueError` |
 | `attrs.items()`, `keys()`, `values()` | iterators | lists |
 | `bytes` in | UTF-8, or sniffed with `encoding=True` | sniffed as a browser sniffs them: byte order mark, `transport_encoding`, `<meta>`, then `default_encoding` |
 | Class names | `LexborHTMLParser`, `LexborNode` | `HTMLParser`, `Node` |
 
 Not there yet: `clone()`, `raw_html`, `raw_value`, `html_pretty`,
+`inner_html_pretty`, the parser's `inner_html`, `options` and `selector`,
 `select()` and its filters, `scripts_contain`, `script_srcs_contain`,
-`template_fragments`, `mem_id`, `tag_id` and the `:lexbor-contains()`
-pseudo-class.
+`template_fragments`, `text_lexbor`, `mem_id`, `tag_id` and the
+`:lexbor-contains()` pseudo-class.
 
 ## Speed
 
