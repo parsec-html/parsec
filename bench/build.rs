@@ -70,6 +70,17 @@ fn main() {
         .and_then(|p| p.lines().find_map(|l| l.strip_prefix("version = ")))
         .map_or("?", |v| v.trim_matches('"'));
     println!("cargo:rustc-env=HTML5EVER_VERSION={html5ever}");
+    for (name, var) in [
+        ("oxc_parser", "OXC_VERSION"),
+        ("swc_ecma_parser", "SWC_VERSION"),
+    ] {
+        let version = lock
+            .split("[[package]]")
+            .find(|p| p.contains(&format!("name = \"{name}\"")))
+            .and_then(|p| p.lines().find_map(|l| l.strip_prefix("version = ")))
+            .map_or("?", |v| v.trim_matches('"'));
+        println!("cargo:rustc-env={var}={version}");
+    }
     let commit = std::process::Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()

@@ -38,6 +38,7 @@
 mod boss;
 mod css;
 mod encoding;
+mod js;
 mod lexbor;
 mod pages;
 mod selectors;
@@ -175,6 +176,18 @@ fn measure(which: usize, html: &str) -> Result {
     }
 }
 
+/// The most bytes the heap grew by while `f` ran and its result was held.
+fn peak<T>(f: impl FnOnce() -> T) -> usize {
+    COUNTING.store(true, Relaxed);
+    IN_USE.store(0, Relaxed);
+    PEAK.store(0, Relaxed);
+    let kept = black_box(f());
+    let peak = PEAK.load(Relaxed);
+    COUNTING.store(false, Relaxed);
+    drop(kept);
+    peak
+}
+
 fn mb_per_s(bytes: usize, secs: f64) -> f64 {
     bytes as f64 / 1e6 / secs
 }
@@ -249,6 +262,17 @@ fn main() {
     if args.iter().any(|a| a == "css") {
         header();
         css::run(&real_pages());
+        return;
+    }
+    if let [flag, dir] = args.as_slice()
+        && flag == "js-dump"
+    {
+        js::dump(&real_pages(), std::path::Path::new(dir));
+        return;
+    }
+    if args.iter().any(|a| a == "js") {
+        header();
+        js::run(&real_pages());
         return;
     }
     if args.iter().any(|a| a == "urls") {

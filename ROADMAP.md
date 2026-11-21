@@ -234,7 +234,7 @@ rejects, rejected
   that shouldn't, 3,639 fail to; the other 535 are early errors that
   need scope analysis (a name declared twice) or the regular expression
   pattern grammar, which `cargo test` skips and counts until M11.
-- Done: the tree and its ESTree JSON, apart from the bench check
+- Done: the tree and its ESTree JSON
   ([#152](https://github.com/parsec-html/parsec/issues/152)). Every node
   sits in one arena with a span beside it, and comments are kept on the
   side. `Ast::to_estree` writes the shape acorn gives, offsets in UTF-16.
@@ -262,8 +262,15 @@ rejects, rejected
   grows linearly, and a million-deep member chain writes out as ESTree
   on a 256 KB thread. A `parse` fuzz target joins the lexer's in the
   nightly run.
-- Planned: a bench against oxc and swc on real bundles
-  ([#156](https://github.com/parsec-html/parsec/issues/156)).
+- Done: a bench against oxc and swc on real bundles
+  ([#156](https://github.com/parsec-html/parsec/issues/156)):
+  `parsec-html-bench js`, on react-dom, three.js and typescript.js
+  pinned in `bench/scripts.txt` and the real pages' inline scripts.
+  parsec-js parses 202 MB/s, 1.26 times swc_ecma_parser's speed and
+  0.57 times oxc_parser's, and holds less memory than either; the gap
+  to oxc is [#190](https://github.com/parsec-html/parsec/issues/190).
+  `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
+  same as acorn's, which finishes #152.
 
 ## 0.1.0
 

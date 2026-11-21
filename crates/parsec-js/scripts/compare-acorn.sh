@@ -5,13 +5,16 @@
 # Parses JavaScript files with acorn and with parsec-js, and says which
 # give a different ESTree tree; a `.mjs` file is a module, the rest are
 # scripts. With no files, it takes every test262 script and module that
-# should parse and that acorn parses too.
+# should parse and that acorn parses too. With --bench, it takes the
+# benchmark's corpus: bench/scripts.txt's bundles and each real page's
+# inline scripts, after bench/fetch-pages.sh.
 #
 # Needs Node and npm; acorn is pinned to the version the fixtures in
 # tests/estree come from.
 #
 #   crates/parsec-js/scripts/compare-acorn.sh
 #   crates/parsec-js/scripts/compare-acorn.sh bundle.js other.js
+#   crates/parsec-js/scripts/compare-acorn.sh --bench
 
 set -eu
 ACORN=8.19.0
@@ -20,6 +23,10 @@ cargo build --quiet --release --example estree --manifest-path "$here/Cargo.toml
 bin=$(cargo metadata --format-version 1 --manifest-path "$here/Cargo.toml" | sed 's/.*"target_directory":"\([^"]*\)".*/\1/')/release/examples/estree
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+if [ "${1:-}" = --bench ]; then
+    cargo run --quiet --release --manifest-path "$here/../../bench/Cargo.toml" -- js-dump "$tmp/bench"
+    set -- "$tmp"/bench/*
+fi
 (cd "$tmp" && npm init -y > /dev/null && npm install --silent --no-audit --no-fund "acorn@$ACORN")
 ACORN_DIR="$tmp/node_modules/acorn" BIN="$bin" TEST262="$here/tests/test262/test" node - "$@" <<'JS'
 const acorn = require(process.env.ACORN_DIR);

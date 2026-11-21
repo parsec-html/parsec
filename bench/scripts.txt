@@ -1,0 +1,5 @@
+# name, address, SHA-256: the JavaScript benchmark's bundles, pinned npm
+# releases served by jsDelivr. A name ending .mjs is a module.
+react-dom-19.2.0.js https://cdn.jsdelivr.net/npm/react-dom@19.2.0/cjs/react-dom-client.production.js c59e90f48ba6343343d378d9976b774be6af15a555ecf4ecf3810f62c4381997
+three-0.181.0.mjs https://cdn.jsdelivr.net/npm/three@0.181.0/build/three.module.js 99b94b6829da8e751ef48147e3a7eebae861bd4087dbcb7c3a85af03a4210933
+typescript-5.9.3.js https://cdn.jsdelivr.net/npm/typescript@5.9.3/lib/typescript.js 3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675
