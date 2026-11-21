@@ -431,6 +431,9 @@ What's done, what's under way, and what's after that. Each milestone links
 to its issues, and the [Road to the parsing
 platform](https://github.com/orgs/parsec-html/projects/2) board shows who
 has what. [ROADMAP.md](https://github.com/parsec-html/parsec/blob/main/ROADMAP.md) has the detail and the target dates.
+How the crates fit together is on the wiki's
+[Architecture](https://github.com/parsec-html/parsec/wiki/Architecture#the-crates-and-how-they-fit)
+page.
 
 | | Milestone | State |
 |---|---|---|

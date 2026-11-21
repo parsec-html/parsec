@@ -17,7 +17,15 @@ I'll help you through it.
 
 ## Where a change goes
 
-The parser itself has two homes. Its source is Netweir's
+Parsec is a set of crates, one per language, over shared plumbing. The
+wiki's [Architecture](https://github.com/parsec-html/parsec/wiki/Architecture#the-crates-and-how-they-fit)
+page has a diagram of them and the rule they follow: each language keeps
+its own tree and its own error handling, and only `parsec-base` is
+shared. A change that makes one crate depend on another needs a reason
+in its pull request.
+
+Everything new, `parsec-js`, `parsec-xml` and `parsec-base` included, is
+written here. The HTML parser is the exception: it has two homes. Its source is Netweir's
 [`crates/netweir-html`](https://github.com/netweir/netweir/tree/main/crates/netweir-html),
 and `scripts/sync-from-netweir.sh` copies it into `crates/parsec`,
 renaming as it goes. The Netweir commit it came from is in
