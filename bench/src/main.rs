@@ -270,6 +270,11 @@ fn main() {
         js::dump(&real_pages(), std::path::Path::new(dir));
         return;
     }
+    if args.iter().any(|a| a == "js-scope") {
+        header();
+        js::scopes(&real_pages());
+        return;
+    }
     if args.iter().any(|a| a == "js") {
         header();
         js::run(&real_pages());

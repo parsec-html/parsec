@@ -272,6 +272,26 @@ rejects, rejected
   `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
   same as acorn's, which finishes #152.
 
+## M11. JavaScript scope and modules
+
+What a name refers to, which programs the spec rejects before they run,
+and what each module imports and exports
+([#157](https://github.com/parsec-html/parsec/issues/157)).
+
+- Done: scope analysis
+  ([#158](https://github.com/parsec-html/parsec/issues/158)).
+  `Scopes::analyze` builds the global or module scope, function, block,
+  class, `catch`, static block and class field scopes, and resolves
+  every reference to its binding or lists it as free: `var` and
+  functions hoisted, with Annex B's functions in sloppy blocks, `let`,
+  `const` and `class` in their block with the TDZ flagged, `arguments`
+  in each function that isn't an arrow, and scopes a direct `eval` or a
+  `with` reaches marked dynamic. A name declared twice where the spec
+  forbids it is a diagnostic, which catches all 190 of test262's
+  redeclaration tests and none of the 48,408 files that should parse.
+  `parsec-html-bench js-scope` times it on the bench corpus, 239 MB/s on
+  typescript.js, and lists every free name.
+
 ## M12. Data from scripts
 
 Many pages keep their data in a `<script>`: Nuxt's `window.__NUXT__`,

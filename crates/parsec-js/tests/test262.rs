@@ -2,16 +2,17 @@
 // Copyright 2026 James Conway
 
 //! tc39/test262, pinned as a submodule in `tests/test262`, through the
-//! parser. Each file's frontmatter says whether it's a module, whether it
-//! runs strict, sloppy or both, and whether it should fail to parse.
+//! parser and the scope analysis. Each file's frontmatter says whether
+//! it's a module, whether it runs strict, sloppy or both, and whether it
+//! should fail to parse.
 //!
-//! - A file that should parse has to, in each mode it runs in: a pass, or
-//!   a failure.
-//! - A file that should fail to parse passes if the parser rejects it in
-//!   each mode. One it accepts is a failure, unless its error is an early
-//!   error from the list in `early_error`: those need scope analysis or
-//!   the regular expression grammar, which come later, and are skipped
-//!   and counted.
+//! - A file that should parse has to, in each mode it runs in, and its
+//!   scopes have to hold no redeclaration: a pass, or a failure.
+//! - A file that should fail to parse passes if the parser or the scope
+//!   analysis rejects it in each mode. One they accept is a failure,
+//!   unless its error is an early error from the list in `early_error`:
+//!   those need the regular expression grammar or a check of what a
+//!   module exports, which come later, and are skipped and counted.
 //! - A module (`flags: [module]`) is parsed once, as a module. The
 //!   `_FIXTURE.js` files modules import aren't tests: some are meant not
 //!   to parse, or use syntax past ES2025, and only the tests importing
@@ -24,7 +25,18 @@ mod summary;
 
 use std::path::{Path, PathBuf};
 
-use parsec_js::{Options, SourceType, parse};
+use parsec_js::scope::Scopes;
+use parsec_js::{Diagnostic, Options, SourceType, parse};
+
+/// Parses `src` and analyzes its scopes: the parse's error, or the first
+/// name the analysis found declared twice.
+fn check(src: &str, options: &Options) -> Result<(), Diagnostic> {
+    let ast = parse(src, options)?;
+    match Scopes::analyze(&ast, src).diagnostics().first() {
+        Some(d) => Err(d.clone()),
+        None => Ok(()),
+    }
+}
 
 /// Features whose tests use syntax ECMAScript 2025 doesn't have.
 const NOT_IN_ES2025: &[&str] = &[
@@ -140,14 +152,14 @@ fn run(src: &str, m: &Meta, module: bool) -> Vec<Result<(), parsec_js::Diagnosti
             source_type: SourceType::Module,
             ..Options::default()
         };
-        return vec![parse(src, &options).map(|_| ())];
+        return vec![check(src, &options)];
     }
     let options = Options::default();
     let strict = || {
         let prefixed = format!("\"use strict\";\n{src}");
-        parse(&prefixed, &options).map(|_| ())
+        check(&prefixed, &options)
     };
-    let sloppy = || parse(src, &options).map(|_| ());
+    let sloppy = || check(src, &options);
     if flag("raw") || flag("noStrict") {
         vec![sloppy()]
     } else if flag("onlyStrict") {
@@ -237,7 +249,7 @@ fn test262() {
         passed,
         failed: failed.len(),
         skipped,
-        skipped_because: "early errors that need scope analysis or the regular expression grammar (M11), module fixtures, features past ES2025, and files that aren't UTF-8",
+        skipped_because: "early errors that need the regular expression grammar or a check of a module's exports (M11), module fixtures, features past ES2025, and files that aren't UTF-8",
         data: &root,
     });
     assert!(
@@ -252,34 +264,13 @@ fn test262() {
 /// check yet, or `None` if it should have been caught.
 fn early_error(name: &str) -> Option<&'static str> {
     const REGEXP: &[&str] = &["language/literals/regexp/", "built-ins/RegExp/"];
-    // Each of these declares a name twice in one scope, a lexical name
-    // where a var or parameter of the same name is, or exports a name the
-    // module doesn't declare.
-    const SCOPE: &[&str] = &[
-        "redeclaration",
-        "-redecl",
-        "formals-body-duplicate",
-        "duplicate-binding",
-        "-lex-dup",
-        "-lex-var",
-        "bound-names-in-stmt",
-        "early-catch-function",
-        "early-catch-lex",
-        "dup-bound-names",
-        "early-dup-",
-        "early-lex-and-var",
-        "early-export-global",
-        "early-export-unresolvable",
-        "declaration-binding-exists",
-        "parse-err-hoist-lex-",
-    ];
+    // A module that exports a name it doesn't declare.
+    const EXPORTS: &[&str] = &["early-export-global", "early-export-unresolvable"];
     if REGEXP.iter().any(|p| name.contains(p)) {
         return Some("a regular expression's pattern, which isn't checked yet");
     }
-    if SCOPE.iter().any(|p| name.contains(p)) {
-        return Some(
-            "a name declared twice, or exported and never declared, which needs scope analysis",
-        );
+    if EXPORTS.iter().any(|p| name.contains(p)) {
+        return Some("an export of a name the module never declares, which isn't checked yet");
     }
     None
 }

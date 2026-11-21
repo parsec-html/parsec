@@ -22,6 +22,10 @@
 //! assert!(ast.to_estree(src).contains(r#""type":"ArrowFunctionExpression""#));
 //! ```
 //!
+//! [`scope`] works out which declaration each name refers to: the
+//! scopes, their bindings, every reference resolved or left free, and
+//! the names declared twice where the spec forbids it.
+//!
 //! [`data`] reads the state pages keep in scripts, `window.__NUXT__ = …`
 //! and its kin, as JSON, without running anything.
 //!
@@ -62,6 +66,7 @@ pub mod data;
 mod estree;
 mod lexer;
 mod parser;
+pub mod scope;
 pub mod text;
 mod token;
 mod unicode;

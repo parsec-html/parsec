@@ -46,6 +46,14 @@ minor release can break the API and a patch release won't.
     `self.__next_f` pushes; `json` parses JSON as strictly as
     `JSON.parse` ([#162](https://github.com/parsec-html/parsec/issues/162),
     [#163](https://github.com/parsec-html/parsec/issues/163)).
+  - `parsec_js::scope` works out what each name refers to.
+    `Scopes::analyze` builds a program's scopes and bindings, with `var`
+    and functions hoisted and Annex B's functions in sloppy blocks,
+    resolves every reference or lists it as free, flags references in
+    the TDZ, and marks the scopes a direct `eval` or a `with` makes
+    dynamic. A name declared twice where the spec forbids it is a
+    diagnostic, `duplicate-declaration` or `lexical-var-conflict`
+    ([#158](https://github.com/parsec-html/parsec/issues/158)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

@@ -248,3 +248,74 @@ pub fn run(pages: &[Page]) {
         "  (\"vs\" is Parsec's speed over the other's; {dropped} inline scripts left out because a parser rejects them)"
     );
 }
+
+/// Times `parsec_js::scope` on each source's trees, parsed beforehand,
+/// and lists every name each source uses that nothing in it declares.
+pub fn scopes(pages: &[Page]) {
+    let (sources, _) = sources(pages);
+    println!("\nJavaScript scope analysis: MB/s of source, median of at least 5 runs");
+    println!(
+        "{:<34} {:>9}  {:>8}  {:>8}  {:>9}  {:>10}  {:>6}",
+        "", "KB", "MB/s", "scopes", "bindings", "references", "free"
+    );
+    let mut free_lists = Vec::new();
+    for s in &sources {
+        let trees: Vec<(parsec_js::Ast, &str)> = s
+            .pieces
+            .iter()
+            .map(|(src, module)| {
+                let options = parsec_js::Options {
+                    source_type: if *module {
+                        parsec_js::SourceType::Module
+                    } else {
+                        parsec_js::SourceType::Script
+                    },
+                    ..parsec_js::Options::default()
+                };
+                (parsec_js::parse(src, &options).unwrap(), src.as_str())
+            })
+            .collect();
+        let all = || -> Vec<_> {
+            trees
+                .iter()
+                .map(|(ast, src)| parsec_js::scope::Scopes::analyze(black_box(ast), src))
+                .collect()
+        };
+        let t = Instant::now();
+        let analyzed = black_box(all());
+        let once = t.elapsed().max(Duration::from_micros(1));
+        let runs = (0.5 / once.as_secs_f64()).clamp(5.0, 500.0) as usize;
+        let mut times: Vec<f64> = (0..runs)
+            .map(|_| {
+                let t = Instant::now();
+                drop(black_box(all()));
+                t.elapsed().as_secs_f64()
+            })
+            .collect();
+        times.sort_by(f64::total_cmp);
+        let secs = times[times.len() / 2];
+        let count =
+            |f: fn(&parsec_js::scope::Scopes) -> usize| analyzed.iter().map(f).sum::<usize>();
+        let mut free: Vec<&str> = analyzed
+            .iter()
+            .flat_map(|a| a.free_names().iter().map(String::as_str))
+            .collect();
+        free.sort_unstable();
+        free.dedup();
+        println!(
+            "{:<34} {:>9.1}  {:>8.0}  {:>8}  {:>9}  {:>10}  {:>6}",
+            s.name,
+            s.bytes() as f64 / 1e3,
+            s.bytes() as f64 / 1e6 / secs,
+            count(|a| a.scopes().len()),
+            count(|a| a.bindings().len()),
+            count(|a| a.references().len()),
+            free.len()
+        );
+        free_lists.push(format!("{}: {}", s.name, free.join(" ")));
+    }
+    println!("\nFree names, each source's in order:");
+    for line in free_lists {
+        println!("  {line}");
+    }
+}
