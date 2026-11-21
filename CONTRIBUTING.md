@@ -102,6 +102,12 @@ The JavaScript lexer has one too, from `crates/parsec-js`:
 cargo +nightly fuzz run lex
 ```
 
+So does the XML parser, from `crates/parsec-xml`:
+
+```
+cargo +nightly fuzz run xml
+```
+
 A bug fix comes with the test that would have caught it. A new feature
 comes with tests, and a page in the
 [wiki](https://github.com/parsec-html/parsec/wiki) if you'd use it from

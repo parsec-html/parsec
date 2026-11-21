@@ -8,6 +8,28 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
+  and Namespaces in XML 1.0, not validating
+  ([#169](https://github.com/parsec-html/parsec/issues/169)).
+  - `parse`, `parse_with` and `parse_bytes` give a `Document`: an arena
+    of nodes in document order, each element's and attribute's `Name`
+    resolved to its namespace, a `Span` on every node and attribute,
+    attributes in their order, and `xml_lang` and `preserves_space` read
+    up the tree.
+  - The internal subset's general and parameter entities are expanded
+    and its attribute defaults applied. The external subset and external
+    entities are never fetched or opened; the document's `warnings` say
+    what wasn't read, and a reference to such an entity stays in the
+    tree as `NodeKind::EntityRef`.
+  - Entity expansion stops with an error past `max_entity_depth` (16)
+    or past 1 MiB plus 8 bytes per byte of input, so billion laughs and
+    quadratic blowup cost what you allow. Elements nest at most 2,048
+    deep by default, and with no limit a million levels parse without
+    recursion.
+  - A document that isn't well-formed is an `Error` with a stable code,
+    its span, and the line and column.
+  - `to_xml` and `write_xml` write a document or a subtree back out,
+    prefixes and namespace declarations as they were.
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).

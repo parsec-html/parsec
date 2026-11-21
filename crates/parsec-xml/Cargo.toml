@@ -1,0 +1,24 @@
+[package]
+name = "parsec-xml"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "XML for Parsec: XML 1.0 and Namespaces, non-validating, with entity expansion capped, nothing ever fetched, and a span on every node."
+repository.workspace = true
+license.workspace = true
+readme = "../../README.md"
+keywords = ["xml", "parser", "namespaces", "dom", "serializer"]
+categories = ["parser-implementations", "web-programming"]
+documentation = "https://docs.rs/parsec-xml"
+
+# The tests run from the repository; they're nothing a build needs.
+exclude = ["tests/"]
+
+[lib]
+name = "parsec_xml"
+
+[dependencies]
+# Spans, diagnostics and limits, shared with Parsec's other parsers.
+parsec-base = { path = "../parsec-base", version = "0.2.0" }
+# Bytes in: the encodings XML documents declare, decoded strictly.
+encoding_rs = "0.8.35"
