@@ -1,0 +1,17 @@
+
+
+// Because this test concerns the interpretation of non-executable character
+// sequences within ECMAScript source code, special care must be taken to
+// ensure that executable code is evaluated as expected.
+//
+// Express the intended behavior by intentionally throwing an error; this
+// guarantees that test runners will only consider the test "passing" if
+// executable sequences are correctly interpreted as such.
+
+var x = 0;
+
+/* x = 1; */
+
+if (x === 0) {
+  throw new Test262Error();
+}

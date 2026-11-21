@@ -1,0 +1,12 @@
+
+assert.sameValue(
+  escape('\u0100\u0101\u0102'), '%u0100%u0101%u0102', '\\u0100\\u0101\\u0102'
+);
+
+assert.sameValue(
+  escape('\ufffd\ufffe\uffff'), '%uFFFD%uFFFE%uFFFF', '\\ufffd\\ufffd\\ufffd'
+);
+
+assert.sameValue(
+  escape('\ud834\udf06'), '%uD834%uDF06', '\\ud834\\udf06 (surrogate pairs)'
+);

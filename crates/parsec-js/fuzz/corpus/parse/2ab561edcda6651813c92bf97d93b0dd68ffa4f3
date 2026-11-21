@@ -1,0 +1,32 @@
+
+
+let caught = null;
+
+class C {
+  #field;
+
+  constructor() {
+    try {
+      /**
+       * Using a ShiftExpression to produce the non-object value verifies that
+       * the implementation uses the operator precedence implied by the
+       * syntactic grammar. In other words, the following statement should be
+       * interpreted as:
+       *
+       *     #field in ({} << 0);
+       *
+       * ...rather than:
+       *
+       *     (#field in {}) << 0;
+       */
+      #field in {} << 0;
+    } catch (error) {
+      caught = error;
+    }
+  }
+}
+
+new C();
+
+assert.notSameValue(caught, null);
+assert.sameValue(caught.constructor, TypeError);

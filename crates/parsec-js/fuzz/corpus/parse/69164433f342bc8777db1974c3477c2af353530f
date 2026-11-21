@@ -1,0 +1,37 @@
+
+
+var log = [];
+
+// Environment contains referenced binding.
+var env = {
+  Object,
+};
+
+var proxy = new Proxy(env, allowProxyTraps({
+  has(t, pk) {
+    log.push("has:" + String(pk));
+    return Reflect.has(t, pk);
+  },
+  get(t, pk, r) {
+    log.push("get:" + String(pk));
+    return Reflect.get(t, pk, r);
+  },
+}));
+
+with (proxy) {
+  Object;
+}
+
+assert.compareArray(log, [
+  // HasBinding, step 2.
+  "has:Object",
+
+  // HasBinding, step 5.
+  "get:Symbol(Symbol.unscopables)",
+
+  // GetBindingValue, step 2.
+  "has:Object",
+
+  // GetBindingValue, step 4.
+  "get:Object",
+]);

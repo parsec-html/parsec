@@ -1,0 +1,9 @@
+
+
+assert.sameValue((({a,b}) => {}).length, 1);
+assert.sameValue((function({a,b}) {}).length, 1);
+assert.sameValue((function * ({a,b}) {}).length, 1);
+assert.sameValue((async ({a,b}) => {}).length, 1);
+assert.sameValue((async function({a,b}) {}).length, 1);
+assert.sameValue((async function * ({a,b}) {}).length, 1);
+

@@ -1,0 +1,34 @@
+
+
+// Simple parameters
+(function() {
+  assert.sameValue(arguments.toString(), "[object Arguments]");
+  {
+    assert.sameValue(arguments(), undefined);
+    function arguments() {}
+    assert.sameValue(arguments(), undefined);
+  }
+  assert.sameValue(arguments.toString(), "[object Arguments]");
+}());
+
+// Single named parameter
+(function(x) {
+  assert.sameValue(arguments.toString(), "[object Arguments]");
+  {
+    assert.sameValue(arguments(), undefined);
+    function arguments() {}
+    assert.sameValue(arguments(), undefined);
+  }
+  assert.sameValue(arguments.toString(), "[object Arguments]");
+}());
+
+// Non-simple parameters
+(function(..._) {
+  assert.sameValue(arguments.toString(), "[object Arguments]");
+  {
+    assert.sameValue(arguments(), undefined);
+    function arguments() {}
+    assert.sameValue(arguments(), undefined);
+  }
+  assert.sameValue(arguments.toString(), "[object Arguments]");
+}());

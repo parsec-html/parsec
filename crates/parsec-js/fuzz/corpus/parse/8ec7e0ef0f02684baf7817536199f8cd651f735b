@@ -1,0 +1,9 @@
+
+
+// Hex escape
+assert(/\x/.test("x"), "/\\x/");
+assert(/\xa/.test("xa"), "/\\xa/");
+
+// Unicode escape
+assert(/\u/.test("u"), "/\\u/");
+assert(/\ua/.test("ua"), "/\\ua/");

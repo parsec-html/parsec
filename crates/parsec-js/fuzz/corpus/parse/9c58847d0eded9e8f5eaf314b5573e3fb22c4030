@@ -1,0 +1,8 @@
+
+
+$DONOTEVALUATE();
+
+// CHECK#1
+try{
+}
+finally(e){}

@@ -1,0 +1,9 @@
+
+
+var yield;
+
+yield = {'': 0};
+assert.sameValue('' in (yield), true);
+
+yield = {};
+assert.sameValue('' in (yield), false);

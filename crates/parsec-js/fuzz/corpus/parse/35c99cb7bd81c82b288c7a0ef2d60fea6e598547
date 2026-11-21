@@ -1,0 +1,6 @@
+
+$DONOTEVALUATE();
+
+function* g() {
+  for (yield * '' in {}; ; ) ;
+}

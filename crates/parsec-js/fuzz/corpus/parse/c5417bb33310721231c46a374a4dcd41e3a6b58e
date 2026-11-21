@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+const x;
+

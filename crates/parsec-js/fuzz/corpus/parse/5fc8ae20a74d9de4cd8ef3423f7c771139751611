@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+function() {} = 1;

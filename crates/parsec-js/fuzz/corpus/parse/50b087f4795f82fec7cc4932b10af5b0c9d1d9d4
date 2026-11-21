@@ -1,0 +1,6 @@
+
+$DONOTEVALUATE();
+
+function f() {
+  new.target--;
+}

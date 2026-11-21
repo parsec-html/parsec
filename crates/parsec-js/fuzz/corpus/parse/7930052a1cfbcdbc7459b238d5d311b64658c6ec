@@ -1,0 +1,4 @@
+
+
+// U+180E in template literals; UTF8(0x180E) = 0xE1 0xA0 0x8E
+assert.sameValue(`᠎`, "\u180E");

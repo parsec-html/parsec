@@ -1,0 +1,7 @@
+
+
+function fn() {
+  return function() {};
+}
+// extends CallExpression with arguments
+export default class extends fn(await 1) {};

@@ -1,0 +1,7 @@
+
+
+assert.throws(ReferenceError, function() {
+        "use strict"
+
+        test262unresolvable = null;
+});

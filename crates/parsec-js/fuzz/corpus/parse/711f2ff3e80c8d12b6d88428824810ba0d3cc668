@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+delete x.y = 1;

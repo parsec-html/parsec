@@ -1,0 +1,6 @@
+
+
+import { disposed, resource } from './initializer-disposed-at-end-of-imported-module_FIXTURE.js';
+
+assert(disposed, 'resource should be disposed once imported module evaluation finishes');
+$DONE();

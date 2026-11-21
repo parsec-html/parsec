@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+(yield x) = 1;

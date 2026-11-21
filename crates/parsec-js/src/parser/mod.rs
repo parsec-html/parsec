@@ -41,7 +41,9 @@ use crate::token::{Flags, Keyword, Kind, Punct, Token};
 /// operator or `**`, or an expression or pattern nested in brackets.
 /// Real code stays far below it (typescript.js, 9 MB, needs 53), and at
 /// the limit the parser uses at most about 250 KB of stack in a release
-/// build and 700 KB in a debug one, so it fits a 1 MB thread.
+/// build and 700 KB in a debug one, so it fits a 1 MB thread. A higher
+/// limit needs a thread with more: about 1 KB a level in a release
+/// build, 3 KB in a debug one.
 pub const DEFAULT_MAX_DEPTH: u32 = 256;
 
 /// What to parse and how much it may cost.

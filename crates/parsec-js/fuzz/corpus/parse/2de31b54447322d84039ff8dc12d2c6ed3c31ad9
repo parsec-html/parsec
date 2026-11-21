@@ -1,0 +1,6 @@
+
+$DONOTEVALUATE();
+
+void {
+  set x(eval) {}
+};

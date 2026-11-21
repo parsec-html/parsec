@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+for (let x, y in {}) { }
+

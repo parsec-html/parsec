@@ -1,0 +1,21 @@
+
+
+var binding;
+
+// for ( [lookahead ≠ let [] LeftHandSideExpression[?Yield, ?Await] in Expression[+In, ?Yield, ?Await] ) Statement[?Yield, ?Await, ?Return]
+for (binding in [await 1]) {
+  await 1;
+  break;
+}
+
+// for ( var ForBinding[?Yield, ?Await] in Expression[+In, ?Yield, ?Await] ) Statement[?Yield, ?Await, ?Return]
+for (var binding in [await 1]) {
+  await 1;
+  break;
+}
+
+// for ( ForDeclaration[?Yield, ?Await] in Expression[+In, ?Yield, ?Await] ) Statement[?Yield, ?Await, ?Return]
+for (let binding in [await 1]) {
+  await 1;
+  break;
+}

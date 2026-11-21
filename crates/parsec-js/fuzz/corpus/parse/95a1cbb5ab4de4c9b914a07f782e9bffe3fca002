@@ -1,0 +1,20 @@
+
+import { p1, pA_start, pB_start } from "./rejection-order_setup_FIXTURE.js";
+
+let logs = [];
+
+const importsP = Promise.all([
+  // Ensure that a.Evaluate() is called after b.Evaluate()
+  pB_start.promise.then(() => import("./rejection-order_a_FIXTURE.js").finally(() => logs.push("A"))).catch(() => {}),
+  import("./rejection-order_b_FIXTURE.js").finally(() => logs.push("B")).catch(() => {}),
+]);
+
+// Wait for evaluation of both graphs with entry points in A and B to start before
+// rejecting the promise that B is blocked on.
+Promise.all([pA_start.promise, pB_start.promise]).then(p1.reject);
+
+importsP.then(() => {
+  assert.compareArray(logs, ["B", "A"]);
+
+  $DONE();
+});

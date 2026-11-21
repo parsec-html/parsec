@@ -1,0 +1,7 @@
+
+
+var C = class {
+  static f = () => this;
+}
+
+assert.sameValue(C.f(), C);

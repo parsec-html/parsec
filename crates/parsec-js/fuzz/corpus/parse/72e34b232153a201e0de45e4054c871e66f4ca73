@@ -1,0 +1,5 @@
+$DONOTEVALUATE();
+var rest;
+
+for ({...rest,} in [{}
+]) ;

@@ -1,0 +1,10 @@
+
+let probe;
+
+class C {
+  static {
+    probe = C;
+  }
+}
+
+assert.sameValue(probe, C);

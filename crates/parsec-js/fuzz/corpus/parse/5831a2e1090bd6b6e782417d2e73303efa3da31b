@@ -1,0 +1,7 @@
+
+import * as ns from './prevent-extensions.js';
+
+// This invocation should not throw an exception
+Object.preventExtensions(ns);
+
+assert.sameValue(Reflect.preventExtensions(ns), true);

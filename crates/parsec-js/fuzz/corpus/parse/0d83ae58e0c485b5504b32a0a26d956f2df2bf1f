@@ -1,0 +1,2 @@
+
+assert.sameValue('\9', '9');

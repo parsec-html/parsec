@@ -1,0 +1,13 @@
+
+
+assert.throws(SyntaxError, function() {
+  eval("/\\\rn/;");
+/*
+
+The result of this string is:
+
+"/\
+n/;"
+
+*/
+});

@@ -1,0 +1,9 @@
+
+
+$DONOTEVALUATE();
+
+// Wrapped in an if-statement to avoid reference errors at runtime.
+if (false) {
+    with ({}) let
+    [a] = 0;
+}

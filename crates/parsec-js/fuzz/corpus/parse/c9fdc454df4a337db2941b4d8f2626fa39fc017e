@@ -1,0 +1,3 @@
+
+$DONOTEVALUATE();
+var af = (x, ...x) => 1;

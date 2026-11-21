@@ -1,0 +1,7 @@
+
+
+
+assert.throws(TypeError, () => {
+  var C = class extends (() => {}) {};
+});
+

@@ -1,0 +1,20 @@
+
+
+// LineTerminatorSequence :: <LF>
+assert.sameValue("\
+", "");
+
+// LineTerminatorSequence :: <CR> [lookahead ≠ <LF>]
+assert.sameValue("\", "");
+
+// LineTerminatorSequence :: <LS>
+// <LS> is U+2028 LINE SEPARATOR; UTF8(0x2028) = 0xE2 0x80 0xA8
+assert.sameValue("\ ", "");
+
+// LineTerminatorSequence :: <PS>
+// <PS> is U+2029 PARAGRAPH SEPARATOR; UTF8(0x2029) = 0xE2 0x80 0xA9
+assert.sameValue("\ ", "");
+
+// LineTerminatorSequence :: <CR> <LF>
+assert.sameValue("\
+", "");

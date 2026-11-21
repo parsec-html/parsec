@@ -1,0 +1,7 @@
+
+
+// U+180E in comments; UTF8(0x180E) = 0xE1 0xA0 0x8E
+assert.sameValue(
+  0, //᠎  single-line comment with U+180E
+  0
+);

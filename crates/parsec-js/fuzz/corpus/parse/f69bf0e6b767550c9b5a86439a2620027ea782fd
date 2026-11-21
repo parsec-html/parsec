@@ -1,0 +1,43 @@
+
+var log, obj;
+
+log = '';
+obj = {
+  toString: function() {
+    log += 'toString';
+  },
+  valueOf: function() {
+    log += 'valueOf';
+  }
+};
+
+escape(obj);
+
+assert.sameValue(log, 'toString');
+
+log = '';
+obj = {
+  toString: null,
+  valueOf: function() {
+    log += 'valueOf';
+  }
+};
+
+escape(obj);
+
+assert.sameValue(log, 'valueOf');
+
+log = '';
+obj = {
+  toString: function() {
+    log += 'toString';
+    return {};
+  },
+  valueOf: function() {
+    log += 'valueOf';
+  }
+};
+
+escape(obj);
+
+assert.sameValue(log, 'toStringvalueOf');

@@ -1,0 +1,3 @@
+
+
+assert(/\k<a>(?<a>x)/.test("x"));

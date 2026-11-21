@@ -1,0 +1,15 @@
+
+const obj = {
+  a: {
+    b: 22
+  }
+};
+
+function fn () {
+  return {};
+}
+
+// OptionalExpression (MemberExpression OptionalChain) OptionalChain
+assert.sameValue(22, obj?.a?.b);
+// OptionalExpression (CallExpression OptionalChain) OptionalChain
+assert.sameValue(undefined, fn()?.a?.b);

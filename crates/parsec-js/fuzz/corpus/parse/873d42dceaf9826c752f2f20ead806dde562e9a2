@@ -1,0 +1,5 @@
+
+
+if (true) {
+  await 1;
+}

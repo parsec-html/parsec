@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+class A {}
+class A {}

@@ -1,0 +1,2 @@
+
+assert.sameValue(`${'\07'}`, '\u0007');

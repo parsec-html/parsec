@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+label: class C {}

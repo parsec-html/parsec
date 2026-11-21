@@ -1,0 +1,6 @@
+
+// Avoid test failures in cases where the host has defined a `yield` property
+// on the global object.
+try {
+  yield = 0;
+} catch (_) {}

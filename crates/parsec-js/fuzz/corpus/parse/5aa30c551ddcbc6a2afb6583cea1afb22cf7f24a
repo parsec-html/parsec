@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+new.target;

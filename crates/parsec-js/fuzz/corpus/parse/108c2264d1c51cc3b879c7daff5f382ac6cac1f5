@@ -1,0 +1,7 @@
+
+
+asyncTest(async function () {
+  await assert.throwsAsync(TypeError, async function () {
+      await using x = {};
+  });
+});

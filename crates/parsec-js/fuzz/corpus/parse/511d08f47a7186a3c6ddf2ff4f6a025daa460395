@@ -1,0 +1,6 @@
+
+$DONOTEVALUATE();
+
+typeof import;
+
+/* The params region intentionally empty */

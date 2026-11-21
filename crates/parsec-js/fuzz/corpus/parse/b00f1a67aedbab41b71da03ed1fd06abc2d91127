@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+(async x => x) = 1;

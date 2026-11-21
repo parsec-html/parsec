@@ -1,0 +1,4 @@
+$DONOTEVALUATE();
+var y = {};
+
+0, { x: y?.z = 42 } = { x: 23 };

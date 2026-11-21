@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+new f = 1;

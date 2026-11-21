@@ -1,0 +1,3 @@
+
+$DONOTEVALUATE();
+if (true) let x;

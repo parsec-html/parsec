@@ -1,0 +1,5 @@
+
+
+assert.throws(TypeError, () => {
+  delete Object[0][0];
+});

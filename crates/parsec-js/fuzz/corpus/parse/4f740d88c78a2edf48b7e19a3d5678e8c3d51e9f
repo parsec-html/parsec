@@ -1,0 +1,14 @@
+
+// valid syntax, but fails on runtime evaluation
+
+assert.throws(TypeError, () => {
+    import('./empty_FIXTURE.js')``;
+});
+
+assert.throws(TypeError, () => {
+    import('./empty_FIXTURE.js')`something`;
+});
+
+assert.throws(TypeError, () => {
+    import('./empty_FIXTURE.js')`${42}`;
+});

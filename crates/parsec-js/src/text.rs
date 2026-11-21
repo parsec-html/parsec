@@ -41,8 +41,15 @@ fn unicode_escape(s: &str) -> (Option<u32>, usize) {
         let value = u32::from_str_radix(&s[1..end], 16).ok();
         (value, (end + 1).min(b.len()))
     } else {
-        let end = 4.min(b.len());
-        (u32::from_str_radix(&s[..end], 16).ok(), end)
+        // Up to four hex digits, which a tagged template's invalid escape
+        // (`\u/0é`) may stop short of.
+        let end = b
+            .iter()
+            .take(4)
+            .take_while(|c| c.is_ascii_hexdigit())
+            .count();
+        let value = u32::from_str_radix(&s[..end], 16).ok().filter(|_| end == 4);
+        (value, end)
     }
 }
 
@@ -405,6 +412,10 @@ mod tests {
         assert_eq!(c(r"\xg"), None);
         assert_eq!(c(r"\u{110000}"), None);
         assert_eq!(c(r"\0"), Some("\0".into()));
+        // Found by the parse fuzz target: an escape cut short before a
+        // character of more than one byte.
+        assert_eq!(c("\\u/00\u{e1}g"), None);
+        assert_eq!(c("\\u00\u{e1}"), None);
         assert_eq!(template_raw("a\r\nb\r"), "a\nb\n");
         assert_eq!(ident_name(r"ab\u{63}"), "abc");
     }

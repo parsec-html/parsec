@@ -1,0 +1,9 @@
+
+
+var obj = { method() {} };
+
+verifyProperty(obj, "method", {
+  writable: true,
+  enumerable: true,
+  configurable: true,
+});

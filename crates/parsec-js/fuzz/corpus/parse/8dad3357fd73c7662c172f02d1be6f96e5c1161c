@@ -1,0 +1,47 @@
+
+
+// 25.5.3.2, step 5.e: |generatorBody| execution ends with a normal completion.
+async function* g1() {
+  // no return
+}
+
+// 13.10.1: No expression form means direct return.
+async function* g2() {
+  return;
+}
+
+// 13.10.1: Explicit expression requires Await.
+async function* g3() {
+  return undefined; // Return undefined via global value `undefined`.
+}
+
+// 13.10.1: Explicit expression requires Await.
+async function* g4() {
+  return void 0; // Return undefined via void expression.
+}
+
+var expected = [
+  "tick 1",
+
+  "g1 ret",
+  "g2 ret",
+
+  "tick 2",
+
+  "g3 ret",
+  "g4 ret",
+];
+
+var actual = [];
+
+Promise.resolve(0)
+  .then(() => actual.push("tick 1"))
+  .then(() => actual.push("tick 2"))
+  .then(() => {
+    assert.compareArray(actual, expected, "Ticks for implicit and explicit return undefined");
+}).then($DONE, $DONE);
+
+g1().next().then(v => actual.push("g1 ret"));
+g2().next().then(v => actual.push("g2 ret"));
+g3().next().then(v => actual.push("g3 ret"));
+g4().next().then(v => actual.push("g4 ret"));

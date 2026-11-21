@@ -1,0 +1,14 @@
+
+var x = "prototype";
+
+assert.throws(TypeError, function() {
+  (0, class {
+    static [x] = 42;
+  });
+});
+
+assert.throws(TypeError, function() {
+  (0, class {
+    static [x];
+  });
+});

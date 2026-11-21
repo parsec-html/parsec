@@ -1,0 +1,22 @@
+
+var subject = /a/g;
+
+subject.compile('a', 'i');
+
+assert.sameValue(
+  subject.flags,
+  new RegExp('a', 'i').flags,
+  '[[OriginalFlags]] internal slot'
+);
+assert.sameValue(
+  subject.test('A'),
+  true,
+  '[[RegExpMatcher]] internal slot (addition of `i` flag)'
+);
+
+subject.lastIndex = 1;
+assert.sameValue(
+  subject.test('A'),
+  true,
+  '[[RegExpMatcher]] internal slot (removal of `g` flag)'
+);

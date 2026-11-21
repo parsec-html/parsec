@@ -1,0 +1,4 @@
+
+assert.sameValue(
+  escape('\u{10401}'), '%uD801%uDC01', '\\u{10401} => \\uD801\\uDC01 (surrogate pairs encoded in string)'
+);

@@ -1,0 +1,6 @@
+
+var date = new Date(1970, 1, 2, 3, 4, 5);
+var expected = new Date(1971, 1, 2, 3, 4, 5).valueOf();
+
+assert.sameValue(date.setYear(71), expected, 'method return value');
+assert.sameValue(date.valueOf(), expected, '[[DateValue]] internal slot');

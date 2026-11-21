@@ -252,11 +252,16 @@ rejects, rejected
   twice or export one never declared, which waits for scope analysis.
   `scripts/compare-acorn.sh` finds the tree the same as acorn's on the
   509 modules both parse, and on three.js.
-- Planned: limits
+- Done: limits
   ([#155](https://github.com/parsec-html/parsec/issues/155)). The parser
-  already counts its depth against a limit, 256 by default; the test
-  that a 1,000,000-deep `((((` fails in linear time, and a `parse` fuzz
-  target, come with this.
+  counts its depth against `Limits::max_depth`, 256 by default, which
+  real code stays far below (typescript.js needs 53), and its tokens
+  against the step budget. A 1,000,000-deep `((((` fails with
+  `too-deep` on a 1 MB thread, and so does nesting of each of 20 other
+  kinds, in `cargo test`; 23 kinds of wide input parse in time that
+  grows linearly, and a million-deep member chain writes out as ESTree
+  on a 256 KB thread. A `parse` fuzz target joins the lexer's in the
+  nightly run.
 - Planned: a bench against oxc and swc on real bundles
   ([#156](https://github.com/parsec-html/parsec/issues/156)).
 

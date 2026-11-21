@@ -1,0 +1,13 @@
+
+
+function f() {
+  throw new Test262Error();
+}
+
+class C {
+  x = f();
+}
+
+assert.throws(Test262Error, function() {
+  new C();
+})

@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+if (true) function g() {}
+

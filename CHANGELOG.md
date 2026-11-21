@@ -34,6 +34,10 @@ minor release can break the API and a patch release won't.
     ([#152](https://github.com/parsec-html/parsec/issues/152),
     [#153](https://github.com/parsec-html/parsec/issues/153),
     [#154](https://github.com/parsec-html/parsec/issues/154)).
+  - The parser's recursion stops at `Limits::max_depth`, 256 levels by
+    default, with a `too-deep` error, and its tokens at
+    `Limits::max_steps`: a million-deep `((((` is an error, not a stack
+    overflow ([#155](https://github.com/parsec-html/parsec/issues/155)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

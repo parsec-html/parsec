@@ -1,0 +1,4 @@
+
+function fn() {
+  return import.source('<module source>');
+}

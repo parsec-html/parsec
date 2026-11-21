@@ -1,0 +1,22 @@
+
+
+var log = [];
+
+// Empty environment.
+var env = {};
+
+var proxy = new Proxy(env, allowProxyTraps({
+  has(t, pk) {
+    log.push("has:" + String(pk));
+    return Reflect.has(t, pk);
+  },
+}));
+
+with (proxy) {
+  Object;
+}
+
+assert.compareArray(log, [
+  // HasBinding, step 2.
+  "has:Object",
+]);

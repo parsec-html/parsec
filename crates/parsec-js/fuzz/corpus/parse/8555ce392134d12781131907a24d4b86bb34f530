@@ -1,0 +1,13 @@
+
+import { x as y, x as z } from './eval-gtbndng-indirect-update-as_FIXTURE.js';
+
+assert.sameValue(y, 1);
+assert.sameValue(z, 1);
+
+// This function is exposed on the global scope (instead of as an exported
+// binding) in order to avoid possible false positives from assuming correct
+// behavior of the semantics under test.
+fnGlobalObject().test262update();
+
+assert.sameValue(y, 2);
+assert.sameValue(z, 2);

@@ -1,0 +1,16 @@
+
+var date = new Date(0);
+var symbol = Symbol('');
+var year = {
+  valueOf: function() {
+    throw new Test262Error();
+  }
+};
+
+assert.throws(Test262Error, function() {
+  date.setYear(year);
+});
+
+assert.throws(TypeError, function() {
+  date.setYear(symbol);
+});

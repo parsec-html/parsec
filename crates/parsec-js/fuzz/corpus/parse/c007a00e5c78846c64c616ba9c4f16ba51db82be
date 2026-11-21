@@ -1,0 +1,4 @@
+
+$DONOTEVALUATE();
+
+function f(x = super.x) {}

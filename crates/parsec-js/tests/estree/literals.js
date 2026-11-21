@@ -17,3 +17,4 @@ break`; `${a}${b}`;
 tag`\unicode and \u{55}`; tag`\01`; tag`\xg${a}\u{110000}`;
 `\
 `;
+tag`\u/00é and \u00é`;

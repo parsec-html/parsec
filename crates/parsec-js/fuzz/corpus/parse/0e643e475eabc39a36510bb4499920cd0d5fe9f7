@@ -1,0 +1,7 @@
+
+
+class Subclass extends URIError {}
+
+const sub = new Subclass();
+assert(sub instanceof Subclass);
+assert(sub instanceof URIError);

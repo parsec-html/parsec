@@ -1,0 +1,4 @@
+
+import value from './json-value-number_FIXTURE.json' with { type: 'json' };
+
+assert.sameValue(value, -1.2345);

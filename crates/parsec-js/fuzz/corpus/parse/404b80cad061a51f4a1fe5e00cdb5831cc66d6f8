@@ -1,0 +1,5 @@
+
+// Expressing within a `while` statement ensures that the `debugger  keyword is
+// not erroneously interpreted as a declaration. It also avoids statement
+// evaluation, which is host-defined an may interrupt test execution.
+while (false) debugger;

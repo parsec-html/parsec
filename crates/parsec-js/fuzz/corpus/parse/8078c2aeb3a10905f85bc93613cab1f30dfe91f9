@@ -1,0 +1,8 @@
+
+
+//CHECK#1
+for(false
+    ;;false
+) {
+  break;
+}

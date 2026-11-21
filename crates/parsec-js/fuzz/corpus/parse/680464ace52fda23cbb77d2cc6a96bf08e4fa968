@@ -1,0 +1,6 @@
+
+$DONOTEVALUATE();
+
+function *g() {
+  (x = yield) => {};
+}
