@@ -163,7 +163,13 @@ fn test262() {
     let mut early = Vec::new();
     let (mut negatives, mut negatives_caught) = (0, 0);
     for path in &paths {
-        let name = path.strip_prefix(&root).unwrap().display().to_string();
+        // With `/` on every OS, so `early_error` matches on Windows too.
+        let name = path
+            .strip_prefix(&root)
+            .unwrap()
+            .display()
+            .to_string()
+            .replace('\\', "/");
         let src = match std::fs::read_to_string(path) {
             Ok(s) => s,
             // A few files are deliberately not UTF-8; a source text is code
