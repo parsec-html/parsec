@@ -30,6 +30,10 @@
 //! Then CSS: tokenizing and parsing real stylesheets, Parsec against
 //! Lexbor's CSS module and Servo's cssparser. Name `css` to run only that.
 //!
+//! `xml` times XML parsing instead (not part of a full run): Parsec
+//! against libxml2's C, roxmltree and quick-xml, on the documents from
+//! `bench/fetch-xml.sh`. See src/xml.rs.
+//!
 //! `boss` runs the final boss instead (not part of a full run): a seeded
 //! batch of broken fragments, real pages, encoding quirks and giants, as
 //! bytes, each parser in its own process, timed per page with its peak
@@ -39,9 +43,11 @@ mod boss;
 mod css;
 mod encoding;
 mod lexbor;
+mod libxml2;
 mod pages;
 mod selectors;
 mod urls;
+mod xml;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -249,6 +255,11 @@ fn main() {
     if args.iter().any(|a| a == "css") {
         header();
         css::run(&real_pages());
+        return;
+    }
+    if args.iter().any(|a| a == "xml") {
+        header();
+        xml::run();
         return;
     }
     if args.iter().any(|a| a == "urls") {
