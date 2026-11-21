@@ -1,0 +1,270 @@
+{
+ "type": "Program",
+ "start": 0,
+ "end": 213,
+ "body": [
+  {
+   "type": "ExpressionStatement",
+   "start": 52,
+   "end": 72,
+   "expression": {
+    "type": "AssignmentExpression",
+    "start": 52,
+    "end": 71,
+    "operator": "=",
+    "left": {
+     "type": "Identifier",
+     "start": 52,
+     "end": 53,
+     "name": "a"
+    },
+    "right": {
+     "type": "BinaryExpression",
+     "start": 56,
+     "end": 71,
+     "left": {
+      "type": "BinaryExpression",
+      "start": 56,
+      "end": 64,
+      "left": {
+       "type": "Literal",
+       "start": 56,
+       "end": 59,
+       "value": 15,
+       "raw": "017"
+      },
+      "operator": "+",
+      "right": {
+       "type": "Literal",
+       "start": 62,
+       "end": 64,
+       "value": 8,
+       "raw": "08"
+      }
+     },
+     "operator": "+",
+     "right": {
+      "type": "Literal",
+      "start": 67,
+      "end": 71,
+      "value": 9.5,
+      "raw": "09.5"
+     }
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 73,
+   "end": 91,
+   "expression": {
+    "type": "AssignmentExpression",
+    "start": 73,
+    "end": 90,
+    "operator": "=",
+    "left": {
+     "type": "Identifier",
+     "start": 73,
+     "end": 74,
+     "name": "b"
+    },
+    "right": {
+     "type": "Literal",
+     "start": 77,
+     "end": 90,
+     "value": "\u0001A89",
+     "raw": "\"\\01\\101\\8\\9\""
+    }
+   }
+  },
+  {
+   "type": "IfStatement",
+   "start": 92,
+   "end": 114,
+   "test": {
+    "type": "Identifier",
+    "start": 96,
+    "end": 97,
+    "name": "c"
+   },
+   "consequent": {
+    "type": "FunctionDeclaration",
+    "start": 99,
+    "end": 114,
+    "id": {
+     "type": "Identifier",
+     "start": 108,
+     "end": 109,
+     "name": "f"
+    },
+    "expression": false,
+    "generator": false,
+    "async": false,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 112,
+     "end": 114,
+     "body": []
+    }
+   },
+   "alternate": null
+  },
+  {
+   "type": "IfStatement",
+   "start": 115,
+   "end": 158,
+   "test": {
+    "type": "Identifier",
+    "start": 119,
+    "end": 120,
+    "name": "c"
+   },
+   "consequent": {
+    "type": "FunctionDeclaration",
+    "start": 122,
+    "end": 137,
+    "id": {
+     "type": "Identifier",
+     "start": 131,
+     "end": 132,
+     "name": "g"
+    },
+    "expression": false,
+    "generator": false,
+    "async": false,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 135,
+     "end": 137,
+     "body": []
+    }
+   },
+   "alternate": {
+    "type": "FunctionDeclaration",
+    "start": 143,
+    "end": 158,
+    "id": {
+     "type": "Identifier",
+     "start": 152,
+     "end": 153,
+     "name": "h"
+    },
+    "expression": false,
+    "generator": false,
+    "async": false,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 156,
+     "end": 158,
+     "body": []
+    }
+   }
+  },
+  {
+   "type": "LabeledStatement",
+   "start": 159,
+   "end": 179,
+   "body": {
+    "type": "FunctionDeclaration",
+    "start": 164,
+    "end": 179,
+    "id": {
+     "type": "Identifier",
+     "start": 173,
+     "end": 174,
+     "name": "i"
+    },
+    "expression": false,
+    "generator": false,
+    "async": false,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 177,
+     "end": 179,
+     "body": []
+    }
+   },
+   "label": {
+    "type": "Identifier",
+    "start": 159,
+    "end": 162,
+    "name": "lbl"
+   }
+  },
+  {
+   "type": "ForInStatement",
+   "start": 180,
+   "end": 202,
+   "left": {
+    "type": "VariableDeclaration",
+    "start": 185,
+    "end": 194,
+    "declarations": [
+     {
+      "type": "VariableDeclarator",
+      "start": 189,
+      "end": 194,
+      "id": {
+       "type": "Identifier",
+       "start": 189,
+       "end": 190,
+       "name": "j"
+      },
+      "init": {
+       "type": "Literal",
+       "start": 193,
+       "end": 194,
+       "value": 0,
+       "raw": "0"
+      }
+     }
+    ],
+    "kind": "var"
+   },
+   "right": {
+    "type": "ObjectExpression",
+    "start": 198,
+    "end": 200,
+    "properties": []
+   },
+   "body": {
+    "type": "EmptyStatement",
+    "start": 201,
+    "end": 202
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 203,
+   "end": 212,
+   "expression": {
+    "type": "AssignmentExpression",
+    "start": 203,
+    "end": 211,
+    "operator": "=",
+    "left": {
+     "type": "Identifier",
+     "start": 203,
+     "end": 204,
+     "name": "k"
+    },
+    "right": {
+     "type": "Literal",
+     "start": 207,
+     "end": 211,
+     "value": null,
+     "raw": "/\\1/",
+     "regex": {
+      "pattern": "\\1",
+      "flags": ""
+     }
+    }
+   }
+  }
+ ],
+ "sourceType": "script"
+}

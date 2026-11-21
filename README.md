@@ -413,7 +413,7 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
-| JavaScript tokens | no | yes, `crates/parsec-js`: ECMAScript 2025's lexical grammar with Annex B's, a span on every token and nothing allocated per token; all 49,655 test262 files that should parse tokenize, in `cargo test`; the parser comes next |
+| JavaScript syntax tree | no | yes for scripts, `crates/parsec-js`: ECMAScript 2025 with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 47,895 test262 script files that should parse do, and 3,639 of the 4,174 that shouldn't fail, in `cargo test`; modules come next |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
 | Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
 | WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |

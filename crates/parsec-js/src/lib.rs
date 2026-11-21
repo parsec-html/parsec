@@ -1,13 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! JavaScript for Parsec. For now, the lexer: ECMAScript 2025's lexical
-//! grammar, with Annex B's additions for scripts.
+//! JavaScript for Parsec: a parser for ECMAScript 2025 scripts, with
+//! Annex B's additions, and the lexer under it.
 //!
-//! It's a parser's lexer, not an engine's: nothing here runs code. Every
-//! token carries its [`Span`] in the source, and nothing is allocated per
-//! token; what a token says (a string's value, a number's) is in its text.
+//! It's a parser, not an engine: nothing here runs code. [`parse`] gives
+//! an [`Ast`], every node in one arena with a [`Span`] beside it and the
+//! comments kept on the side, or the first syntax error as a
+//! [`Diagnostic`]. [`Ast::to_estree`] writes the tree as ESTree JSON in
+//! the shape acorn gives, so tools written for acorn or espree can read
+//! it.
 //!
+//! ```
+//! use parsec_js::{Node, parse_script};
+//!
+//! let src = "const total = items.reduce((sum, x) => sum + x, 0);";
+//! let ast = parse_script(src).unwrap();
+//! let Node::Program { body, .. } = *ast.node(ast.root()) else { unreachable!() };
+//! let first = ast.get(body)[0];
+//! assert_eq!(ast.span(first).text(src), src);
+//! assert!(ast.to_estree(src).contains(r#""type":"ArrowFunctionExpression""#));
+//! ```
+//!
+//! Recursion is bounded by [`Limits::max_depth`] ([`DEFAULT_MAX_DEPTH`]
+//! without one) and work by [`Limits::max_steps`], so hostile input gets
+//! an error, never a stack overflow.
+//!
+//! The lexer works alone too. Every token carries its [`Span`] in the
+//! source, and nothing is allocated per token; what a token says (a
+//! string's value, a number's) is in its text, and [`text`] reads it.
 //! `/` means division after an expression and starts a regular expression
 //! anywhere else, and `}` either closes a block or carries on a template.
 //! The lexer doesn't guess which: [`Lexer::next_token`] takes a [`Goal`],
@@ -33,10 +54,17 @@
 //! assert!(lexer.diagnostics().is_empty());
 //! ```
 
+pub mod ast;
+mod estree;
 mod lexer;
+mod parser;
+pub mod text;
 mod token;
 mod unicode;
 
+pub use ast::{Ast, Comment, CommentKind, List, Node, NodeId};
+pub use estree::EstreeOptions;
 pub use lexer::{Goal, Lexer, SourceType};
 pub use parsec_base::{Diagnostic, Limits, LineIndex, Severity, Span};
+pub use parser::{DEFAULT_MAX_DEPTH, Options, parse, parse_script};
 pub use token::{Flags, Keyword, Kind, Punct, Token};

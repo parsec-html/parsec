@@ -126,6 +126,31 @@ impl<'a> Lexer<'a> {
         std::mem::take(&mut self.diagnostics)
     }
 
+    /// Reads `token`, the last token read, again with `goal`: the parser
+    /// read a `/` or `}` with [`Goal::Div`] and then found it starts a
+    /// regular expression or carries a template on. Reading either with
+    /// `Div` reports nothing, so there's nothing to take back.
+    pub(crate) fn rescan(&mut self, token: Token, goal: Goal) -> Token {
+        debug_assert_eq!(self.pos, token.span.end as usize);
+        self.pos = token.span.start as usize;
+        self.newline = token.newline_before();
+        self.line_start = false;
+        self.next_token(goal)
+    }
+
+    /// A lexer reading on from here, with none of the diagnostics so far,
+    /// for looking a token ahead.
+    pub(crate) fn fork(&self) -> Lexer<'a> {
+        Lexer {
+            src: self.src,
+            pos: self.pos,
+            source: self.source,
+            newline: self.newline,
+            line_start: self.line_start,
+            diagnostics: Vec::new(),
+        }
+    }
+
     /// The next token, read with `goal`. Comments and a hashbang come
     /// back as tokens too ([`Kind::is_trivia`]); whitespace and line
     /// terminators don't, but [`Token::newline_before`] says where a line
