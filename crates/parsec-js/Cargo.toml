@@ -21,3 +21,6 @@ name = "parsec_js"
 [dependencies]
 # Spans, diagnostics and limits, shared with Parsec's other parsers.
 parsec-base = { path = "../parsec-base", version = "0.2.0" }
+
+[dev-dependencies]
+serde_json = "1"

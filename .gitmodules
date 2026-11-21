@@ -7,3 +7,7 @@
 [submodule "bench/ada"]
 	path = bench/ada
 	url = https://github.com/ada-url/ada
+[submodule "crates/parsec-js/tests/test262"]
+	path = crates/parsec-js/tests/test262
+	url = https://github.com/tc39/test262
+	shallow = true

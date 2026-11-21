@@ -101,7 +101,9 @@ impl<'a> Lexer<'a> {
             pos: 0,
             source,
             newline: false,
-            line_start: false,
+            // InputElementHashbangOrRegExp, the goal at the start, has
+            // HTMLCloseComment: `-->` can start the first line too.
+            line_start: true,
             diagnostics,
         }
     }

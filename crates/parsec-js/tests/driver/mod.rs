@@ -5,10 +5,11 @@
 //! the fuzz target. A parser knows which goal each token needs; this
 //! guesses it from the token before.
 //!
-//! shortcut: `/` after `)`, `]`, `}` or a word is read as division, so
-//! `if (a) /re/.test(s)`, a regex after a block statement's `}`, and
-//! `yield /re/` lex wrongly; upgrade to the parser's goals once
-//! parsec-js has a parser (M10).
+//! shortcut: `/` after `]`, `}`, an identifier or a `)` that doesn't close
+//! `if (...)`, `while (...)`, `for (...)` or `with (...)` is read as
+//! division, so a regex starting a statement after a block's `}` lexes
+//! wrongly; upgrade to the parser's goals once parsec-js has a parser
+//! (M10).
 
 #![allow(dead_code)]
 
@@ -18,12 +19,15 @@ use parsec_js::{Diagnostic, Goal, Keyword, Kind, Lexer, Punct, SourceType, Token
 pub fn tokenize(src: &str, source: SourceType) -> (Vec<Token>, Vec<Diagnostic>) {
     let mut lexer = Lexer::new(src, source);
     let mut out = Vec::new();
+    let mut regexp = true;
     let mut last: Option<Kind> = None;
     // For each `{` or template substitution open, whether it's a
     // substitution, whose `}` carries the template on.
     let mut braces: Vec<bool> = Vec::new();
+    // For each `(` open, whether it's a control statement's, after which
+    // an expression statement can start with a regex.
+    let mut parens: Vec<bool> = Vec::new();
     loop {
-        let regexp = last.is_none_or(regexp_after);
         let tail = braces.last() == Some(&true);
         let goal = match (regexp, tail) {
             (false, false) => Goal::Div,
@@ -32,19 +36,30 @@ pub fn tokenize(src: &str, source: SourceType) -> (Vec<Token>, Vec<Diagnostic>) 
             (true, true) => Goal::RegExpOrTemplateTail,
         };
         let token = lexer.next_token(goal);
+        if token.kind == Kind::Eof {
+            break;
+        }
+        out.push(token);
+        if token.is_trivia() {
+            continue;
+        }
+        regexp = regexp_after(token.kind);
         match token.kind {
-            Kind::Eof => break,
             Kind::Punct(Punct::LBrace) => braces.push(false),
             Kind::Punct(Punct::RBrace) | Kind::TemplateTail => {
                 braces.pop();
             }
             Kind::TemplateHead => braces.push(true),
+            Kind::Punct(Punct::LParen) => parens.push(matches!(
+                last,
+                Some(Kind::Keyword(
+                    Keyword::If | Keyword::While | Keyword::For | Keyword::With
+                ))
+            )),
+            Kind::Punct(Punct::RParen) => regexp = parens.pop().unwrap_or(false),
             _ => {}
         }
-        if !token.is_trivia() {
-            last = Some(token.kind);
-        }
-        out.push(token);
+        last = Some(token.kind);
     }
     (out, lexer.take_diagnostics())
 }
@@ -60,7 +75,7 @@ fn regexp_after(kind: Kind) -> bool {
             !matches!(
                 k,
                 Keyword::This | Keyword::Super | Keyword::Null | Keyword::True | Keyword::False
-            ) && (k.is_reserved() || k == Keyword::Of)
+            ) && k.is_reserved()
         }
         Kind::TemplateHead | Kind::TemplateMiddle => true,
         Kind::Invalid => true,
