@@ -715,8 +715,8 @@ impl Node {
         if !matches!(doc.kind(self.id), Kind::Element { .. }) {
             return Err(JsError::new("only an element has attributes"));
         }
-        doc.set_attr(self.id, name, value);
-        Ok(())
+        doc.set_attr(self.id, name, value)
+            .map_err(|e| JsError::new(&format!("{name:?}: {e}")))
     }
 
     /// Removes an attribute; false if there wasn't one.

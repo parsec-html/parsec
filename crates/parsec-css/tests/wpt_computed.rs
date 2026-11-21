@@ -110,10 +110,10 @@ impl Page {
         Option<parsec_css::cascade::Computed>,
     ) {
         let t = format!("{};{target}", self.target_style);
-        self.doc.set_attr(self.target, "style", &t);
+        self.doc.set_attr(self.target, "style", &t).unwrap();
         if let Some(c) = self.container {
             let s = format!("{};{container}", self.container_style);
-            self.doc.set_attr(c, "style", &s);
+            self.doc.set_attr(c, "style", &s).unwrap();
         }
         let env = Environment {
             width: 800.0,
@@ -131,7 +131,9 @@ impl Page {
     /// `getComputedStyle(target, pseudo)[property]` with
     /// `#target<pseudo> { property: value }` added.
     fn pseudo(&mut self, pseudo: &str, property: &str, value: &str) -> String {
-        self.doc.set_attr(self.target, "style", &self.target_style);
+        self.doc
+            .set_attr(self.target, "style", &self.target_style)
+            .unwrap();
         let Some(p) = Pseudo::parse(pseudo) else {
             return String::new();
         };

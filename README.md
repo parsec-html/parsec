@@ -128,16 +128,17 @@ assert_eq!(doc.text(hits[0]), "one");
   instead of inside it, as in Chromium.
   The slow-input cases in `examples/hostile.rs`, like thousands of nested
   formatting elements (the pattern that runs Lexbor out of memory), take
-  time in proportion to their length. Not every pattern does yet: a tag
-  with tens of thousands of different attributes, and some end tags
-  under very deep nesting, still take time that grows with the square of
-  their length.
+  time in proportion to their length, and so do tags with a hundred
+  thousand attributes and end tags under very deep nesting, which used
+  to grow with the square of it. The adoption agency algorithm stays
+  quadratic, as the HTML Standard defines it, and the time budget bounds
+  it.
 - **A C API**: `libparsec`, shared and static, with a `parsec.h` that
   cbindgen generates, and pkg-config and CMake files. Handles are opaque,
   nodes are numbers that can't dangle, every call is NULL-safe, and a bad
   argument or a bug in Parsec comes back as an error code rather than a
-  crash. The exception is the stack: until a fix lands, tens of thousands
-  of nested `<template>`s overflow it, and that ends the process. Documents
+  crash. The parser never recurses on what a page holds, so a hundred
+  thousand nested `<template>`s parse on a 256 KB thread. Documents
   can be read from many threads at once. XPath, source positions and parse errors are there
   too, and bytes in any encoding: `parsec_parse_bytes` sniffs it as a
   browser does, and `parsec_byte_parser_feed` takes the bytes as they

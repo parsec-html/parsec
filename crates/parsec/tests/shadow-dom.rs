@@ -397,7 +397,7 @@ fn get_html_cases(failed: &mut Vec<String>) -> usize {
                     count += 1;
                     let mut doc = set_html_unsafe("");
                     // The wrapper: a div, or a div's open shadow root.
-                    let host = doc.create_element(Ns::Html, "div");
+                    let host = doc.create_element(Ns::Html, "div").unwrap();
                     doc.append(doc.root(), host).unwrap();
                     let wrapper = if on_shadow_root {
                         doc.attach_shadow(host, ShadowRoot::open()).unwrap()
@@ -449,7 +449,7 @@ fn get_html_cases(failed: &mut Vec<String>) -> usize {
                             shadow = root.ok();
                             el
                         } else {
-                            let el = doc.create_element(Ns::Html, name);
+                            let el = doc.create_element(Ns::Html, name).unwrap();
                             doc.append(wrapper, el).unwrap();
                             let parsed = set_html_unsafe(light);
                             copy_in(&mut doc, &parsed, el);
@@ -461,7 +461,7 @@ fn get_html_cases(failed: &mut Vec<String>) -> usize {
                             continue;
                         };
                         if !empty {
-                            let slot = doc.create_element(Ns::Html, "slot");
+                            let slot = doc.create_element(Ns::Html, "slot").unwrap();
                             doc.append(root, slot).unwrap();
                         }
                         let correct_shadow = format!(
@@ -491,7 +491,7 @@ fn get_html_cases(failed: &mut Vec<String>) -> usize {
                         }
                         expected = Some(checks);
                     } else {
-                        let el = doc.create_element(Ns::Html, name);
+                        let el = doc.create_element(Ns::Html, name).unwrap();
                         doc.append(wrapper, el).unwrap();
                         let parsed = set_html_unsafe(light);
                         copy_in(&mut doc, &parsed, el);
@@ -534,9 +534,9 @@ fn copy_in(doc: &mut Document, from: &Document, parent: NodeId) -> Vec<NodeId> {
     while let Some((n, into)) = stack.pop() {
         let copy = match from.kind(n) {
             Kind::Element { ns, name } => {
-                let el = doc.create_element(ns, name);
+                let el = doc.create_element(ns, name).unwrap();
                 for (ns, name, value) in from.attrs_written(n) {
-                    doc.add_attr(el, ns, name, value);
+                    doc.add_attr(el, ns, name, value).unwrap();
                 }
                 el
             }

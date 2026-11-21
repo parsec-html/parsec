@@ -321,6 +321,7 @@ fn edit_status(e: html::EditError) -> parsec_status {
         html::EditError::Removed => PARSEC_ERR_REMOVED,
         // The C API attaches no shadow roots, so this can't happen yet.
         html::EditError::NotAShadowHost => PARSEC_ERR_INVALID,
+        html::EditError::InvalidName => PARSEC_ERR_INVALID,
     }
 }
 
@@ -1059,7 +1060,9 @@ pub unsafe extern "C" fn parsec_attr_get(
 
 /// Sets an attribute, as `setAttribute` does: it replaces the first one of
 /// that name or adds one at the end. HTML elements' attribute names are
-/// lowercased.
+/// lowercased. A name `setAttribute` refuses (empty, or with whitespace,
+/// `/`, `>`, `=`, a quote or a control character in it) is
+/// `PARSEC_ERR_INVALID`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_attr_set(
     doc: *mut parsec_document,
@@ -1076,8 +1079,7 @@ pub unsafe extern "C" fn parsec_attr_set(
             let d = unsafe { doc_mut(doc)? };
             let n = element(d, node)?;
             let (name, value) = unsafe { (text(name, name_len)?, text(value, value_len)?) };
-            d.set_attr(n, &name, &value);
-            Ok(())
+            d.set_attr(n, &name, &value).map_err(edit_status)
         })())
     })
 }
@@ -1321,7 +1323,9 @@ unsafe fn create(
 /// A new element named `name` in namespace `ns`, not yet in the tree;
 /// insert it with `parsec_append` or `parsec_insert_before`. HTML names are
 /// lowercased, as `createElement` does. `PARSEC_NO_NODE` on a NULL
-/// document or an unknown namespace.
+/// document, an unknown namespace, or a name `createElement` refuses: an
+/// empty one, or one with whitespace, `/`, `>`, `=`, a quote or a control
+/// character in it.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn parsec_create_element(
     doc: *mut parsec_document,
@@ -1332,7 +1336,7 @@ pub unsafe extern "C" fn parsec_create_element(
     // SAFETY: passed on as given.
     unsafe {
         create(doc, name, len, |d, name| {
-            Ok(d.create_element(namespace(ns)?, name))
+            d.create_element(namespace(ns)?, name).map_err(edit_status)
         })
     }
 }

@@ -304,9 +304,11 @@ fn build(doc: &mut Document, steps: &[Step]) -> Vec<NodeId> {
     for step in steps {
         let made = match step {
             Step::Element(ns, name, attrs) => {
-                let el = doc.create_element(*ns, name);
+                // Copied as parsed: the parser makes names the checked
+                // calls refuse, and a copy keeps them, as importNode does.
+                let el = doc.create_element_as_parsed(*ns, name);
                 for (ans, name, value) in attrs {
-                    doc.add_attr(el, *ans, name, value);
+                    doc.add_attr_as_parsed(el, *ans, name, value);
                 }
                 el
             }
@@ -1012,10 +1014,11 @@ impl HtmlParser {
 
     /// A new element, not yet in the tree.
     fn create_node(slf: &Bound<'_, Self>, tag: &str) -> PyResult<Node> {
-        if tag.is_empty() {
-            return Err(PyValueError::new_err("tag name can't be empty"));
-        }
-        let id = slf.get().write(slf.py()).create_element(Ns::Html, tag);
+        let id = slf
+            .get()
+            .write(slf.py())
+            .create_element(Ns::Html, tag)
+            .map_err(|e| PyValueError::new_err(format!("{tag:?}: {e}")))?;
         Ok(node(slf.py(), slf.as_unbound(), id))
     }
 
@@ -1707,8 +1710,8 @@ impl Attributes {
         if !is_element(&doc, self.id) {
             return Err(PyTypeError::new_err("only an element has attributes"));
         }
-        doc.set_attr(self.id, key, value.unwrap_or(""));
-        Ok(())
+        doc.set_attr(self.id, key, value.unwrap_or(""))
+            .map_err(|e| PyValueError::new_err(format!("{key:?}: {e}")))
     }
 
     fn __delitem__(&self, py: Python<'_>, key: &str) -> PyResult<()> {
