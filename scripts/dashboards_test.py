@@ -71,12 +71,15 @@ class Buckets(unittest.TestCase):
         self.assertTrue(d.outside(pr()))
         self.assertFalse(d.outside(pr(author={"__typename": "Bot", "login": "dependabot"})))
         self.assertFalse(d.outside(pr(author={"__typename": "User", "login": "jamesconwaydev"})))
+        self.assertFalse(d.outside(pr(author={"__typename": "User", "login": "foothillsdigital"},
+                                      authorAssociation="COLLABORATOR")))
 
 
 class Claims(unittest.TestCase):
-    def issue(self, assignees=(), comments=(), prs=0):
+    def issue(self, assignees=(), comments=(), prs=0, role="NONE"):
         return {"assignees": {"nodes": [{"login": a} for a in assignees]},
-                "comments": {"nodes": [{"author": {"login": w}, "body": b} for w, b in comments]},
+                "comments": {"nodes": [{"author": {"login": w}, "authorAssociation": role, "body": b}
+                                       for w, b in comments]},
                 "closedByPullRequestsReferences": {"totalCount": prs}}
 
     def test_claims(self):
@@ -85,6 +88,38 @@ class Claims(unittest.TestCase):
         self.assertIsNone(d.claim(self.issue(comments=[("jamesconwaydev", "can I take this? kidding")])))
         self.assertEqual(d.claim(self.issue(assignees=["a"])), "taken by `@a`")
         self.assertEqual(d.claim(self.issue(prs=1)), "taken (PR open)")
+
+    def test_questions_are_not_claims(self):
+        for body in ("I would like to know why this fails", "the claim in the README is wrong",
+                     "I'd love to see this land"):
+            self.assertIsNone(d.claim(self.issue(comments=[("dev", body)])), body)
+        self.assertEqual(d.claim(self.issue(comments=[("dev", "I would love to help with this")])),
+                         "taken by `@dev`")
+
+    def test_a_maintainer_saying_so_is_not_a_community_claim(self):
+        self.assertIsNone(d.claim(self.issue(comments=[("other-maintainer", "I'll take this")], role="MEMBER")))
+
+
+class Existing(unittest.TestCase):
+    def run_with(self, issues):
+        real = d.gh
+        d.gh = lambda *a, **k: issues
+        try:
+            return {k: v["number"] for k, v in d.existing().items()}
+        finally:
+            d.gh = real
+
+    def board(self, n, login, role):
+        return {"number": n, "body": "<!-- parsec-dashboard:roadmap -->\nx",
+                "user": {"login": login}, "author_association": role}
+
+    def test_a_strangers_issue_with_the_marker_is_ignored(self):
+        # Newest first, as GitHub lists them.
+        found = self.run_with([self.board(200, "stranger", "NONE"), self.board(181, "jamesconwaydev", "OWNER")])
+        self.assertEqual(found, {"roadmap": 181})
+
+    def test_the_workflows_own_issue_counts(self):
+        self.assertEqual(self.run_with([self.board(7, "github-actions[bot]", "NONE")]), {"roadmap": 7})
 
 
 def issue(title, labels=("help wanted",), assignees=()):
