@@ -6,19 +6,35 @@
 //! and every error's is inside the input and on character boundaries,
 //! a tree that parsed writes out as ESTree JSON, and its scope analysis
 //! holds together: each reference is an identifier in a scope that
-//! exists, resolved to a binding that exists or listed as free.
+//! exists, resolved to a binding that exists or listed as free. Each
+//! regular expression literal's pattern is validated too, any error
+//! inside the pattern.
 
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use parsec_js::scope::Scopes;
-use parsec_js::{Ast, Limits, Node, Options, SourceType, parse};
+use parsec_js::ast::LiteralKind;
+use parsec_js::{Ast, Limits, Node, Options, SourceType, parse, regexp};
 
 fn on_boundaries(src: &str, start: u32, end: u32) -> bool {
     start <= end
         && end as usize <= src.len()
         && src.is_char_boundary(start as usize)
         && src.is_char_boundary(end as usize)
+}
+
+fn check_regexps(ast: &Ast, src: &str) {
+    for id in ast.ids() {
+        if let Node::Literal(LiteralKind::RegExp) = ast.node(id) {
+            let text = ast.span(id).text(src);
+            let slash = text.rfind('/').unwrap();
+            let pattern = &text[1..slash];
+            if let Err(d) = regexp::validate(pattern, &text[slash + 1..]) {
+                assert!(on_boundaries(pattern, d.span.start, d.span.end), "{d}");
+            }
+        }
+    }
 }
 
 fn check_scopes(ast: &Ast, src: &str) {
@@ -60,6 +76,7 @@ fuzz_target!(|data: &[u8]| {
                         assert!(on_boundaries(&src, c.span.start, c.span.end), "{c:?}");
                     }
                     check_scopes(&ast, &src);
+                    check_regexps(&ast, &src);
                     let json = ast.to_estree(&src);
                     assert!(json.starts_with(r#"{"type":"Program""#));
                 }

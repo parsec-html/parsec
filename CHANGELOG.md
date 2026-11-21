@@ -54,6 +54,11 @@ minor release can break the API and a patch release won't.
     dynamic. A name declared twice where the spec forbids it is a
     diagnostic, `duplicate-declaration` or `lexical-var-conflict`
     ([#158](https://github.com/parsec-html/parsec/issues/158)).
+  - `parsec_js::regexp::validate` checks a regular expression's pattern
+    and flags by the pattern grammar and its early errors, in each mode
+    (no flag with Annex B's additions, `u`, `v`), and gives the error a
+    `RegExp` would throw, with a code like `regexp-range-order` or
+    `regexp-property`.
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

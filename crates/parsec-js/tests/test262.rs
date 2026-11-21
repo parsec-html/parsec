@@ -2,17 +2,19 @@
 // Copyright 2026 James Conway
 
 //! tc39/test262, pinned as a submodule in `tests/test262`, through the
-//! parser and the scope analysis. Each file's frontmatter says whether
+//! parser, the scope analysis and the regular expression validator.
+//! Each file's frontmatter says whether
 //! it's a module, whether it runs strict, sloppy or both, and whether it
 //! should fail to parse.
 //!
-//! - A file that should parse has to, in each mode it runs in, and its
-//!   scopes have to hold no redeclaration: a pass, or a failure.
-//! - A file that should fail to parse passes if the parser or the scope
-//!   analysis rejects it in each mode. One they accept is a failure,
-//!   unless its error is an early error from the list in `early_error`:
-//!   those need the regular expression grammar or a check of what a
-//!   module exports, which come later, and are skipped and counted.
+//! - A file that should parse has to, in each mode it runs in, with no
+//!   name declared twice and every regular expression's pattern valid: a
+//!   pass, or a failure.
+//! - A file that should fail to parse passes if one of them rejects it
+//!   in each mode. One they accept is a failure, unless its error is an
+//!   early error from the list in `early_error`: those need a check of
+//!   what a module exports, which comes later, and are skipped and
+//!   counted.
 //! - A module (`flags: [module]`) is parsed once, as a module. The
 //!   `_FIXTURE.js` files modules import aren't tests: some are meant not
 //!   to parse, or use syntax past ES2025, and only the tests importing
@@ -25,17 +27,26 @@ mod summary;
 
 use std::path::{Path, PathBuf};
 
+use parsec_js::ast::LiteralKind;
 use parsec_js::scope::Scopes;
-use parsec_js::{Diagnostic, Options, SourceType, parse};
+use parsec_js::{Diagnostic, Node, Options, SourceType, parse, regexp};
 
-/// Parses `src` and analyzes its scopes: the parse's error, or the first
-/// name the analysis found declared twice.
+/// Parses `src`, analyzes its scopes and checks its regular expressions:
+/// the parse's error, the first name the analysis found declared twice,
+/// or the first pattern that wouldn't compile.
 fn check(src: &str, options: &Options) -> Result<(), Diagnostic> {
     let ast = parse(src, options)?;
-    match Scopes::analyze(&ast, src).diagnostics().first() {
-        Some(d) => Err(d.clone()),
-        None => Ok(()),
+    if let Some(d) = Scopes::analyze(&ast, src).diagnostics().first() {
+        return Err(d.clone());
     }
+    for id in ast.ids() {
+        if let Node::Literal(LiteralKind::RegExp) = ast.node(id) {
+            let text = ast.span(id).text(src);
+            let slash = text.rfind('/').unwrap_or(0);
+            regexp::validate(&text[1..slash], &text[slash + 1..])?;
+        }
+    }
+    Ok(())
 }
 
 /// Features whose tests use syntax ECMAScript 2025 doesn't have.
@@ -249,7 +260,7 @@ fn test262() {
         passed,
         failed: failed.len(),
         skipped,
-        skipped_because: "early errors that need the regular expression grammar or a check of a module's exports (M11), module fixtures, features past ES2025, and files that aren't UTF-8",
+        skipped_because: "early errors that need a check of a module's exports (M11), module fixtures, features past ES2025, and files that aren't UTF-8",
         data: &root,
     });
     assert!(
@@ -263,12 +274,8 @@ fn test262() {
 /// Why a parse negative the parser accepts is an early error it doesn't
 /// check yet, or `None` if it should have been caught.
 fn early_error(name: &str) -> Option<&'static str> {
-    const REGEXP: &[&str] = &["language/literals/regexp/", "built-ins/RegExp/"];
     // A module that exports a name it doesn't declare.
     const EXPORTS: &[&str] = &["early-export-global", "early-export-unresolvable"];
-    if REGEXP.iter().any(|p| name.contains(p)) {
-        return Some("a regular expression's pattern, which isn't checked yet");
-    }
     if EXPORTS.iter().any(|p| name.contains(p)) {
         return Some("an export of a name the module never declares, which isn't checked yet");
     }

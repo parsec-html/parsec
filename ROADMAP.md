@@ -291,6 +291,16 @@ and what each module imports and exports
   redeclaration tests and none of the 48,408 files that should parse.
   `parsec-html-bench js-scope` times it on the bench corpus, 239 MB/s on
   typescript.js, and lists every free name.
+- Done: regular expression patterns checked by their own grammar
+  ([#159](https://github.com/parsec-html/parsec/issues/159), part).
+  `regexp::validate` reads a pattern as a `RegExp` would and gives the
+  error one would throw, with a stable code: without `u`, with Annex
+  B's additions; with `u`; and with `v`'s nested classes, `&&`, `--`,
+  `\q{…}` and properties of strings. Named groups (duplicates allowed
+  only in separate alternatives), modifiers like `(?i:…)`, and every
+  `\p{…}` name and value in Unicode 17.0 are checked. All 358 of
+  test262's pattern negatives fail, and every pattern in the files that
+  should parse validates. A `regexp` fuzz target joins the nightly run.
 
 ## M12. Data from scripts
 

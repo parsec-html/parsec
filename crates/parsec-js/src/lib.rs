@@ -26,6 +26,9 @@
 //! scopes, their bindings, every reference resolved or left free, and
 //! the names declared twice where the spec forbids it.
 //!
+//! [`regexp`] checks a regular expression's pattern by its own grammar,
+//! the error a `RegExp` built from it would throw.
+//!
 //! [`data`] reads the state pages keep in scripts, `window.__NUXT__ = …`
 //! and its kin, as JSON, without running anything.
 //!
@@ -66,6 +69,7 @@ pub mod data;
 mod estree;
 mod lexer;
 mod parser;
+pub mod regexp;
 pub mod scope;
 pub mod text;
 mod token;
