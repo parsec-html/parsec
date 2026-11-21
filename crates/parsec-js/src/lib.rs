@@ -22,6 +22,9 @@
 //! assert!(ast.to_estree(src).contains(r#""type":"ArrowFunctionExpression""#));
 //! ```
 //!
+//! [`data`] reads the state pages keep in scripts, `window.__NUXT__ = …`
+//! and its kin, as JSON, without running anything.
+//!
 //! Recursion is bounded by [`Limits::max_depth`] ([`DEFAULT_MAX_DEPTH`]
 //! without one) and work by [`Limits::max_steps`], so hostile input gets
 //! an error, never a stack overflow.
@@ -55,6 +58,7 @@
 //! ```
 
 pub mod ast;
+pub mod data;
 mod estree;
 mod lexer;
 mod parser;

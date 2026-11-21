@@ -1,0 +1,1 @@
+window.__NUXT__={};window.__NUXT__.config={public:{siteEnv:"production",mdc:{components:{prose:true,map:{},customElements:[]},headings:{anchorLinks:{h1:false,h2:true,h3:true,h4:true,h5:false,h6:false}}}},app:{baseURL:"/",buildId:"f0a65f19-49f6-4600-ba3a-75d6247f0bf9",buildAssetsDir:"/_nuxt/",cdnURL:""}}

@@ -38,6 +38,14 @@ minor release can break the API and a patch release won't.
     default, with a `too-deep` error, and its tokens at
     `Limits::max_steps`: a million-deep `((((` is an error, not a stack
     overflow ([#155](https://github.com/parsec-html/parsec/issues/155)).
+  - `parsec_js::data` reads the state pages keep in scripts, as JSON,
+    without running them. `literal` turns an expression of literals
+    into a `Json` value or refuses with a span and a reason;
+    `page_state` finds `window.X = …`, top-level `var`, `JSON.parse("…")`,
+    Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's
+    `self.__next_f` pushes; `json` parses JSON as strictly as
+    `JSON.parse` ([#162](https://github.com/parsec-html/parsec/issues/162),
+    [#163](https://github.com/parsec-html/parsec/issues/163)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

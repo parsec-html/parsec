@@ -272,6 +272,33 @@ rejects, rejected
   `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
   same as acorn's, which finishes #152.
 
+## M12. Data from scripts
+
+Many pages keep their data in a `<script>`: Nuxt's `window.__NUXT__`,
+Next.js's payload, a Redux store in a variable. Scrapers run a browser
+to get it, or a regex that breaks on the first nested brace.
+`parsec_js::data` reads it from the syntax tree, and nothing runs
+([#161](https://github.com/parsec-html/parsec/issues/161)).
+
+- Done: literals to JSON
+  ([#162](https://github.com/parsec-html/parsec/issues/162)).
+  `literal` reads objects, arrays, strings, numbers, booleans, `null`,
+  templates without substitutions, `-` and `+` on numbers, and the
+  `!0`, `!1` and `void 0` minifiers write, and refuses anything else
+  with the span that stopped it and a reason. `json` parses JSON as
+  strictly as `JSON.parse`, for `__NEXT_DATA__`.
+- Done: the page-state shapes
+  ([#163](https://github.com/parsec-html/parsec/issues/163)).
+  `page_state` finds assignments to `window`, `self` and `globalThis`,
+  top-level `var`, `let` and `const`, `JSON.parse("…")`, Nuxt 2's
+  function form with its arguments put in place of its parameters, and
+  Next.js App Router's `self.__next_f` pushes, which `next_flight` joins.
+  Each shape has a test on a real page in
+  `crates/parsec-js/tests/pages`, and a `data` fuzz target joins the
+  nightly run.
+- Next: Netweir reads page state through `parsec-js`
+  ([#164](https://github.com/parsec-html/parsec/issues/164)).
+
 ## 0.1.0
 
 The first release goes to crates.io, PyPI and npm as `parsec-html` once
