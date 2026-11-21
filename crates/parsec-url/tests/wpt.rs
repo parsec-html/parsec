@@ -192,7 +192,13 @@ impl Suite {
 #[test]
 fn url_parsing() {
     let mut suite = Suite::new("wpt-url-parsing", "urltestdata.json");
-    for case in load("urltestdata.json").as_array().unwrap().iter().skip(1) {
+    for case in load("urltestdata.json")
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c.is_object())
+        .skip(1)
+    {
         let Some(case) = case.as_object() else {
             continue;
         };
