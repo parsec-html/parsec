@@ -579,6 +579,65 @@ impl<'a> Writer<'a> {
                 child!("source", source);
                 opt!("options", options);
             }
+            Node::ImportDeclaration {
+                specifiers,
+                source,
+                attributes,
+            } => {
+                self.header("ImportDeclaration", span);
+                list!("specifiers", specifiers);
+                child!("source", source);
+                list!("attributes", attributes);
+            }
+            Node::ImportSpecifier { imported, local } => {
+                self.header("ImportSpecifier", span);
+                child!("imported", imported);
+                child!("local", local);
+            }
+            Node::ImportDefaultSpecifier { local } => {
+                self.header("ImportDefaultSpecifier", span);
+                child!("local", local);
+            }
+            Node::ImportNamespaceSpecifier { local } => {
+                self.header("ImportNamespaceSpecifier", span);
+                child!("local", local);
+            }
+            Node::ImportAttribute { key, value } => {
+                self.header("ImportAttribute", span);
+                child!("key", key);
+                child!("value", value);
+            }
+            Node::ExportNamed {
+                declaration,
+                specifiers,
+                source,
+                attributes,
+            } => {
+                self.header("ExportNamedDeclaration", span);
+                opt!("declaration", declaration);
+                list!("specifiers", specifiers);
+                opt!("source", source);
+                list!("attributes", attributes);
+            }
+            Node::ExportSpecifier { local, exported } => {
+                self.header("ExportSpecifier", span);
+                child!("local", local);
+                child!("exported", exported);
+            }
+            Node::ExportDefault { declaration } => {
+                self.header("ExportDefaultDeclaration", span);
+                child!("declaration", declaration);
+            }
+            Node::ExportAll {
+                exported,
+                source,
+                attributes,
+            } => {
+                self.header("ExportAllDeclaration", span);
+                opt!("exported", exported);
+                child!("source", source);
+                list!("attributes", attributes);
+            }
             Node::ObjectPattern { properties } => {
                 self.header("ObjectPattern", span);
                 list!("properties", properties);

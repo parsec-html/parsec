@@ -186,7 +186,10 @@ fn super_and_import() {
         "import('a', {with: {type: 'json'}})",
         "import(a,)",
     ]);
-    bad("unexpected-token", &["import()", "import(...a)", "import;"]);
+    bad(
+        "unexpected-token",
+        &["import()", "import(...a)", "(import)"],
+    );
     bad("import-meta-outside-module", &["import.meta"]);
     bad("new-import", &["new import('a')"]);
 }
@@ -920,4 +923,169 @@ fn errors_point_at_the_problem() {
     );
     let err = parse_script("a = 'unterminated").unwrap_err();
     assert_eq!(err.code, "unterminated-string");
+}
+
+// 16.2 Modules.
+
+fn module(src: &str) -> Result<parsec_js::Ast, parsec_js::Diagnostic> {
+    let options = Options {
+        source_type: parsec_js::SourceType::Module,
+        ..Options::default()
+    };
+    parse(src, &options)
+}
+
+fn ok_module(sources: &[&str]) {
+    for src in sources {
+        if let Err(d) = module(src) {
+            panic!("{src:?} didn't parse as a module: {d}");
+        }
+    }
+}
+
+fn bad_module(code: &str, sources: &[&str]) {
+    for src in sources {
+        match module(src) {
+            Ok(_) => panic!("{src:?} parsed as a module, but should fail with {code}"),
+            Err(d) => assert_eq!(d.code, code, "{src:?}: {d}"),
+        }
+    }
+}
+
+#[test]
+fn imports() {
+    ok_module(&[
+        "import 'a'",
+        "import a from 'a'",
+        "import * as a from 'a'",
+        "import {a, b as c, 'd' as e, default as f, if as g} from 'a'",
+        "import a, {b} from 'a'",
+        "import a, * as b from 'a'",
+        "import {} from 'a'",
+        "import {a,} from 'a'",
+        "import a from 'a' with {type: 'json'}",
+        "import 'a' with {'type': 'json', b: 'c',}",
+        "import a from 'a'\nwith {type: 'json'}",
+    ]);
+    bad_module(
+        "unexpected-token",
+        &[
+            "import a, b from 'a'",
+            "import {a} 'a'",
+            "import * from 'a'",
+            "import a from b",
+        ],
+    );
+    bad_module(
+        "import-needs-as",
+        &["import {'a'} from 'a'", "import {if} from 'a'"],
+    );
+    bad_module(
+        "reserved-word",
+        &[
+            "import {await} from 'a'",
+            "import await from 'a'",
+            "import {a as yield} from 'a'",
+        ],
+    );
+    bad_module(
+        "duplicate-attribute",
+        &["import a from 'a' with {type: 'json', 'type': 'x'}"],
+    );
+    bad_module(
+        "unexpected-token",
+        &[
+            "import a from 'a' with {type: json}",
+            "import a from 'a' assert {type: 'json'}",
+        ],
+    );
+    bad_module("lone-surrogate-name", &["import {'\\uD800' as a} from 'a'"]);
+    // `import(...)` and `import.meta` are expressions, anywhere.
+    ok_module(&[
+        "import('a')",
+        "import.meta.url",
+        "function f() { import('a'); import.meta }",
+    ]);
+}
+
+#[test]
+fn exports() {
+    ok_module(&[
+        "export var a = 1, b",
+        "export let a",
+        "export const a = 1",
+        "export function a() {}",
+        "export async function a() {}",
+        "export function* a() {}",
+        "export class A {}",
+        "var a, b; export {a, b as c, a as 'd e', b as default}",
+        "export {a as b, 'c' as d, if, default} from 'a'",
+        "export {} from 'a'",
+        "export * from 'a'",
+        "export * as a from 'a'",
+        "export * as 'a b' from 'a' with {type: 'json'}",
+        "export default function () {}",
+        "export default function* a() {}",
+        "export default async function () {}",
+        "export default class {}",
+        "export default 1 + 2",
+        "export default async () => 1",
+        "export default (function () {})",
+    ]);
+    bad_module(
+        "duplicate-export",
+        &[
+            "export var a; export {a}",
+            "export default 1; export default 2",
+            "var a; export {a as default}; export default 1",
+            "export * as a from 'a'; export * as a from 'b'",
+            "export let [a] = b; export {c as a}",
+        ],
+    );
+    bad_module(
+        "export-string-local",
+        &["export {'a'}", "export {'a' as b}"],
+    );
+    bad_module(
+        "unexpected-token",
+        &[
+            "export {if}",
+            "export a",
+            "export async () => 1",
+            "export * as a;",
+        ],
+    );
+    bad_module("reserved-word", &["export {await}"]);
+    // Declarations, not expressions, after `export default`.
+    let ast = module("export default function () {}").unwrap();
+    let json = ast.to_estree("export default function () {}");
+    assert!(
+        json.contains(r#""declaration":{"type":"FunctionDeclaration""#),
+        "{json}"
+    );
+}
+
+#[test]
+fn modules_are_strict_and_top_level() {
+    bad_module("with-in-strict", &["with (a) b"]);
+    bad_module("legacy-octal-escape", &["'\\01'"]);
+    bad_module(
+        "reserved-word",
+        &["var await", "function f() { var await }", "var let"],
+    );
+    bad_module("unexpected-token", &["<!-- not a comment in a module"]);
+    ok_module(&["await a", "for await (a of b);", "await\n/x/g"]);
+    bad_module(
+        "module-item-not-allowed",
+        &[
+            "{ import 'a' }",
+            "function f() { export var a }",
+            "if (a) { export {} }",
+        ],
+    );
+    bad(
+        "module-item-not-allowed",
+        &["import 'a'", "export var a", "import a from 'a'"],
+    );
+    ok(&["import('a')", "a = import('b')"]);
 }

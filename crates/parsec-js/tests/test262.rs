@@ -12,15 +12,19 @@
 //!   error from the list in `early_error`: those need scope analysis or
 //!   the regular expression grammar, which come later, and are skipped
 //!   and counted.
-//! - Modules are skipped for now, and so are files for features past
-//!   ECMAScript 2025 that change the syntax (decorators, `using`).
+//! - A module (`flags: [module]`) is parsed once, as a module. The
+//!   `_FIXTURE.js` files modules import aren't tests: some are meant not
+//!   to parse, or use syntax past ES2025, and only the tests importing
+//!   them say which. They're skipped.
+//! - Files for features past ECMAScript 2025 that change the syntax
+//!   (decorators, `using`) are skipped.
 
 #[path = "../../parsec/tests/summary/mod.rs"]
 mod summary;
 
 use std::path::{Path, PathBuf};
 
-use parsec_js::{Options, parse};
+use parsec_js::{Options, SourceType, parse};
 
 /// Features whose tests use syntax ECMAScript 2025 doesn't have.
 const NOT_IN_ES2025: &[&str] = &[
@@ -129,8 +133,15 @@ fn frontmatter() {
 }
 
 /// Parses `src` in the modes its flags ask for: whether each parsed.
-fn run(src: &str, m: &Meta) -> Vec<Result<(), parsec_js::Diagnostic>> {
+fn run(src: &str, m: &Meta, module: bool) -> Vec<Result<(), parsec_js::Diagnostic>> {
     let flag = |f: &str| m.flags.iter().any(|x| x == f);
+    if module {
+        let options = Options {
+            source_type: SourceType::Module,
+            ..Options::default()
+        };
+        return vec![parse(src, &options).map(|_| ())];
+    }
     let options = Options::default();
     let strict = || {
         let prefixed = format!("\"use strict\";\n{src}");
@@ -158,7 +169,7 @@ fn test262() {
     files(&test, &mut paths);
 
     let mut passed = 0;
-    let (mut skipped_modules, mut skipped_features, mut skipped_early) = (0, 0, 0);
+    let (mut skipped_features, mut skipped_early, mut skipped_fixtures) = (0, 0, 0);
     let mut failed = Vec::new();
     let mut early = Vec::new();
     let (mut negatives, mut negatives_caught) = (0, 0);
@@ -173,6 +184,10 @@ fn test262() {
                 continue;
             }
         };
+        if name.ends_with("_FIXTURE.js") {
+            skipped_fixtures += 1;
+            continue;
+        }
         let m = meta(&src);
         if m.features
             .iter()
@@ -181,12 +196,8 @@ fn test262() {
             skipped_features += 1;
             continue;
         }
-        // Module fixtures are imported by module tests, so they're modules.
-        if m.flags.iter().any(|f| f == "module") || name.ends_with("_FIXTURE.js") {
-            skipped_modules += 1;
-            continue;
-        }
-        let results = run(&src, &m);
+        let module = m.flags.iter().any(|f| f == "module");
+        let results = run(&src, &m, module);
         if m.parse_negative {
             negatives += 1;
             if results.iter().all(Result::is_err) {
@@ -204,10 +215,10 @@ fn test262() {
             passed += 1;
         }
     }
-    let skipped = skipped_modules + skipped_features + skipped_early;
+    let skipped = skipped_features + skipped_early + skipped_fixtures;
     eprintln!(
         "test262 parsed: {passed} passed, {} failed, {skipped} skipped \
-         ({skipped_early} early errors for M11, {skipped_modules} modules, \
+         ({skipped_early} early errors for M11, {skipped_fixtures} module fixtures, \
          {skipped_features} past ES2025 or not UTF-8); \
          {negatives_caught} of {negatives} parse negatives caught",
         failed.len()
@@ -220,7 +231,7 @@ fn test262() {
         passed,
         failed: failed.len(),
         skipped,
-        skipped_because: "early errors that need scope analysis or the regular expression grammar (M11), modules (#154), features past ES2025, and files that aren't UTF-8",
+        skipped_because: "early errors that need scope analysis or the regular expression grammar (M11), module fixtures, features past ES2025, and files that aren't UTF-8",
         data: &root,
     });
     assert!(
@@ -235,8 +246,9 @@ fn test262() {
 /// check yet, or `None` if it should have been caught.
 fn early_error(name: &str) -> Option<&'static str> {
     const REGEXP: &[&str] = &["language/literals/regexp/", "built-ins/RegExp/"];
-    // Each of these declares a name twice in one scope, or a lexical name
-    // where a var or parameter of the same name is.
+    // Each of these declares a name twice in one scope, a lexical name
+    // where a var or parameter of the same name is, or exports a name the
+    // module doesn't declare.
     const SCOPE: &[&str] = &[
         "redeclaration",
         "-redecl",
@@ -247,12 +259,21 @@ fn early_error(name: &str) -> Option<&'static str> {
         "bound-names-in-stmt",
         "early-catch-function",
         "early-catch-lex",
+        "dup-bound-names",
+        "early-dup-",
+        "early-lex-and-var",
+        "early-export-global",
+        "early-export-unresolvable",
+        "declaration-binding-exists",
+        "parse-err-hoist-lex-",
     ];
     if REGEXP.iter().any(|p| name.contains(p)) {
         return Some("a regular expression's pattern, which isn't checked yet");
     }
     if SCOPE.iter().any(|p| name.contains(p)) {
-        return Some("a name declared twice, which needs scope analysis");
+        return Some(
+            "a name declared twice, or exported and never declared, which needs scope analysis",
+        );
     }
     None
 }

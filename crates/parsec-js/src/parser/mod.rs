@@ -22,11 +22,12 @@
 
 mod expr;
 mod function;
+mod module;
 mod pattern;
 mod stmt;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use parsec_base::{Budget, Diagnostic, Limits, Severity, Span};
 
@@ -46,9 +47,8 @@ pub const DEFAULT_MAX_DEPTH: u32 = 256;
 /// What to parse and how much it may cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Options {
-    /// A module is strict and may `await` at the top; its `import` and
-    /// `export` declarations aren't parsed yet
-    /// ([#154](https://github.com/parsec-html/parsec/issues/154)).
+    /// A module is strict, may `await` at the top, and has `import` and
+    /// `export` declarations there.
     pub source_type: SourceType,
     /// `max_depth` is how deep the tree may nest, [`DEFAULT_MAX_DEPTH`]
     /// without one; `max_steps` bounds the tokens read; `max_input` the
@@ -167,6 +167,8 @@ pub(crate) struct Parser<'a> {
     /// is an error.
     pending: Vec<(NodeId, Span, &'static str)>,
     classes: Vec<ClassScope>,
+    /// The names a module exports so far.
+    exports: HashSet<String>,
     /// Where the last `yield` and `await` expressions, and the last
     /// `await` read as an identifier, started, for the parameter lists
     /// that may hold none of them.
@@ -210,6 +212,7 @@ impl<'a> Parser<'a> {
             in_body: false,
             pending: Vec::new(),
             classes: Vec::new(),
+            exports: HashSet::new(),
             last_yield: None,
             last_await: None,
             last_await_ident: None,

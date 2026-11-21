@@ -506,6 +506,56 @@ pub enum Node {
         expression: NodeId,
     },
 
+    // Modules.
+    /// `import ... from "source" with { ... }`; `attributes` are
+    /// [`Node::ImportAttribute`]s.
+    ImportDeclaration {
+        specifiers: List,
+        source: NodeId,
+        attributes: List,
+    },
+    /// `imported as local`, or one name as both; `imported` may be a
+    /// string literal.
+    ImportSpecifier {
+        imported: NodeId,
+        local: NodeId,
+    },
+    ImportDefaultSpecifier {
+        local: NodeId,
+    },
+    /// `* as local`.
+    ImportNamespaceSpecifier {
+        local: NodeId,
+    },
+    /// `type: "json"` in a `with` clause.
+    ImportAttribute {
+        key: NodeId,
+        value: NodeId,
+    },
+    /// `export` with a declaration, or with `{ ... }` and maybe a source.
+    ExportNamed {
+        declaration: Option<NodeId>,
+        specifiers: List,
+        source: Option<NodeId>,
+        attributes: List,
+    },
+    /// `local as exported`, or one name as both; either may be a string
+    /// literal.
+    ExportSpecifier {
+        local: NodeId,
+        exported: NodeId,
+    },
+    /// `export default`, with a declaration or an expression.
+    ExportDefault {
+        declaration: NodeId,
+    },
+    /// `export * from "source"`, or `export * as exported from ...`.
+    ExportAll {
+        exported: Option<NodeId>,
+        source: NodeId,
+        attributes: List,
+    },
+
     // Patterns.
     ObjectPattern {
         properties: List,

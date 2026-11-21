@@ -3,8 +3,9 @@
 # Copyright 2026 James Conway
 #
 # Writes tests/estree/*.json: acorn's tree for each tests/estree/*.js,
-# parsed as a script with ecmaVersion 2025, which tests/estree.rs checks
-# parsec-js's ESTree output against. locations.js gets `loc` too.
+# parsed as a script with ecmaVersion 2025, and each *.mjs, parsed as a
+# module, which tests/estree.rs checks parsec-js's ESTree output against.
+# locations.js gets `loc` too.
 #
 # Needs Node and npm. acorn is pinned here; a new version is a new
 # fixture set, reviewed as one.
@@ -25,14 +26,14 @@ const dir = process.argv[2];
 // JSON has no BigInt or RegExp; acorn's values for them become null, and
 // their parts are in `bigint` and `regex`.
 const json = (k, v) => (typeof v === "bigint" || v instanceof RegExp ? null : v);
-for (const name of fs.readdirSync(dir).filter((n) => n.endsWith(".js")).sort()) {
+for (const name of fs.readdirSync(dir).filter((n) => /\.m?js$/.test(n)).sort()) {
   const src = fs.readFileSync(path.join(dir, name), "utf8");
   const ast = acorn.parse(src, {
     ecmaVersion: 2025,
-    sourceType: "script",
+    sourceType: name.endsWith(".mjs") ? "module" : "script",
     locations: name === "locations.js",
   });
-  const out = path.join(dir, name.replace(/\.js$/, ".json"));
+  const out = path.join(dir, name.replace(/\.m?js$/, ".json"));
   fs.writeFileSync(out, JSON.stringify(ast, json, 1) + "\n");
   console.log(`${name}: acorn ${acorn.version}`);
 }

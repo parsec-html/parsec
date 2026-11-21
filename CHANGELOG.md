@@ -24,14 +24,16 @@ minor release can break the API and a patch release won't.
     module.
   - test262 runs in `cargo test`, and CI's summary has its counts
     ([#148](https://github.com/parsec-html/parsec/issues/148)).
-  - `parsec-js` parses ECMAScript 2025 scripts: `parse` gives an `Ast`
-    with a span on every node and the comments beside it, or the first
-    syntax error as a `Diagnostic`, and `Ast::to_estree` writes ESTree
-    JSON in acorn's shape. All 47,895 test262 script files that should
-    parse do, and 3,639 of the 4,174 that shouldn't fail; the rest need
-    scope analysis
+  - `parsec-js` parses ECMAScript 2025 scripts and modules: `parse`
+    gives an `Ast` with a span on every node and the comments beside
+    it, or the first syntax error as a `Diagnostic`, and
+    `Ast::to_estree` writes ESTree JSON in acorn's shape. Modules have
+    every `import` and `export` form, import attributes and top-level
+    `await`. All 48,408 test262 files that should parse do, and 3,824
+    of the 4,374 that shouldn't fail; the rest need scope analysis
     ([#152](https://github.com/parsec-html/parsec/issues/152),
-    [#153](https://github.com/parsec-html/parsec/issues/153)).
+    [#153](https://github.com/parsec-html/parsec/issues/153),
+    [#154](https://github.com/parsec-html/parsec/issues/154)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

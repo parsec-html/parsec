@@ -242,8 +242,16 @@ rejects, rejected
   `crates/parsec-js/tests/estree`, and `scripts/compare-acorn.sh` finds
   it the same as acorn's on all 47,542 test262 scripts both parse, and
   on typescript.js and react-dom.
-- Planned: modules, with `import`, `export` and import attributes
-  ([#154](https://github.com/parsec-html/parsec/issues/154)).
+- Done: modules
+  ([#154](https://github.com/parsec-html/parsec/issues/154)): every
+  `import` and `export` form, import attributes (`with { type: "json" }`),
+  string names (`export { a as "a-b" }`), `import.meta`, top-level
+  `await`, strict mode throughout, and exported names checked for
+  duplicates. In test262, all 513 module files that should parse do,
+  and 185 of the 200 that shouldn't fail to; the other 15 declare a name
+  twice or export one never declared, which waits for scope analysis.
+  `scripts/compare-acorn.sh` finds the tree the same as acorn's on the
+  509 modules both parse, and on three.js.
 - Planned: limits
   ([#155](https://github.com/parsec-html/parsec/issues/155)). The parser
   already counts its depth against a limit, 256 by default; the test

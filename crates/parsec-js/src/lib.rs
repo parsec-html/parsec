@@ -2,7 +2,7 @@
 // Copyright 2026 James Conway
 
 //! JavaScript for Parsec: a parser for ECMAScript 2025 scripts, with
-//! Annex B's additions, and the lexer under it.
+//! Annex B's additions, and modules, and the lexer under it.
 //!
 //! It's a parser, not an engine: nothing here runs code. [`parse`] gives
 //! an [`Ast`], every node in one arena with a [`Span`] beside it and the

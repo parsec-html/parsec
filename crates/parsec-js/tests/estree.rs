@@ -2,14 +2,15 @@
 // Copyright 2026 James Conway
 
 //! The ESTree output against acorn's, on the sources in `tests/estree`:
-//! each `.json` there is acorn 8.19.0's tree for the `.js` beside it,
+//! each `.json` there is acorn 8.19.0's tree for the `.js` script or
+//! `.mjs` module beside it,
 //! written by `scripts/gen-estree-fixtures.sh`. They're compared as JSON
 //! values, so key order doesn't matter, but every node, field and offset
 //! does.
 
 use std::path::Path;
 
-use parsec_js::{EstreeOptions, parse_script};
+use parsec_js::{EstreeOptions, Options, SourceType, parse};
 use serde_json::Value;
 
 /// Where `a` and `b` first differ, as a path of keys and indexes.
@@ -73,7 +74,7 @@ fn matches_acorn() {
     let mut names: Vec<_> = std::fs::read_dir(&dir)
         .unwrap()
         .map(|e| e.unwrap().path())
-        .filter(|p| p.extension().is_some_and(|e| e == "js"))
+        .filter(|p| p.extension().is_some_and(|e| e == "js" || e == "mjs"))
         .collect();
     names.sort();
     assert!(names.len() >= 10, "the fixtures are missing");
@@ -82,7 +83,16 @@ fn matches_acorn() {
         let name = js.file_name().unwrap().to_string_lossy().into_owned();
         let src = std::fs::read_to_string(js).unwrap();
         let expected = parse_json(&std::fs::read_to_string(js.with_extension("json")).unwrap());
-        let ast = match parse_script(&src) {
+        let source_type = if name.ends_with(".mjs") {
+            SourceType::Module
+        } else {
+            SourceType::Script
+        };
+        let options = Options {
+            source_type,
+            ..Options::default()
+        };
+        let ast = match parse(&src, &options) {
             Ok(ast) => ast,
             Err(d) => {
                 failures.push(format!("{name}: {d}"));

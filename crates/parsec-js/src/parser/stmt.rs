@@ -96,11 +96,13 @@ impl Parser<'_> {
                 self.bump()?;
                 self.function(start, true, FunctionKind::Declaration, false)
             }
+            Kind::Keyword(Keyword::Export) => self.module_item(),
+            Kind::Keyword(Keyword::Import) if self.at_import_declaration() => self.module_item(),
             _ => self.statement(),
         }
     }
 
-    fn declaration_statement(&mut self, kind: VarKind) -> R<NodeId> {
+    pub(super) fn declaration_statement(&mut self, kind: VarKind) -> R<NodeId> {
         let decl = self.variable_declaration(kind, false, false)?;
         self.semicolon()?;
         let span = Span::new(self.span(decl).start, self.prev_end);

@@ -1,0 +1,1037 @@
+{
+ "type": "Program",
+ "start": 0,
+ "end": 851,
+ "body": [
+  {
+   "type": "ImportDeclaration",
+   "start": 0,
+   "end": 21,
+   "specifiers": [],
+   "source": {
+    "type": "Literal",
+    "start": 7,
+    "end": 20,
+    "value": "side-effect",
+    "raw": "\"side-effect\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 22,
+   "end": 40,
+   "specifiers": [
+    {
+     "type": "ImportDefaultSpecifier",
+     "start": 29,
+     "end": 30,
+     "local": {
+      "type": "Identifier",
+      "start": 29,
+      "end": 30,
+      "name": "a"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 36,
+    "end": 39,
+    "value": "a",
+    "raw": "\"a\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 41,
+   "end": 64,
+   "specifiers": [
+    {
+     "type": "ImportNamespaceSpecifier",
+     "start": 48,
+     "end": 54,
+     "local": {
+      "type": "Identifier",
+      "start": 53,
+      "end": 54,
+      "name": "b"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 60,
+    "end": 63,
+    "value": "b",
+    "raw": "\"b\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 65,
+   "end": 121,
+   "specifiers": [
+    {
+     "type": "ImportSpecifier",
+     "start": 74,
+     "end": 75,
+     "imported": {
+      "type": "Identifier",
+      "start": 74,
+      "end": 75,
+      "name": "c"
+     },
+     "local": {
+      "type": "Identifier",
+      "start": 74,
+      "end": 75,
+      "name": "c"
+     }
+    },
+    {
+     "type": "ImportSpecifier",
+     "start": 77,
+     "end": 83,
+     "imported": {
+      "type": "Identifier",
+      "start": 77,
+      "end": 78,
+      "name": "d"
+     },
+     "local": {
+      "type": "Identifier",
+      "start": 82,
+      "end": 83,
+      "name": "e"
+     }
+    },
+    {
+     "type": "ImportSpecifier",
+     "start": 85,
+     "end": 95,
+     "imported": {
+      "type": "Literal",
+      "start": 85,
+      "end": 90,
+      "value": "f-g",
+      "raw": "\"f-g\""
+     },
+     "local": {
+      "type": "Identifier",
+      "start": 94,
+      "end": 95,
+      "name": "h"
+     }
+    },
+    {
+     "type": "ImportSpecifier",
+     "start": 97,
+     "end": 109,
+     "imported": {
+      "type": "Identifier",
+      "start": 97,
+      "end": 104,
+      "name": "default"
+     },
+     "local": {
+      "type": "Identifier",
+      "start": 108,
+      "end": 109,
+      "name": "i"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 117,
+    "end": 120,
+    "value": "c",
+    "raw": "\"c\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 122,
+   "end": 147,
+   "specifiers": [
+    {
+     "type": "ImportDefaultSpecifier",
+     "start": 129,
+     "end": 130,
+     "local": {
+      "type": "Identifier",
+      "start": 129,
+      "end": 130,
+      "name": "j"
+     }
+    },
+    {
+     "type": "ImportSpecifier",
+     "start": 134,
+     "end": 135,
+     "imported": {
+      "type": "Identifier",
+      "start": 134,
+      "end": 135,
+      "name": "k"
+     },
+     "local": {
+      "type": "Identifier",
+      "start": 134,
+      "end": 135,
+      "name": "k"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 143,
+    "end": 146,
+    "value": "d",
+    "raw": "\"d\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 148,
+   "end": 174,
+   "specifiers": [
+    {
+     "type": "ImportDefaultSpecifier",
+     "start": 155,
+     "end": 156,
+     "local": {
+      "type": "Identifier",
+      "start": 155,
+      "end": 156,
+      "name": "l"
+     }
+    },
+    {
+     "type": "ImportNamespaceSpecifier",
+     "start": 158,
+     "end": 164,
+     "local": {
+      "type": "Identifier",
+      "start": 163,
+      "end": 164,
+      "name": "m"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 170,
+    "end": 173,
+    "value": "e",
+    "raw": "\"e\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 175,
+   "end": 220,
+   "specifiers": [
+    {
+     "type": "ImportDefaultSpecifier",
+     "start": 182,
+     "end": 183,
+     "local": {
+      "type": "Identifier",
+      "start": 182,
+      "end": 183,
+      "name": "n"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 189,
+    "end": 197,
+    "value": "f.json",
+    "raw": "\"f.json\""
+   },
+   "attributes": [
+    {
+     "type": "ImportAttribute",
+     "start": 205,
+     "end": 217,
+     "key": {
+      "type": "Identifier",
+      "start": 205,
+      "end": 209,
+      "name": "type"
+     },
+     "value": {
+      "type": "Literal",
+      "start": 211,
+      "end": 217,
+      "value": "json",
+      "raw": "\"json\""
+     }
+    }
+   ]
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 221,
+   "end": 280,
+   "specifiers": [
+    {
+     "type": "ImportSpecifier",
+     "start": 230,
+     "end": 231,
+     "imported": {
+      "type": "Identifier",
+      "start": 230,
+      "end": 231,
+      "name": "o"
+     },
+     "local": {
+      "type": "Identifier",
+      "start": 230,
+      "end": 231,
+      "name": "o"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 239,
+    "end": 242,
+    "value": "g",
+    "raw": "\"g\""
+   },
+   "attributes": [
+    {
+     "type": "ImportAttribute",
+     "start": 250,
+     "end": 264,
+     "key": {
+      "type": "Literal",
+      "start": 250,
+      "end": 256,
+      "value": "type",
+      "raw": "\"type\""
+     },
+     "value": {
+      "type": "Literal",
+      "start": 258,
+      "end": 264,
+      "value": "json",
+      "raw": "\"json\""
+     }
+    },
+    {
+     "type": "ImportAttribute",
+     "start": 266,
+     "end": 276,
+     "key": {
+      "type": "Identifier",
+      "start": 266,
+      "end": 271,
+      "name": "other"
+     },
+     "value": {
+      "type": "Literal",
+      "start": 273,
+      "end": 276,
+      "value": "x",
+      "raw": "\"x\""
+     }
+    }
+   ]
+  },
+  {
+   "type": "ImportDeclaration",
+   "start": 281,
+   "end": 300,
+   "specifiers": [],
+   "source": {
+    "type": "Literal",
+    "start": 296,
+    "end": 299,
+    "value": "h",
+    "raw": "\"h\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 301,
+   "end": 321,
+   "declaration": {
+    "type": "VariableDeclaration",
+    "start": 308,
+    "end": 321,
+    "declarations": [
+     {
+      "type": "VariableDeclarator",
+      "start": 312,
+      "end": 317,
+      "id": {
+       "type": "Identifier",
+       "start": 312,
+       "end": 313,
+       "name": "p"
+      },
+      "init": {
+       "type": "Literal",
+       "start": 316,
+       "end": 317,
+       "value": 1,
+       "raw": "1"
+      }
+     },
+     {
+      "type": "VariableDeclarator",
+      "start": 319,
+      "end": 320,
+      "id": {
+       "type": "Identifier",
+       "start": 319,
+       "end": 320,
+       "name": "q"
+      },
+      "init": null
+     }
+    ],
+    "kind": "var"
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 322,
+   "end": 339,
+   "declaration": {
+    "type": "VariableDeclaration",
+    "start": 329,
+    "end": 339,
+    "declarations": [
+     {
+      "type": "VariableDeclarator",
+      "start": 333,
+      "end": 338,
+      "id": {
+       "type": "Identifier",
+       "start": 333,
+       "end": 334,
+       "name": "r"
+      },
+      "init": {
+       "type": "Literal",
+       "start": 337,
+       "end": 338,
+       "value": 2,
+       "raw": "2"
+      }
+     }
+    ],
+    "kind": "let"
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 340,
+   "end": 359,
+   "declaration": {
+    "type": "VariableDeclaration",
+    "start": 347,
+    "end": 359,
+    "declarations": [
+     {
+      "type": "VariableDeclarator",
+      "start": 353,
+      "end": 358,
+      "id": {
+       "type": "Identifier",
+       "start": 353,
+       "end": 354,
+       "name": "s"
+      },
+      "init": {
+       "type": "Literal",
+       "start": 357,
+       "end": 358,
+       "value": 3,
+       "raw": "3"
+      }
+     }
+    ],
+    "kind": "const"
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 360,
+   "end": 382,
+   "declaration": {
+    "type": "FunctionDeclaration",
+    "start": 367,
+    "end": 382,
+    "id": {
+     "type": "Identifier",
+     "start": 376,
+     "end": 377,
+     "name": "t"
+    },
+    "expression": false,
+    "generator": false,
+    "async": false,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 380,
+     "end": 382,
+     "body": []
+    }
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 383,
+   "end": 411,
+   "declaration": {
+    "type": "FunctionDeclaration",
+    "start": 390,
+    "end": 411,
+    "id": {
+     "type": "Identifier",
+     "start": 405,
+     "end": 406,
+     "name": "u"
+    },
+    "expression": false,
+    "generator": false,
+    "async": true,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 409,
+     "end": 411,
+     "body": []
+    }
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 412,
+   "end": 435,
+   "declaration": {
+    "type": "FunctionDeclaration",
+    "start": 419,
+    "end": 435,
+    "id": {
+     "type": "Identifier",
+     "start": 429,
+     "end": 430,
+     "name": "v"
+    },
+    "expression": false,
+    "generator": true,
+    "async": false,
+    "params": [],
+    "body": {
+     "type": "BlockStatement",
+     "start": 433,
+     "end": 435,
+     "body": []
+    }
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 436,
+   "end": 453,
+   "declaration": {
+    "type": "ClassDeclaration",
+    "start": 443,
+    "end": 453,
+    "id": {
+     "type": "Identifier",
+     "start": 449,
+     "end": 450,
+     "name": "W"
+    },
+    "superClass": null,
+    "body": {
+     "type": "ClassBody",
+     "start": 451,
+     "end": 453,
+     "body": []
+    }
+   },
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 454,
+   "end": 502,
+   "declaration": null,
+   "specifiers": [
+    {
+     "type": "ExportSpecifier",
+     "start": 463,
+     "end": 464,
+     "local": {
+      "type": "Identifier",
+      "start": 463,
+      "end": 464,
+      "name": "a"
+     },
+     "exported": {
+      "type": "Identifier",
+      "start": 463,
+      "end": 464,
+      "name": "a"
+     }
+    },
+    {
+     "type": "ExportSpecifier",
+     "start": 466,
+     "end": 472,
+     "local": {
+      "type": "Identifier",
+      "start": 466,
+      "end": 467,
+      "name": "b"
+     },
+     "exported": {
+      "type": "Identifier",
+      "start": 471,
+      "end": 472,
+      "name": "x"
+     }
+    },
+    {
+     "type": "ExportSpecifier",
+     "start": 474,
+     "end": 484,
+     "local": {
+      "type": "Identifier",
+      "start": 474,
+      "end": 475,
+      "name": "c"
+     },
+     "exported": {
+      "type": "Literal",
+      "start": 479,
+      "end": 484,
+      "value": "y-z",
+      "raw": "\"y-z\""
+     }
+    },
+    {
+     "type": "ExportSpecifier",
+     "start": 486,
+     "end": 499,
+     "local": {
+      "type": "Identifier",
+      "start": 486,
+      "end": 487,
+      "name": "e"
+     },
+     "exported": {
+      "type": "Identifier",
+      "start": 491,
+      "end": 499,
+      "name": "default2"
+     }
+    }
+   ],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 503,
+   "end": 542,
+   "declaration": null,
+   "specifiers": [
+    {
+     "type": "ExportSpecifier",
+     "start": 512,
+     "end": 530,
+     "local": {
+      "type": "Identifier",
+      "start": 512,
+      "end": 513,
+      "name": "k"
+     },
+     "exported": {
+      "type": "Literal",
+      "start": 517,
+      "end": 530,
+      "value": "string name",
+      "raw": "\"string name\""
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 538,
+    "end": 541,
+    "value": "d",
+    "raw": "\"d\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 543,
+   "end": 596,
+   "declaration": null,
+   "specifiers": [
+    {
+     "type": "ExportSpecifier",
+     "start": 552,
+     "end": 563,
+     "local": {
+      "type": "Literal",
+      "start": 552,
+      "end": 557,
+      "value": "f-g",
+      "raw": "\"f-g\""
+     },
+     "exported": {
+      "type": "Identifier",
+      "start": 561,
+      "end": 563,
+      "name": "fg"
+     }
+    },
+    {
+     "type": "ExportSpecifier",
+     "start": 565,
+     "end": 584,
+     "local": {
+      "type": "Identifier",
+      "start": 565,
+      "end": 572,
+      "name": "default"
+     },
+     "exported": {
+      "type": "Identifier",
+      "start": 576,
+      "end": 584,
+      "name": "cDefault"
+     }
+    }
+   ],
+   "source": {
+    "type": "Literal",
+    "start": 592,
+    "end": 595,
+    "value": "c",
+    "raw": "\"c\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ExportAllDeclaration",
+   "start": 597,
+   "end": 615,
+   "exported": null,
+   "source": {
+    "type": "Literal",
+    "start": 611,
+    "end": 614,
+    "value": "i",
+    "raw": "\"i\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ExportAllDeclaration",
+   "start": 616,
+   "end": 640,
+   "exported": {
+    "type": "Identifier",
+    "start": 628,
+    "end": 630,
+    "name": "ns"
+   },
+   "source": {
+    "type": "Literal",
+    "start": 636,
+    "end": 639,
+    "value": "j",
+    "raw": "\"j\""
+   },
+   "attributes": []
+  },
+  {
+   "type": "ExportAllDeclaration",
+   "start": 641,
+   "end": 696,
+   "exported": {
+    "type": "Literal",
+    "start": 653,
+    "end": 664,
+    "value": "string ns",
+    "raw": "\"string ns\""
+   },
+   "source": {
+    "type": "Literal",
+    "start": 670,
+    "end": 673,
+    "value": "k",
+    "raw": "\"k\""
+   },
+   "attributes": [
+    {
+     "type": "ImportAttribute",
+     "start": 681,
+     "end": 693,
+     "key": {
+      "type": "Identifier",
+      "start": 681,
+      "end": 685,
+      "name": "type"
+     },
+     "value": {
+      "type": "Literal",
+      "start": 687,
+      "end": 693,
+      "value": "json",
+      "raw": "\"json\""
+     }
+    }
+   ]
+  },
+  {
+   "type": "ExportNamedDeclaration",
+   "start": 697,
+   "end": 707,
+   "declaration": null,
+   "specifiers": [],
+   "source": null,
+   "attributes": []
+  },
+  {
+   "type": "ExportDefaultDeclaration",
+   "start": 708,
+   "end": 731,
+   "declaration": {
+    "type": "ClassDeclaration",
+    "start": 723,
+    "end": 731,
+    "id": null,
+    "superClass": null,
+    "body": {
+     "type": "ClassBody",
+     "start": 729,
+     "end": 731,
+     "body": []
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 732,
+   "end": 763,
+   "expression": {
+    "type": "AwaitExpression",
+    "start": 732,
+    "end": 762,
+    "argument": {
+     "type": "CallExpression",
+     "start": 738,
+     "end": 762,
+     "callee": {
+      "type": "MemberExpression",
+      "start": 738,
+      "end": 757,
+      "object": {
+       "type": "MetaProperty",
+       "start": 738,
+       "end": 749,
+       "meta": {
+        "type": "Identifier",
+        "start": 738,
+        "end": 744,
+        "name": "import"
+       },
+       "property": {
+        "type": "Identifier",
+        "start": 745,
+        "end": 749,
+        "name": "meta"
+       }
+      },
+      "property": {
+       "type": "Identifier",
+       "start": 750,
+       "end": 757,
+       "name": "resolve"
+      },
+      "computed": false,
+      "optional": false
+     },
+     "arguments": [
+      {
+       "type": "Literal",
+       "start": 758,
+       "end": 761,
+       "value": "a",
+       "raw": "\"a\""
+      }
+     ],
+     "optional": false
+    }
+   }
+  },
+  {
+   "type": "VariableDeclaration",
+   "start": 764,
+   "end": 822,
+   "declarations": [
+    {
+     "type": "VariableDeclarator",
+     "start": 770,
+     "end": 821,
+     "id": {
+      "type": "Identifier",
+      "start": 770,
+      "end": 773,
+      "name": "dyn"
+     },
+     "init": {
+      "type": "AwaitExpression",
+      "start": 776,
+      "end": 821,
+      "argument": {
+       "type": "ImportExpression",
+       "start": 782,
+       "end": 821,
+       "source": {
+        "type": "Literal",
+        "start": 789,
+        "end": 792,
+        "value": "b",
+        "raw": "\"b\""
+       },
+       "options": {
+        "type": "ObjectExpression",
+        "start": 794,
+        "end": 820,
+        "properties": [
+         {
+          "type": "Property",
+          "start": 796,
+          "end": 818,
+          "method": false,
+          "shorthand": false,
+          "computed": false,
+          "key": {
+           "type": "Identifier",
+           "start": 796,
+           "end": 800,
+           "name": "with"
+          },
+          "value": {
+           "type": "ObjectExpression",
+           "start": 802,
+           "end": 818,
+           "properties": [
+            {
+             "type": "Property",
+             "start": 804,
+             "end": 816,
+             "method": false,
+             "shorthand": false,
+             "computed": false,
+             "key": {
+              "type": "Identifier",
+              "start": 804,
+              "end": 808,
+              "name": "type"
+             },
+             "value": {
+              "type": "Literal",
+              "start": 810,
+              "end": 816,
+              "value": "json",
+              "raw": "\"json\""
+             },
+             "kind": "init"
+            }
+           ]
+          },
+          "kind": "init"
+         }
+        ]
+       }
+      }
+     }
+    }
+   ],
+   "kind": "const"
+  },
+  {
+   "type": "ForOfStatement",
+   "start": 823,
+   "end": 850,
+   "await": true,
+   "left": {
+    "type": "VariableDeclaration",
+    "start": 834,
+    "end": 841,
+    "declarations": [
+     {
+      "type": "VariableDeclarator",
+      "start": 840,
+      "end": 841,
+      "id": {
+       "type": "Identifier",
+       "start": 840,
+       "end": 841,
+       "name": "y"
+      },
+      "init": null
+     }
+    ],
+    "kind": "const"
+   },
+   "right": {
+    "type": "Identifier",
+    "start": 845,
+    "end": 846,
+    "name": "z"
+   },
+   "body": {
+    "type": "BlockStatement",
+    "start": 848,
+    "end": 850,
+    "body": []
+   }
+  }
+ ],
+ "sourceType": "module"
+}
