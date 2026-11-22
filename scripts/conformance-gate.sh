@@ -25,7 +25,12 @@ if [ $# -ne 2 ]; then
 fi
 baseline=$1
 dir=$2
-jq -e 'type == "object"' "$baseline" > /dev/null
+# Every count must be a number, in the baseline and in each run's file:
+# jq inside `< <(...)` is out of `set -e`'s reach, and `[` on an empty or
+# "null" value is false rather than an error, so an unreadable file would
+# otherwise pass.
+numbers='[.passed, .failed, .skipped] | all(type == "number")'
+jq -e "type == \"object\" and all(.[]; $numbers)" "$baseline" > /dev/null
 
 status=0
 echo "| Suite | Passed | Failed | Skipped | Against the baseline |"
@@ -34,6 +39,11 @@ while IFS=$'\t' read -r suite passed failed; do
   file="$dir/$suite.json"
   if [ ! -f "$file" ]; then
     echo "| $suite | - | - | - | **wrote no counts** (baseline $passed passed) |"
+    status=1
+    continue
+  fi
+  if ! jq -e "$numbers" "$file" > /dev/null 2>&1; then
+    echo "| $suite | - | - | - | **unreadable counts** |"
     status=1
     continue
   fi
@@ -50,7 +60,15 @@ done < <(jq -r 'to_entries[] | "\(.key)\t\(.value.passed)\t\(.value.failed)"' "$
 
 for file in "$dir"/*.json; do
   [ -f "$file" ] || continue
-  suite=$(jq -r .suite "$file")
+  # Unreadable files were reported above if the baseline has their suite;
+  # one it doesn't have fails here, since we can't tell what it is.
+  if ! suite=$(jq -er .suite "$file" 2> /dev/null); then
+    if ! jq -e --arg s "$(basename "$file" .json)" 'has($s)' "$baseline" > /dev/null; then
+      echo "| $(basename "$file" .json) | - | - | - | **unreadable counts** |"
+      status=1
+    fi
+    continue
+  fi
   if ! jq -e --arg s "$suite" 'has($s)' "$baseline" > /dev/null; then
     jq -r '"| \(.suite) | \(.passed) | \(.failed) | \(.skipped) | new: not in the baseline yet |"' "$file"
   fi

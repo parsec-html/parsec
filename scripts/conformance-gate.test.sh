@@ -59,4 +59,12 @@ counts "$tmp/new" c 1 7 0
 expect 0 "a suite not in the baseline yet passes" "$tmp/new"
 grep -q '| c | 1 | 7 | 0 | new' "$tmp/out" || { echo "FAIL: the new suite isn't in the table" >&2; failures=$((failures + 1)); }
 
+counts "$tmp/no-passed" b 5 0 0
+printf '{"suite": "a", "failed": 2, "skipped": 1}\n' > "$tmp/no-passed/a.json"
+expect 1 "a counts file with no passed fails" "$tmp/no-passed"
+
+counts "$tmp/not-json" b 5 0 0
+printf 'not json\n' > "$tmp/not-json/a.json"
+expect 1 "a counts file that isn't JSON fails" "$tmp/not-json"
+
 [ "$failures" -eq 0 ]
