@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 
-import { ByteParser, parse, parseBytes, parseFragment } from "parsec-html";
+import { ByteParser, pageState, parse, parseBytes, parseFragment, parseJs } from "parsec-html";
 
 test("Node gets the build that loads itself", () => {
   const doc = parse("<ul><li class=hit>one<li>two</ul>");
@@ -206,4 +206,16 @@ test("spans for bytes are byte offsets into them", () => {
     assert.equal(ascii({ start: stray.offset, end: stray.offset + 4 }), "</i>");
     assert.deepEqual([stray.line, stray.column], [2, 9]);
   }
+});
+
+test("JavaScript parses to ESTree, and pages give up their state", () => {
+  const tree = parseJs("export const a = [1, 2];", { module: true });
+  assert.equal(tree.sourceType, "module");
+  assert.equal(tree.body[0].declaration.declarations[0].init.elements.length, 2);
+  assert.throws(() => parseJs("let x = ;"), (e) => e instanceof SyntaxError && e.code === "unexpected-token" && e.column === 9);
+  assert.throws(() => parseJs("(".repeat(1000)), (e) => e.code === "too-deep");
+  assert.throws(() => parseJs("a; ".repeat(100), { maxSteps: 10 }), /maxSteps/);
+  assert.deepEqual(pageState("window.__S = {a: !0}"), [{ name: "window.__S", value: { a: true } }]);
+  const doc = parse("<script>window.x = [1]</script><script type=application/json>{}</script>");
+  assert.deepEqual(doc.pageState(), [{ name: "window.x", value: [1] }]);
 });

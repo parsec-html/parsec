@@ -13,5 +13,6 @@
 /bench/corpus
 /bindings/wasm/pkg
 /bindings/wasm/node_modules
+/bindings/wasm/html-only
 __pycache__/
 /bindings/wasm/target

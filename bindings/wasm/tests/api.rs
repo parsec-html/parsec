@@ -283,3 +283,169 @@ fn html5lib_encoding_cases() {
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
+
+// JavaScript: parseJs, pageState and Document.pageState.
+
+#[wasm_bindgen(inline_js = "
+export function at(o, path) { return path.split('.').reduce((v, k) => v?.[k], o); }
+export function json(o) { return JSON.stringify(o); }
+export function jsOptions(module, maxDepth, maxSteps) {
+  const o = { module };
+  if (maxDepth >= 0) o.maxDepth = maxDepth;
+  if (maxSteps >= 0) o.maxSteps = maxSteps;
+  return o;
+}
+export function isSyntaxError(e) { return e instanceof SyntaxError; }")]
+extern "C" {
+    fn at(o: &JsValue, path: &str) -> JsValue;
+    fn json(o: &JsValue) -> String;
+    #[wasm_bindgen(js_name = jsOptions)]
+    fn js_options(module: bool, max_depth: f64, max_steps: f64)
+    -> parsec_html_wasm::JsParseOptions;
+    #[wasm_bindgen(js_name = isSyntaxError)]
+    fn is_syntax_error(e: &JsValue) -> bool;
+}
+
+fn script() -> Option<parsec_html_wasm::JsParseOptions> {
+    Some(js_options(false, -1.0, -1.0))
+}
+
+#[wasm_bindgen_test]
+fn a_script_parses_to_estree_objects() {
+    let tree = parsec_html_wasm::parse_js("const t = xs.map((x) => x * 2);", None).unwrap();
+    assert_eq!(at(&tree, "type").as_string().unwrap(), "Program");
+    assert_eq!(at(&tree, "sourceType").as_string().unwrap(), "script");
+    assert_eq!(
+        at(&tree, "body.0.declarations.0.init.arguments.0.type")
+            .as_string()
+            .unwrap(),
+        "ArrowFunctionExpression"
+    );
+}
+
+#[wasm_bindgen_test]
+fn a_module_with_offsets_in_utf16() {
+    let src = "import a from \"é😀\";\nexport default a;";
+    let tree = parsec_html_wasm::parse_js(src, Some(js_options(true, -1.0, -1.0))).unwrap();
+    assert_eq!(at(&tree, "sourceType").as_string().unwrap(), "module");
+    // The emoji is two UTF-16 units, as a JavaScript string counts it.
+    assert_eq!(at(&tree, "body.1.start").as_f64(), Some(21.0));
+    assert!(parsec_html_wasm::parse_js(src, script()).is_err());
+}
+
+#[wasm_bindgen_test]
+fn a_syntax_error_says_where() {
+    let e = parsec_html_wasm::parse_js("let ok = 1;\nlet x = ;", None).unwrap_err();
+    assert!(is_syntax_error(&e));
+    assert_eq!(message(e.clone()), "`;` can't go here");
+    assert_eq!(at(&e, "code").as_string().unwrap(), "unexpected-token");
+    let place: Vec<_> = ["line", "column", "start", "end"]
+        .iter()
+        .map(|k| at(&e, k).as_f64().unwrap())
+        .collect();
+    assert_eq!(place, [2.0, 9.0, 20.0, 21.0]);
+    assert!(
+        at(&e, "frame")
+            .as_string()
+            .unwrap()
+            .starts_with("error[unexpected-token]: `;` can't go here\n --> 2:9\n")
+    );
+}
+
+#[wasm_bindgen_test]
+fn limits_throw_rather_than_crash() {
+    for deep in ["(", "[", "{"] {
+        let e = parsec_html_wasm::parse_js(&deep.repeat(100_000), None).unwrap_err();
+        assert_eq!(at(&e, "code").as_string().unwrap(), "too-deep");
+    }
+    let shallow = Some(js_options(false, 3.0, -1.0));
+    assert!(parsec_html_wasm::parse_js("((((((x))))))", shallow).is_err());
+    let e =
+        parsec_html_wasm::parse_js(&"a + b;".repeat(1000), Some(js_options(false, -1.0, 100.0)))
+            .unwrap_err();
+    assert!(!is_syntax_error(&e));
+    assert!(message(e).starts_with("maxSteps"));
+    assert!(parsec_html_wasm::parse_js("x", Some(js_options(false, 100_000.0, -1.0))).is_err());
+    assert!(parsec_html_wasm::parse_js("x", Some(js_options(false, -1.0, 1.5))).is_err());
+}
+
+#[wasm_bindgen_test]
+fn page_state_of_a_script() {
+    let found = parsec_html_wasm::page_state("window.__S = {a: [1, , !0]}; var q = f();").unwrap();
+    assert_eq!(
+        json(&found),
+        r#"[{"name":"window.__S","value":{"a":[1,null,true]}},{"name":"q","error":{"code":"not-a-literal","source":"f()"}}]"#
+    );
+    assert!(is_syntax_error(
+        &parsec_html_wasm::page_state("window.X = {").unwrap_err()
+    ));
+}
+
+const NUXT2: &str = include_str!("../../../crates/parsec-js/tests/pages/nuxt2-backmarket.js");
+const NUXT3: &str = include_str!("../../../crates/parsec-js/tests/pages/nuxt3-gitlab.js");
+const REDUX: &str = include_str!("../../../crates/parsec-js/tests/pages/redux-lowes.js");
+const FLAGS: &str = include_str!("../../../crates/parsec-js/tests/pages/json-parse-target.js");
+const YOUTUBE: &str = include_str!("../../../crates/parsec-js/tests/pages/var-youtube.js");
+const NEXT: &str = include_str!("../../../crates/parsec-js/tests/pages/nextjs-app-router.js");
+
+#[wasm_bindgen_test]
+fn page_state_of_real_pages() {
+    let first = |src: &str, path: &str| at(&parsec_html_wasm::page_state(src).unwrap(), path);
+    assert_eq!(
+        first(NUXT2, "0.value.layout").as_string().unwrap(),
+        "default"
+    );
+    assert_eq!(
+        first(NUXT2, "0.value.data.0.apiHome.top_categories.0.title")
+            .as_string()
+            .unwrap(),
+        "iPhone"
+    );
+    assert_eq!(
+        first(NUXT3, "1.name").as_string().unwrap(),
+        "window.__NUXT__.config"
+    );
+    assert_eq!(
+        first(NUXT3, "1.value.app.baseURL").as_string().unwrap(),
+        "/"
+    );
+    assert_eq!(
+        first(REDUX, "0.value.channel").as_string().unwrap(),
+        "desktop"
+    );
+    assert_eq!(
+        first(FLAGS, "0.value.GLOBAL_ADOBE_TAG_MANAGER_ENABLED").as_bool(),
+        Some(true)
+    );
+    assert_eq!(
+        first(YOUTUBE, "0.name").as_string().unwrap(),
+        "ytInitialData"
+    );
+    assert_eq!(first(NEXT, "1.value.0").as_f64(), Some(1.0));
+}
+
+#[wasm_bindgen_test]
+fn page_state_of_a_page() {
+    let page = format!(
+        "<!doctype html><script>{NUXT3}</script><script>{YOUTUBE}</script>\
+         <script type=application/json id=__NEXT_DATA__>{{}}</script>\
+         <script src=a.js>window.ignored = 1</script>\
+         <script>window.broken = {{</script>\
+         <script type=module>window.fromModule = [1]</script>\
+         <template><script>window.inert = 1</script></template>"
+    );
+    let found = parse(&page, None).unwrap().page_state();
+    let names: Vec<_> = (0..4)
+        .map(|i| at(&found, &format!("{i}.name")).as_string().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "window.__NUXT__",
+            "window.__NUXT__.config",
+            "ytInitialData",
+            "window.fromModule"
+        ]
+    );
+    assert!(at(&found, "4").is_undefined());
+}

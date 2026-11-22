@@ -9,11 +9,15 @@
 //! A node is its document plus an index, so it stays valid after edits:
 //! a removed node can still be read, and put back.
 
+#[cfg(feature = "js")]
+mod js;
 mod units;
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
+#[cfg(feature = "js")]
+pub use js::{JsParseOptions, page_state, parse_js};
 use parsec::css::{MatchOptions, SelectorList};
 use parsec::{AttrNs, Kind, NodeId, Ns, Options};
 use parsec_encoding::{Confidence, Encoding};

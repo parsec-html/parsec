@@ -311,6 +311,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
+name = "parsec-base"
+version = "0.2.0"
+
+[[package]]
 name = "parsec-html-core"
 version = "0.2.0"
 dependencies = [
@@ -332,9 +336,17 @@ version = "0.2.0"
 dependencies = [
  "parsec-html-core",
  "parsec-html-encoding",
+ "parsec-js",
  "parsec-xpath",
  "wasm-bindgen",
  "wasm-bindgen-test",
+]
+
+[[package]]
+name = "parsec-js"
+version = "0.2.0"
+dependencies = [
+ "parsec-base",
 ]
 
 [[package]]
