@@ -63,7 +63,7 @@ impl Tree {
                 let roots: Vec<NodeId> = (0..doc.len() as NodeId)
                     .filter(|&n| doc.parent(n).is_none())
                     .collect();
-                Rc::new(Index::build(&doc, &roots))
+                Rc::new(Index::build(&*doc, &roots))
             })
             .clone()
     }

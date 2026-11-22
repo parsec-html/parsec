@@ -570,7 +570,7 @@ impl HtmlParser {
                 .index
                 .lock()
                 .unwrap_or_else(PoisonError::into_inner)
-                .get_or_insert_with(|| Arc::new(Index::build(&doc, &roots(&doc))))
+                .get_or_insert_with(|| Arc::new(Index::build(&*doc, &roots(&doc))))
                 .clone();
             let value =
                 compiled.evaluate(Doc::html(&doc, &index), scope, vars, &[], &NoExtensions)?;
