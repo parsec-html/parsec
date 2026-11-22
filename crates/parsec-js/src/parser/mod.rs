@@ -475,6 +475,18 @@ impl<'a> Parser<'a> {
         text::ident_name(span.text(self.src))
     }
 
+    /// Whether the identifier at `span` is `name`, escapes decoded. Only a
+    /// longer spelling can hold an escape that decodes to `name`, so most
+    /// answers come from the lengths without decoding.
+    fn name_is(&self, span: Span, name: &str) -> bool {
+        let raw = span.text(self.src);
+        match raw.len().cmp(&name.len()) {
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => raw == name,
+            std::cmp::Ordering::Greater => raw.contains('\\') && text::ident_name(raw) == name,
+        }
+    }
+
     /// The token is an IdentifierName: an identifier or any keyword.
     fn at_ident_name(&self) -> bool {
         matches!(self.tok.kind, Kind::Ident | Kind::Keyword(_))
@@ -546,7 +558,7 @@ impl<'a> Parser<'a> {
     /// `arguments` can't be referred to in a class field's initializer or
     /// a static block.
     fn check_arguments(&mut self, span: Span) -> R<()> {
-        if self.ctx.no_arguments && self.name(span) == "arguments" {
+        if self.ctx.no_arguments && self.name_is(span, "arguments") {
             return self.err(
                 "arguments-in-class-init",
                 span,

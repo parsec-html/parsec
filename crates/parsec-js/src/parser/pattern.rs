@@ -150,9 +150,8 @@ impl Parser<'_> {
             return Ok(());
         }
         let span = self.span(id);
-        let name = self.name(span);
-        if name == "eval" || name == "arguments" {
-            let name = name.into_owned();
+        if self.name_is(span, "eval") || self.name_is(span, "arguments") {
+            let name = self.name(span).into_owned();
             return self.err(
                 "strict-binding",
                 span,

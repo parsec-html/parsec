@@ -490,7 +490,7 @@ impl Parser<'_> {
         let mut names = std::mem::take(&mut self.names);
         names.clear();
         self.bound_names(id, &mut names);
-        let found = names.iter().copied().find(|&s| self.name(s) == "let");
+        let found = names.iter().copied().find(|&s| self.name_is(s, "let"));
         self.names = names;
         if let Some(span) = found {
             return self.err(

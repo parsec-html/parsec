@@ -352,7 +352,7 @@ impl Parser<'_> {
     pub(super) fn key_is(&self, key: NodeId, name: &str) -> bool {
         let span = self.span(key);
         match self.node(key) {
-            Node::Identifier => self.name(span) == name,
+            Node::Identifier => self.name_is(span, name),
             Node::Literal(LiteralKind::String) => {
                 let body = Span::new(span.start + 1, span.end - 1).text(self.src);
                 if !body.contains('\\') {
