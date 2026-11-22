@@ -144,6 +144,7 @@ macro_rules! words {
 
         impl $name {
             /// Every one, in order.
+            #[allow(dead_code)] // Only Keyword's is used, to build its hash table.
             pub(crate) const ALL: &'static [$name] = &[$($name::$variant,)*];
 
             /// Its spelling.

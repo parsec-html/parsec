@@ -188,9 +188,12 @@ pub(crate) struct Parser<'a> {
 impl<'a> Parser<'a> {
     pub(crate) fn new(src: &'a str, options: &Options) -> Parser<'a> {
         let lexer = Lexer::with_limits(src, options.source_type, &options.limits);
-        // About one node per eight bytes of minified code; the vectors
-        // grow from there.
-        let ast = Ast::new(lexer.source().len() / 8);
+        // About one node per eight bytes of a large bundle, but small
+        // scripts run denser, one per four or five, and growing the
+        // vectors costs a short parse more than the room does: the first
+        // 64 KB are sized at one per four.
+        let len = lexer.source().len();
+        let ast = Ast::new(len.min(1 << 16) / 4 + len.saturating_sub(1 << 16) / 8);
         let module = options.source_type == SourceType::Module;
         Parser {
             src: lexer.source(),
@@ -202,7 +205,7 @@ impl<'a> Parser<'a> {
             },
             prev_end: 0,
             ast,
-            scratch: Vec::new(),
+            scratch: Vec::with_capacity(64),
             names: Vec::new(),
             sorted_names: Vec::new(),
             if_chain: Vec::new(),
