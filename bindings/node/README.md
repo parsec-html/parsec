@@ -24,14 +24,14 @@ backend; // "native", or "wasm" where there's no build for the platform
 
 | Platform | Package |
 |---|---|
-| Linux x86-64, glibc | `@parsec-html/binding-linux-x64-gnu` |
-| Linux ARM64, glibc | `@parsec-html/binding-linux-arm64-gnu` |
-| Linux x86-64, musl (Alpine) | `@parsec-html/binding-linux-x64-musl` |
-| Linux ARM64, musl (Alpine) | `@parsec-html/binding-linux-arm64-musl` |
-| macOS x86-64 | `@parsec-html/binding-darwin-x64` |
-| macOS ARM64 | `@parsec-html/binding-darwin-arm64` |
-| Windows x86-64 | `@parsec-html/binding-win32-x64-msvc` |
-| Windows ARM64 | `@parsec-html/binding-win32-arm64-msvc` |
+| Linux x86-64, glibc | `@parsec-web/binding-linux-x64-gnu` |
+| Linux ARM64, glibc | `@parsec-web/binding-linux-arm64-gnu` |
+| Linux x86-64, musl (Alpine) | `@parsec-web/binding-linux-x64-musl` |
+| Linux ARM64, musl (Alpine) | `@parsec-web/binding-linux-arm64-musl` |
+| macOS x86-64 | `@parsec-web/binding-darwin-x64` |
+| macOS ARM64 | `@parsec-web/binding-darwin-arm64` |
+| Windows x86-64 | `@parsec-web/binding-win32-x64-msvc` |
+| Windows ARM64 | `@parsec-web/binding-win32-arm64-msvc` |
 
 CI builds each one on its own platform and runs the package's tests
 against it there. Anywhere else, and in browsers and bundlers, you get
@@ -79,9 +79,9 @@ cd bindings/wasm && ./build.sh                 # the package, in pkg/
 cd ../node && cargo build --release            # the addon
 node npm.mjs platform darwin-arm64 target/release/libparsec_html_node.dylib out
 cd ../wasm
-mkdir -p node_modules/@parsec-html
+mkdir -p node_modules/@parsec-web
 ln -s ../pkg node_modules/parsec-html
-ln -s ../../../node/out/darwin-arm64 node_modules/@parsec-html/binding-darwin-arm64
+ln -s ../../../node/out/darwin-arm64 node_modules/@parsec-web/binding-darwin-arm64
 PARSEC_BACKEND=native node --test tests/package.test.mjs
 PARSEC_BACKEND=wasm node --test tests/package.test.mjs
 node ../node/bench.mjs ../../bench/corpus     # after bench/fetch-pages.sh

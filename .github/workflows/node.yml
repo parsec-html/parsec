@@ -129,7 +129,7 @@ jobs:
       - name: Install them side by side
         working-directory: bindings/wasm
         run: |
-          mkdir -p node_modules/@parsec-html
+          mkdir -p node_modules/@parsec-web
           cp -R pkg node_modules/parsec-html
           cp -R ../../npm-native/${{ matrix.platform }} "node_modules/$(node -p 'require("./npm/package.json").napi.packageName')-${{ matrix.platform }}"
       - name: Test

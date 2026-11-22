@@ -14,7 +14,7 @@ minor release can break the API and a patch release won't.
   ([#177](https://github.com/parsec-html/parsec/issues/177)). It has the
   WebAssembly's API, names, options and error messages, and parses the
   13 benchmark pages 1.5 times as fast. Each platform's build is an
-  optional dependency, `@parsec-html/binding-<platform>`; anywhere else,
+  optional dependency, `@parsec-web/binding-<platform>`; anywhere else,
   and in browsers, the package is the WebAssembly it was.
   - `parseAsync(html, options)` parses on Node's thread pool and gives a
     promise of the document. With the WebAssembly build it parses before

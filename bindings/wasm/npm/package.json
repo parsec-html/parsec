@@ -40,6 +40,6 @@
   "sideEffects": false,
   "napi": {
     "binaryName": "parsec-html",
-    "packageName": "@parsec-html/binding"
+    "packageName": "@parsec-web/binding"
   }
 }
