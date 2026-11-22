@@ -160,7 +160,10 @@ fn test262_code_frames() {
         std::fs::write(&path, &out).unwrap();
         return;
     }
-    let want = std::fs::read_to_string(&path).unwrap_or_default();
+    // A checkout that turns line ends into CRLF turns the snapshot's too.
+    let want = std::fs::read_to_string(&path)
+        .unwrap_or_default()
+        .replace("\r\n", "\n");
     if want != out {
         let line = want
             .lines()
