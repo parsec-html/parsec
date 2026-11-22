@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! Tokenizes a whole source without a parser, for the tests, test262 and
-//! the fuzz target. A parser knows which goal each token needs; this
-//! guesses it from the token before.
+//! Tokenizes a whole source without a parser, for the lexer's tests and
+//! fuzz target, whose inputs are fragments more often than programs. The
+//! parser knows which goal each token needs; this guesses it from the
+//! token before. test262 goes through the parser, which never guesses.
 //!
 //! shortcut: `/` after `]`, `}`, an identifier or a `)` that doesn't close
 //! `if (...)`, `while (...)`, `for (...)` or `with (...)` is read as
 //! division, so a regex starting a statement after a block's `}` lexes
-//! wrongly; upgrade to the parser's goals once parsec-js has a parser
-//! (M10).
+//! wrongly; a test that needs it should parse instead.
 
 #![allow(dead_code)]
 

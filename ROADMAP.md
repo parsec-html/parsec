@@ -236,6 +236,36 @@ for acorn can read it. test262's syntax tests in CI, a depth limit that
 returns an error where other parsers overflow the stack, and a bench on
 real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
 
+- Done: scripts
+  ([#153](https://github.com/parsec-html/parsec/issues/153)). Every
+  statement and declaration, the expression grammar with its precedence,
+  destructuring, classes with private names and static blocks, async
+  functions and generators, optional chaining, automatic semicolon
+  insertion, and Annex B's additions for sloppy code. The parser picks
+  each `/` and `}` goal, and reads the cover grammars (arrow parameters,
+  assignment patterns) once, turning them into patterns in place. In
+  test262, all 47,895 script files that should parse do. Of the 4,174
+  that shouldn't, 3,639 fail to; the other 535 are early errors that
+  need scope analysis (a name declared twice) or the regular expression
+  pattern grammar, which `cargo test` skips and counts until M11.
+- Done: the tree and its ESTree JSON, apart from the bench check
+  ([#152](https://github.com/parsec-html/parsec/issues/152)). Every node
+  sits in one arena with a span beside it, and comments are kept on the
+  side. `Ast::to_estree` writes the shape acorn gives, offsets in UTF-16.
+  `cargo test` checks it against acorn 8.19.0's trees for the files in
+  `crates/parsec-js/tests/estree`, and `scripts/compare-acorn.sh` finds
+  it the same as acorn's on all 47,542 test262 scripts both parse, and
+  on typescript.js and react-dom.
+- Planned: modules, with `import`, `export` and import attributes
+  ([#154](https://github.com/parsec-html/parsec/issues/154)).
+- Planned: limits
+  ([#155](https://github.com/parsec-html/parsec/issues/155)). The parser
+  already counts its depth against a limit, 256 by default; the test
+  that a 1,000,000-deep `((((` fails in linear time, and a `parse` fuzz
+  target, come with this.
+- Planned: a bench against oxc and swc on real bundles
+  ([#156](https://github.com/parsec-html/parsec/issues/156)).
+
 ## M11. JavaScript scope and modules
 
 What a name refers to, which programs the spec rejects before they run,

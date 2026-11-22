@@ -50,9 +50,16 @@ minor release can break the API and a patch release won't.
     ones), so `/` and `}` are never guessed. A legacy octal literal or
     escape is flagged on its token, and reported as an error in a
     module.
-  - test262 runs in `cargo test` through the lexer, and CI's summary
-    has its counts: all 49,655 files that should parse tokenize
+  - test262 runs in `cargo test`, and CI's summary has its counts
     ([#148](https://github.com/parsec-html/parsec/issues/148)).
+  - `parsec-js` parses ECMAScript 2025 scripts: `parse` gives an `Ast`
+    with a span on every node and the comments beside it, or the first
+    syntax error as a `Diagnostic`, and `Ast::to_estree` writes ESTree
+    JSON in acorn's shape. All 47,895 test262 script files that should
+    parse do, and 3,639 of the 4,174 that shouldn't fail; the rest need
+    scope analysis
+    ([#152](https://github.com/parsec-html/parsec/issues/152),
+    [#153](https://github.com/parsec-html/parsec/issues/153)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler
