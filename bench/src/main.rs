@@ -34,12 +34,16 @@
 //! batch of broken fragments, real pages, encoding quirks and giants, as
 //! bytes, each parser in its own process, timed per page with its peak
 //! memory. See src/boss.rs.
+//!
+//! `realworld` runs Netweir's real-world corpus the same way, page by
+//! page (not part of a full run). See src/realworld.rs.
 
 mod boss;
 mod css;
 mod encoding;
 mod lexbor;
 mod pages;
+mod realworld;
 mod selectors;
 mod urls;
 
@@ -234,6 +238,10 @@ fn main() {
             header();
         }
         boss::run(&args);
+        return;
+    }
+    if args.first().is_some_and(|a| a.starts_with("realworld")) {
+        realworld::run(&args);
         return;
     }
     if args.iter().any(|a| a == "encoding") {
