@@ -80,6 +80,14 @@ minor release can break the API and a patch release won't.
     `parse_recovering` skips a statement that fails and goes on, so one
     parse reports every error, not only the first
     ([#166](https://github.com/parsec-html/parsec/issues/166)).
+  - `Ast::reparse` brings a tree up to date after an `Edit` by parsing
+    only the smallest function body or statement around it, and the
+    tree is the one `parse` gives for the new source. Where a piece
+    can't be sure of that (an edit that opens a comment or string past
+    it, a directive prologue, a parameter list, `import` or `export`),
+    the source is parsed whole. A test checks it against `parse` on
+    random edits, and a `reparse` fuzz target joins the nightly run
+    ([#167](https://github.com/parsec-html/parsec/issues/167)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

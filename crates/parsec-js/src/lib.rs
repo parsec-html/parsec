@@ -37,6 +37,10 @@
 //! involves. [`parse_recovering`] goes on after an error to find the
 //! rest, and [`Diagnostic::render`] prints one as a code frame.
 //!
+//! [`Ast::reparse`] brings a tree up to date after an edit by parsing
+//! only the function body or statement around it, which on a large file
+//! is a small part of a parse; the tree is the one [`parse`] would give.
+//!
 //! [`module`] has a module's import and export records, the spec's
 //! ImportEntry and ExportEntry, for building a module graph.
 //!
@@ -84,6 +88,7 @@ mod lexer;
 pub mod module;
 mod parser;
 pub mod regexp;
+mod reparse;
 pub mod scope;
 pub mod text;
 mod token;
@@ -95,4 +100,5 @@ pub use estree::EstreeOptions;
 pub use lexer::{Goal, Lexer, SourceType};
 pub use parsec_base::{Diagnostic, Label, Limits, LineIndex, RenderOptions, Severity, Span};
 pub use parser::{DEFAULT_MAX_DEPTH, Options, parse, parse_recovering, parse_script};
+pub use reparse::{Edit, Reparsed};
 pub use token::{Flags, Keyword, Kind, Punct, Token};
