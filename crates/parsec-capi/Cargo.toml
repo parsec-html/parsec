@@ -21,3 +21,4 @@ doctest = false
 encoding = { package = "parsec-html-encoding", path = "../parsec-encoding" }
 html = { package = "parsec-html-core", path = "../parsec" }
 xpath = { package = "parsec-xpath", path = "../parsec-xpath" }
+xml = { package = "parsec-xml", path = "../parsec-xml" }

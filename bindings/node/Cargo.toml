@@ -21,6 +21,13 @@ napi-derive = "=3.7.1"
 parsec-html-core = { path = "../../crates/parsec" }
 parsec-html-encoding = { path = "../../crates/parsec-encoding" }
 parsec-xpath = { path = "../../crates/parsec-xpath" }
+parsec-xml = { path = "../../crates/parsec-xml", optional = true }
+
+[features]
+# parseXml, parseXmlBytes and the Xml classes, as in the WebAssembly
+# build; `--no-default-features` builds the HTML parser alone.
+default = ["xml"]
+xml = ["dep:parsec-xml"]
 
 [build-dependencies]
 napi-build = "=2.6.0"

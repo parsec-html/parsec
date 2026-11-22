@@ -426,6 +426,19 @@ impl Document {
         self.nodes.len()
     }
 
+    /// The node at `index`, as [`NodeId::index`] numbers them, if there
+    /// is one: for a node number that came from outside, such as the C
+    /// API's.
+    ///
+    /// ```
+    /// let doc = parsec_xml::parse("<a/>").unwrap();
+    /// assert_eq!(doc.node(1), Some(doc.root_element()));
+    /// assert_eq!(doc.node(2), None);
+    /// ```
+    pub fn node(&self, index: usize) -> Option<NodeId> {
+        (index < self.nodes.len()).then_some(NodeId(index as u32))
+    }
+
     /// Always false: there is at least the document node.
     pub fn is_empty(&self) -> bool {
         false

@@ -36,7 +36,10 @@ if (binding) {
   // The WebAssembly build's objects are freed by hand or with `using`; the
   // native ones are the garbage collector's, so freeing is a no-op that
   // keeps code written for either working with both.
-  for (const Class of [binding.Document, binding.Node, binding.ByteParser, binding.Span, binding.ParseError]) {
+  const classes = [binding.Document, binding.Node, binding.ByteParser, binding.Span, binding.ParseError];
+  // The XML classes, in a build with them.
+  for (const Class of [binding.XmlDocument, binding.XmlNode, binding.XmlAttribute]) if (Class) classes.push(Class);
+  for (const Class of classes) {
     Class.prototype.free = function free() {};
     if (Symbol.dispose) Class.prototype[Symbol.dispose] = Class.prototype.free;
   }

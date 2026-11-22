@@ -285,3 +285,113 @@ class StreamParser:
 def encoding_for_locale(locale: str) -> str:
     """The encoding a browser set to this language falls back to, for
     default_encoding: "ja" gives "Shift_JIS"."""
+
+class _XML:
+    """parsec_html.xml: XML 1.0 with namespaces, non-validating, nothing
+    ever fetched. `import parsec_html.xml` works too."""
+
+    class XMLSyntaxError(ValueError):
+        """XML that isn't well-formed, or that runs past a limit."""
+
+        code: str
+        message: str
+        line: int
+        column: int
+
+    class XMLAttribute:
+        @property
+        def name(self) -> str: ...
+        @property
+        def local_name(self) -> str: ...
+        @property
+        def prefix(self) -> Optional[str]: ...
+        @property
+        def namespace(self) -> Optional[str]: ...
+        @property
+        def value(self) -> str: ...
+        @property
+        def specified(self) -> bool: ...
+
+    class XMLNode:
+        @property
+        def kind(
+            self,
+        ) -> Literal[
+            "element",
+            "text",
+            "cdata",
+            "comment",
+            "processing-instruction",
+            "doctype",
+            "entity-reference",
+            "document",
+        ]: ...
+        @property
+        def tag(self) -> Optional[str]: ...
+        @property
+        def local_name(self) -> Optional[str]: ...
+        @property
+        def prefix(self) -> Optional[str]: ...
+        @property
+        def namespace(self) -> Optional[str]: ...
+        @property
+        def value(self) -> Optional[str]: ...
+        @property
+        def attributes(self) -> dict[str, str]: ...
+        @property
+        def attribute_list(self) -> list[_XML.XMLAttribute]: ...
+        def attribute(self, local_name: str, namespace: Optional[str] = None) -> Optional[str]: ...
+        def text(self) -> str: ...
+        @property
+        def xml(self) -> str: ...
+        @property
+        def parent(self) -> Optional[_XML.XMLNode]: ...
+        @property
+        def next(self) -> Optional[_XML.XMLNode]: ...
+        @property
+        def prev(self) -> Optional[_XML.XMLNode]: ...
+        @property
+        def first_child(self) -> Optional[_XML.XMLNode]: ...
+        @property
+        def last_child(self) -> Optional[_XML.XMLNode]: ...
+        @property
+        def children(self) -> list[_XML.XMLNode]: ...
+        @property
+        def document(self) -> _XML.XMLDocument: ...
+        @property
+        def source_range(self) -> tuple[int, int]:
+            """Indexes into the input: a str's characters, or bytes."""
+        @property
+        def position(self) -> tuple[int, int]: ...
+        def __eq__(self, other: object) -> bool: ...
+        def __hash__(self) -> int: ...
+
+    class XMLDocument:
+        @property
+        def root(self) -> _XML.XMLNode:
+            """The document element."""
+        @property
+        def document(self) -> _XML.XMLNode:
+            """The document node, the document element's parent."""
+        @property
+        def encoding(self) -> Optional[str]: ...
+        @property
+        def warnings(self) -> list[ParseError]: ...
+        @property
+        def xml(self) -> str: ...
+        def line_col(self, offset: int) -> tuple[int, int]: ...
+
+    @staticmethod
+    def parse(
+        source: Union[str, bytes],
+        *,
+        namespaces: bool = True,
+        max_depth: Optional[int] = None,
+        max_entity_depth: Optional[int] = None,
+        entity_allowance: Optional[int] = None,
+        entity_ratio: Optional[int] = None,
+    ) -> _XML.XMLDocument:
+        """bytes are decoded from a byte order mark, else the encoding the
+        XML declaration names, else UTF-8. Raises XMLSyntaxError."""
+
+xml: _XML

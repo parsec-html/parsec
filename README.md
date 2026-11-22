@@ -433,9 +433,9 @@ every module Lexbor has, and then go past it:
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
 | JavaScript syntax tree | no | not released yet; on `main` in `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and 3,824 of the 4,374 that shouldn't fail, in `cargo test` |
 | XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
-| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
-| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
-| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
+| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; XML through `parsec_xml_parse` |
+| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.xml` for XML |
+| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseXml` and `parseXmlBytes` for XML, in the native Node build too |
 | Node.js, native | not from Lexbor | next release: the npm package picks a native build on Linux, macOS and Windows, x86-64 and ARM, with the same API, `parseAsync`, and 1.5 times the WebAssembly's speed |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
