@@ -384,6 +384,10 @@ pub fn reparse() {
     println!(
         "  {:.0}x as fast; {whole} edits parsed whole, the rest a median {} bytes again",
         f / p,
-        if sizes.is_empty() { 0.0 } else { median(&mut sizes) }
+        if sizes.is_empty() {
+            0.0
+        } else {
+            median(&mut sizes)
+        }
     );
 }
