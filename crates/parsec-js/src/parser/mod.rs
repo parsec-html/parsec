@@ -145,6 +145,12 @@ pub(crate) struct Parser<'a> {
     ast: Ast,
     /// Children of lists being built, innermost at the end.
     scratch: Vec<NodeId>,
+    /// Buffers for the early errors on bound names, kept between uses so
+    /// checking a declaration allocates nothing.
+    names: Vec<Span>,
+    sorted_names: Vec<(Cow<'a, str>, Span)>,
+    /// The `if`s of `else if` chains being parsed, innermost at the end.
+    if_chain: Vec<(u32, NodeId, NodeId)>,
     error: Option<Diagnostic>,
     /// How many of the lexer's diagnostics have been looked at.
     seen: usize,
@@ -197,6 +203,9 @@ impl<'a> Parser<'a> {
             prev_end: 0,
             ast,
             scratch: Vec::new(),
+            names: Vec::new(),
+            sorted_names: Vec::new(),
+            if_chain: Vec::new(),
             error: None,
             seen: 0,
             module,
