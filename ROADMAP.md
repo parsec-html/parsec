@@ -260,6 +260,23 @@ entity expansion capped so billion laughs stops with an error, nothing
 ever fetched. The W3C conformance suite in CI, XPath over XML, and a bench
 against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
 
+- Done: `crates/parsec-xml`, XML 1.0 (Fifth Edition) and Namespaces in
+  XML 1.0, not validating
+  ([#169](https://github.com/parsec-html/parsec/issues/169)). Names
+  resolved to their namespaces, a span on every node and attribute, the
+  internal subset's entities and attribute defaults, and nothing ever
+  fetched: the external subset and external entities are reported as not
+  read. Entity expansion is capped in depth and in size, so billion
+  laughs and quadratic blowup stop with an error, and a million nested
+  elements cost no recursion. Bytes in, with the encoding from the byte
+  order mark or the declaration; a serializer that writes every prefix
+  and declaration back as it was; and a fuzz target in the nightly run.
+- Still to come: the W3C conformance suite in CI
+  ([#170](https://github.com/parsec-html/parsec/issues/170)), XPath over
+  XML ([#171](https://github.com/parsec-html/parsec/issues/171)), and the
+  bench against libxml2
+  ([#172](https://github.com/parsec-html/parsec/issues/172)).
+
 ## M15. One toolkit, in pieces
 
 `parsec-base` for what every parser shares (spans, line indexes,
