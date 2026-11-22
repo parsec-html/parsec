@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/parsec", "crates/parsec-html", "crates/parsec-capi", "crates/parsec-css", "crates/parsec-encoding", "crates/parsec-url", "crates/parsec-xpath", "crates/parsec-base", "crates/parsec-js", "crates/parsec-xml"]
+members = ["crates/parsec", "crates/parsec-html", "crates/parsec-capi", "crates/parsec-css", "crates/parsec-encoding", "crates/parsec-reduce", "crates/parsec-url", "crates/parsec-xpath", "crates/parsec-base", "crates/parsec-js", "crates/parsec-xml"]
 
 [workspace.package]
 version = "0.2.0"
