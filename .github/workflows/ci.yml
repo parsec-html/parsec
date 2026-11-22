@@ -46,6 +46,7 @@ jobs:
       # The fuzz crates sit outside the workspace and build only in the
       # nightly fuzz run, so a manifest that cargo can't load fails there.
       - run: for m in crates/*/fuzz/Cargo.toml; do cargo metadata --no-deps --format-version 1 --manifest-path "$m" > /dev/null || exit 1; done
+      - run: scripts/conformance-gate.test.sh
       # A prebuilt binary: the cargo-deny action builds a Docker image on
       # every run, and fails whenever Docker Hub does.
       - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
@@ -193,17 +194,18 @@ jobs:
           toolchain: stable
       # The conformance runners write each suite's counts to
       # $CONFORMANCE_DIR/<suite>.json; Linux's go up as an artifact and into
-      # the run's summary, even when a suite fails.
+      # the run's summary, even when a suite fails. (conformance/ in the
+      # repository holds the baseline they're held to.)
       - run: cargo test --workspace
         env:
-          CONFORMANCE_DIR: ${{ github.workspace }}/conformance
+          CONFORMANCE_DIR: ${{ github.workspace }}/target/conformance
       - name: Conformance summary
         if: always() && runner.os == 'Linux'
         run: |
           {
             echo "| Suite | Passed | Failed | Skipped | Test data |"
             echo "|---|---:|---:|---:|---|"
-            for f in conformance/*.json; do
+            for f in target/conformance/*.json; do
               jq -r '"| \(.suite) | \(.passed) | \(.failed) | \(.skipped) (\(.skipped_because)) | `\(.test_data_commit[0:12])` |"' "$f"
             done
           } >> "$GITHUB_STEP_SUMMARY"
@@ -211,8 +213,31 @@ jobs:
         if: always() && runner.os == 'Linux'
         with:
           name: conformance
-          path: conformance/
+          path: target/conformance/
           if-no-files-found: error
+
+  # The test job's counts against conformance/baseline.json, as the
+  # release's gate holds them (release.yml), so a drop shows on the pull
+  # request that made it rather than on release day. For information: it
+  # isn't a required check, as a pull request may mean to trade a case,
+  # and the baseline changes only in a release pull request.
+  conformance:
+    needs: [test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: conformance
+          path: ${{ runner.temp }}/conformance
+      - name: Every count is at least the last release's
+        # pipefail, so the gate's status isn't tee's.
+        shell: bash
+        run: scripts/conformance-gate.sh conformance/baseline.json "$RUNNER_TEMP/conformance" | tee -a "$GITHUB_STEP_SUMMARY"
 
   # The C API on each OS: crates/parsec-capi/package.sh builds the package a
   # release ships (macOS as one universal library, as released), and
