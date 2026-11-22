@@ -24,6 +24,9 @@ parsec-html-core = { path = "../crates/parsec" }
 parsec-html-css = { path = "../crates/parsec-css" }
 parsec-html-encoding = { path = "../crates/parsec-encoding" }
 parsec-url = { path = "../crates/parsec-url" }
+parsec-xml = { path = "../crates/parsec-xml" }
+quick-xml = "0.42"
+roxmltree = "0.21"
 serde_json = "1"
 
 [build-dependencies]

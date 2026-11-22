@@ -209,6 +209,25 @@ division and a regular expression the way the spec's goal symbols do, so
 the lexer never guesses. test262 in CI, a fuzz target, and a bench
 against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
 
+- Done: `crates/parsec-base`, what the parsers share and nothing they
+  don't: spans, a line index with UTF-16 columns, diagnostics, limits
+  and a step budget, with no dependencies
+  ([#143](https://github.com/parsec-html/parsec/issues/143)).
+- Done: `crates/parsec-js`'s lexer, ECMAScript 2025's lexical grammar
+  with Annex B's HTML-like comments in scripts and legacy octal flagged.
+  The caller passes the goal, so `/` and `}` are never guessed; every
+  token has a span and none allocates
+  ([#147](https://github.com/parsec-html/parsec/issues/147)).
+- Done: a fuzz target for the lexer in the nightly fuzz run, its corpus
+  seeded from test262
+  ([#150](https://github.com/parsec-html/parsec/issues/150)).
+- Done: test262, pinned as a submodule, in `cargo test`, with the counts
+  in every CI run's summary
+  ([#148](https://github.com/parsec-html/parsec/issues/148)). All 49,655
+  files that should parse tokenize. Of the 4,676 that shouldn't, the
+  lexer catches the 267 whose error is in the tokens; the parser will
+  check the rest.
+
 ## M10. JavaScript syntax tree
 
 Every script and module ECMAScript 2025 allows, parsed to an arena tree
@@ -216,6 +235,36 @@ with a span on every node and written out as ESTree JSON, so tools built
 for acorn can read it. test262's syntax tests in CI, a depth limit that
 returns an error where other parsers overflow the stack, and a bench on
 real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
+
+- Done: scripts
+  ([#153](https://github.com/parsec-html/parsec/issues/153)). Every
+  statement and declaration, the expression grammar with its precedence,
+  destructuring, classes with private names and static blocks, async
+  functions and generators, optional chaining, automatic semicolon
+  insertion, and Annex B's additions for sloppy code. The parser picks
+  each `/` and `}` goal, and reads the cover grammars (arrow parameters,
+  assignment patterns) once, turning them into patterns in place. In
+  test262, all 47,895 script files that should parse do. Of the 4,174
+  that shouldn't, 3,639 fail to; the other 535 are early errors that
+  need scope analysis (a name declared twice) or the regular expression
+  pattern grammar, which `cargo test` skips and counts until M11.
+- Done: the tree and its ESTree JSON, apart from the bench check
+  ([#152](https://github.com/parsec-html/parsec/issues/152)). Every node
+  sits in one arena with a span beside it, and comments are kept on the
+  side. `Ast::to_estree` writes the shape acorn gives, offsets in UTF-16.
+  `cargo test` checks it against acorn 8.19.0's trees for the files in
+  `crates/parsec-js/tests/estree`, and `scripts/compare-acorn.sh` finds
+  it the same as acorn's on all 47,542 test262 scripts both parse, and
+  on typescript.js and react-dom.
+- Planned: modules, with `import`, `export` and import attributes
+  ([#154](https://github.com/parsec-html/parsec/issues/154)).
+- Planned: limits
+  ([#155](https://github.com/parsec-html/parsec/issues/155)). The parser
+  already counts its depth against a limit, 256 by default; the test
+  that a 1,000,000-deep `((((` fails in linear time, and a `parse` fuzz
+  target, come with this.
+- Planned: a bench against oxc and swc on real bundles
+  ([#156](https://github.com/parsec-html/parsec/issues/156)).
 
 ## M11. JavaScript scope and modules
 
@@ -244,6 +293,36 @@ reparsing only what an edit touched
 entity expansion capped so billion laughs stops with an error, nothing
 ever fetched. The W3C conformance suite in CI, XPath over XML, and a bench
 against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
+
+- Done: `crates/parsec-xml`, XML 1.0 (Fifth Edition) and Namespaces in
+  XML 1.0, not validating
+  ([#169](https://github.com/parsec-html/parsec/issues/169)). Names
+  resolved to their namespaces, a span on every node and attribute, the
+  internal subset's entities and attribute defaults, and nothing ever
+  fetched: the external subset and external entities are reported as not
+  read. Entity expansion is capped in depth and in size, so billion
+  laughs and quadratic blowup stop with an error, and a million nested
+  elements cost no recursion. Bytes in, with the encoding from the byte
+  order mark or the declaration; a serializer that writes every prefix
+  and declaration back as it was; and a fuzz target in the nightly run.
+- Done: the W3C XML Conformance Test Suite in `cargo test`, with its
+  counts in every CI run's summary
+  ([#170](https://github.com/parsec-html/parsec/issues/170)). Of its
+  2,585 cases, 1,915 run and pass, 227 of them matching their canonical
+  output byte for byte, and none fail. The 670 skipped are XML 1.1 and
+  Namespaces 1.1 (274), editions before the Fifth (310), errors the spec
+  lets a processor report or not (27), and documents whose fault is in
+  an external entity, which Parsec never reads (59).
+- Done: the bench against libxml2, roxmltree and quick-xml, in `bench/`
+  ([#172](https://github.com/parsec-html/parsec/issues/172)). libxml2
+  comes in as a submodule at v2.15.4. On 102 MB of real XML (sitemaps,
+  RSS and Atom feeds, SVGs, the XML spec and a Wikipedia dump slice),
+  Parsec parses 1,314 MB/s to libxml2's 495 and roxmltree's 327, ahead
+  of both on every document, and holds no more memory than libxml2 on any.
+- Still to come: XPath over XML
+  ([#171](https://github.com/parsec-html/parsec/issues/171)), which
+  needs `parsec-xpath` to read a tree through a trait; that change
+  starts in Netweir.
 
 ## M15. One toolkit, in pieces
 

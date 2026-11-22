@@ -10,6 +10,8 @@ documentation = "https://docs.rs/parsec-html"
 readme = "../../README.md"
 keywords = ["html", "parser", "html5", "dom", "css-selectors"]
 categories = ["parser-implementations", "web-programming"]
+# The regression fixtures run from the repository.
+exclude = ["tests/"]
 
 # The crate to depend on. The parser is parsec-html-core, which is synced
 # from Netweir and so can't carry the re-exports itself; the modules

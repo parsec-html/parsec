@@ -8,8 +8,9 @@ from the HTML Standard (https://html.spec.whatwg.org/), © WHATWG (Apple,
 Google, Mozilla, Microsoft), licensed under the Creative Commons
 Attribution 4.0 International License.
 
-Parsec's HTML parser also includes Unicode property tables generated
-from the Unicode Character Database (https://www.unicode.org/ucd/),
+Parsec's HTML parser and its JavaScript lexer also include Unicode
+property tables generated from the Unicode Character Database
+(https://www.unicode.org/ucd/),
 © 1991-2025 Unicode, Inc., licensed under the Unicode License v3
 (https://www.unicode.org/license.txt).
 
@@ -43,6 +44,11 @@ licensed under its own terms:
   crates/parsec/tests/tree-construction, Copyright web-platform-tests
   contributors, under the 3-Clause BSD License; see the LICENSE.md file
   in that directory.
+- test262 (https://github.com/tc39/test262), in
+  crates/parsec-js/tests/test262, and the test262 files that seed the
+  lexer's fuzzing corpus, in crates/parsec-js/fuzz/corpus, Copyright
+  Ecma International and the test262 authors, under the BSD License;
+  see the LICENSE file in each directory.
 - css-parsing-tests (https://github.com/CourtBouillon/css-parsing-tests),
   in crates/parsec-css/tests/css-parsing-tests, written by Simon Sapin
   and dedicated to the public domain under CC0 1.0; and its urange.json

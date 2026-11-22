@@ -1,0 +1,961 @@
+{
+ "type": "Program",
+ "start": 0,
+ "end": 549,
+ "body": [
+  {
+   "type": "ExpressionStatement",
+   "start": 0,
+   "end": 9,
+   "expression": {
+    "type": "Literal",
+    "start": 0,
+    "end": 8,
+    "value": "single",
+    "raw": "'single'"
+   },
+   "directive": "single"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 10,
+   "end": 19,
+   "expression": {
+    "type": "Literal",
+    "start": 10,
+    "end": 18,
+    "value": "double",
+    "raw": "\"double\""
+   },
+   "directive": "double"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 20,
+   "end": 28,
+   "expression": {
+    "type": "Literal",
+    "start": 20,
+    "end": 27,
+    "value": "it's",
+    "raw": "'it\\'s'"
+   },
+   "directive": "it\\'s"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 29,
+   "end": 36,
+   "expression": {
+    "type": "Literal",
+    "start": 29,
+    "end": 35,
+    "value": "a\"b",
+    "raw": "\"a\\\"b\""
+   },
+   "directive": "a\\\"b"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 37,
+   "end": 56,
+   "expression": {
+    "type": "Literal",
+    "start": 37,
+    "end": 55,
+    "value": "\b\f\n\r\t\u000b\u0000\\",
+    "raw": "\"\\b\\f\\n\\r\\t\\v\\0\\\\\""
+   },
+   "directive": "\\b\\f\\n\\r\\t\\v\\0\\\\"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 57,
+   "end": 80,
+   "expression": {
+    "type": "Literal",
+    "start": 57,
+    "end": 79,
+    "value": "ABC😀",
+    "raw": "\"\\x41B\\u{43}\\u{1F600}\""
+   },
+   "directive": "\\x41B\\u{43}\\u{1F600}"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 81,
+   "end": 86,
+   "expression": {
+    "type": "Literal",
+    "start": 81,
+    "end": 85,
+    "value": "😀",
+    "raw": "\"😀\""
+   },
+   "directive": "😀"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 87,
+   "end": 96,
+   "expression": {
+    "type": "Literal",
+    "start": 87,
+    "end": 95,
+    "value": "\ud800",
+    "raw": "\"\\uD800\""
+   },
+   "directive": "\\uD800"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 97,
+   "end": 107,
+   "expression": {
+    "type": "Literal",
+    "start": 97,
+    "end": 106,
+    "value": "\udc00x",
+    "raw": "\"\\uDC00x\""
+   },
+   "directive": "\\uDC00x"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 108,
+   "end": 129,
+   "expression": {
+    "type": "Literal",
+    "start": 108,
+    "end": 128,
+    "value": "linecontinuation",
+    "raw": "\"line\\\ncontinuation\""
+   },
+   "directive": "line\\\ncontinuation"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 130,
+   "end": 135,
+   "expression": {
+    "type": "Literal",
+    "start": 130,
+    "end": 134,
+    "value": "",
+    "raw": "\"\\\n\""
+   },
+   "directive": "\\\n"
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 136,
+   "end": 141,
+   "expression": {
+    "type": "Literal",
+    "start": 136,
+    "end": 140,
+    "value": "  ",
+    "raw": "\"  \""
+   },
+   "directive": "  "
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 142,
+   "end": 144,
+   "expression": {
+    "type": "Literal",
+    "start": 142,
+    "end": 143,
+    "value": 0,
+    "raw": "0"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 145,
+   "end": 147,
+   "expression": {
+    "type": "Literal",
+    "start": 145,
+    "end": 146,
+    "value": 1,
+    "raw": "1"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 148,
+   "end": 152,
+   "expression": {
+    "type": "Literal",
+    "start": 148,
+    "end": 151,
+    "value": 1.5,
+    "raw": "1.5"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 153,
+   "end": 156,
+   "expression": {
+    "type": "Literal",
+    "start": 153,
+    "end": 155,
+    "value": 0.5,
+    "raw": ".5"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 157,
+   "end": 160,
+   "expression": {
+    "type": "Literal",
+    "start": 157,
+    "end": 159,
+    "value": 5,
+    "raw": "5."
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 161,
+   "end": 165,
+   "expression": {
+    "type": "Literal",
+    "start": 161,
+    "end": 164,
+    "value": 1000,
+    "raw": "1e3"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 166,
+   "end": 171,
+   "expression": {
+    "type": "Literal",
+    "start": 166,
+    "end": 170,
+    "value": 0.001,
+    "raw": "1E-3"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 172,
+   "end": 179,
+   "expression": {
+    "type": "Literal",
+    "start": 172,
+    "end": 178,
+    "value": 1500,
+    "raw": "1.5e+3"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 180,
+   "end": 185,
+   "expression": {
+    "type": "Literal",
+    "start": 180,
+    "end": 184,
+    "value": 31,
+    "raw": "0x1F"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 186,
+   "end": 191,
+   "expression": {
+    "type": "Literal",
+    "start": 186,
+    "end": 190,
+    "value": 31,
+    "raw": "0X1f"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 192,
+   "end": 197,
+   "expression": {
+    "type": "Literal",
+    "start": 192,
+    "end": 196,
+    "value": 15,
+    "raw": "0o17"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 198,
+   "end": 203,
+   "expression": {
+    "type": "Literal",
+    "start": 198,
+    "end": 202,
+    "value": 15,
+    "raw": "0O17"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 204,
+   "end": 210,
+   "expression": {
+    "type": "Literal",
+    "start": 204,
+    "end": 209,
+    "value": 5,
+    "raw": "0b101"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 211,
+   "end": 217,
+   "expression": {
+    "type": "Literal",
+    "start": 211,
+    "end": 216,
+    "value": 5,
+    "raw": "0B101"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 218,
+   "end": 228,
+   "expression": {
+    "type": "Literal",
+    "start": 218,
+    "end": 227,
+    "value": 1000000,
+    "raw": "1_000_000"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 229,
+   "end": 235,
+   "expression": {
+    "type": "Literal",
+    "start": 229,
+    "end": 234,
+    "value": 16,
+    "raw": "0x1_0"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 236,
+   "end": 242,
+   "expression": {
+    "type": "Literal",
+    "start": 236,
+    "end": 241,
+    "value": 10000000000,
+    "raw": "1e1_0"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 243,
+   "end": 260,
+   "expression": {
+    "type": "Literal",
+    "start": 243,
+    "end": 259,
+    "value": 9007199254740992,
+    "raw": "9007199254740993"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 261,
+   "end": 266,
+   "expression": {
+    "type": "Literal",
+    "start": 261,
+    "end": 265,
+    "value": 1e+21,
+    "raw": "1e21"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 267,
+   "end": 273,
+   "expression": {
+    "type": "Literal",
+    "start": 267,
+    "end": 272,
+    "value": null,
+    "raw": "1e400"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 274,
+   "end": 283,
+   "expression": {
+    "type": "Literal",
+    "start": 274,
+    "end": 282,
+    "value": 0.000001,
+    "raw": "0.000001"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 284,
+   "end": 289,
+   "expression": {
+    "type": "Literal",
+    "start": 284,
+    "end": 288,
+    "value": 1e-7,
+    "raw": "1e-7"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 290,
+   "end": 293,
+   "expression": {
+    "type": "Literal",
+    "start": 290,
+    "end": 292,
+    "value": null,
+    "raw": "0n",
+    "bigint": "0"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 294,
+   "end": 299,
+   "expression": {
+    "type": "Literal",
+    "start": 294,
+    "end": 298,
+    "value": null,
+    "raw": "123n",
+    "bigint": "123"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 300,
+   "end": 306,
+   "expression": {
+    "type": "Literal",
+    "start": 300,
+    "end": 305,
+    "value": null,
+    "raw": "0x1Fn",
+    "bigint": "31"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 307,
+   "end": 313,
+   "expression": {
+    "type": "Literal",
+    "start": 307,
+    "end": 312,
+    "value": null,
+    "raw": "0o17n",
+    "bigint": "15"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 314,
+   "end": 321,
+   "expression": {
+    "type": "Literal",
+    "start": 314,
+    "end": 320,
+    "value": null,
+    "raw": "0b101n",
+    "bigint": "5"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 322,
+   "end": 329,
+   "expression": {
+    "type": "Literal",
+    "start": 322,
+    "end": 328,
+    "value": null,
+    "raw": "1_000n",
+    "bigint": "1000"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 330,
+   "end": 352,
+   "expression": {
+    "type": "Literal",
+    "start": 330,
+    "end": 351,
+    "value": null,
+    "raw": "18446744073709551616n",
+    "bigint": "18446744073709551616"
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 353,
+   "end": 359,
+   "expression": {
+    "type": "Literal",
+    "start": 353,
+    "end": 358,
+    "value": null,
+    "raw": "/abc/",
+    "regex": {
+     "pattern": "abc",
+     "flags": ""
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 360,
+   "end": 373,
+   "expression": {
+    "type": "Literal",
+    "start": 360,
+    "end": 372,
+    "value": null,
+    "raw": "/a\\/b/gimsuy",
+    "regex": {
+     "pattern": "a\\/b",
+     "flags": "gimsuy"
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 374,
+   "end": 380,
+   "expression": {
+    "type": "Literal",
+    "start": 374,
+    "end": 379,
+    "value": null,
+    "raw": "/[/]/",
+    "regex": {
+     "pattern": "[/]",
+     "flags": ""
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 381,
+   "end": 403,
+   "expression": {
+    "type": "Literal",
+    "start": 381,
+    "end": 402,
+    "value": null,
+    "raw": "/(?<name>x)\\k<name>/u",
+    "regex": {
+     "pattern": "(?<name>x)\\k<name>",
+     "flags": "u"
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 404,
+   "end": 409,
+   "expression": {
+    "type": "Literal",
+    "start": 404,
+    "end": 408,
+    "value": null,
+    "raw": "/x/v",
+    "regex": {
+     "pattern": "x",
+     "flags": "v"
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 410,
+   "end": 415,
+   "expression": {
+    "type": "Literal",
+    "start": 410,
+    "end": 414,
+    "value": null,
+    "raw": "/a/d",
+    "regex": {
+     "pattern": "a",
+     "flags": "d"
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 416,
+   "end": 419,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 416,
+    "end": 418,
+    "expressions": [],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 417,
+      "end": 417,
+      "value": {
+       "raw": "",
+       "cooked": ""
+      },
+      "tail": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 420,
+   "end": 428,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 420,
+    "end": 427,
+    "expressions": [],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 421,
+      "end": 426,
+      "value": {
+       "raw": "plain",
+       "cooked": "plain"
+      },
+      "tail": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 429,
+   "end": 443,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 429,
+    "end": 442,
+    "expressions": [
+     {
+      "type": "Identifier",
+      "start": 433,
+      "end": 434,
+      "name": "b"
+     },
+     {
+      "type": "Identifier",
+      "start": 438,
+      "end": 439,
+      "name": "d"
+     }
+    ],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 430,
+      "end": 431,
+      "value": {
+       "raw": "a",
+       "cooked": "a"
+      },
+      "tail": false
+     },
+     {
+      "type": "TemplateElement",
+      "start": 435,
+      "end": 436,
+      "value": {
+       "raw": "c",
+       "cooked": "c"
+      },
+      "tail": false
+     },
+     {
+      "type": "TemplateElement",
+      "start": 440,
+      "end": 441,
+      "value": {
+       "raw": "e",
+       "cooked": "e"
+      },
+      "tail": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 444,
+   "end": 456,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 444,
+    "end": 455,
+    "expressions": [],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 445,
+      "end": 454,
+      "value": {
+       "raw": "\\nA\\x41\\`",
+       "cooked": "\nAA`"
+      },
+      "tail": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 457,
+   "end": 470,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 457,
+    "end": 469,
+    "expressions": [],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 458,
+      "end": 468,
+      "value": {
+       "raw": "line\nbreak",
+       "cooked": "line\nbreak"
+      },
+      "tail": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 471,
+   "end": 482,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 471,
+    "end": 481,
+    "expressions": [
+     {
+      "type": "Identifier",
+      "start": 474,
+      "end": 475,
+      "name": "a"
+     },
+     {
+      "type": "Identifier",
+      "start": 478,
+      "end": 479,
+      "name": "b"
+     }
+    ],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 472,
+      "end": 472,
+      "value": {
+       "raw": "",
+       "cooked": ""
+      },
+      "tail": false
+     },
+     {
+      "type": "TemplateElement",
+      "start": 476,
+      "end": 476,
+      "value": {
+       "raw": "",
+       "cooked": ""
+      },
+      "tail": false
+     },
+     {
+      "type": "TemplateElement",
+      "start": 480,
+      "end": 480,
+      "value": {
+       "raw": "",
+       "cooked": ""
+      },
+      "tail": true
+     }
+    ]
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 483,
+   "end": 508,
+   "expression": {
+    "type": "TaggedTemplateExpression",
+    "start": 483,
+    "end": 507,
+    "tag": {
+     "type": "Identifier",
+     "start": 483,
+     "end": 486,
+     "name": "tag"
+    },
+    "quasi": {
+     "type": "TemplateLiteral",
+     "start": 486,
+     "end": 507,
+     "expressions": [],
+     "quasis": [
+      {
+       "type": "TemplateElement",
+       "start": 487,
+       "end": 506,
+       "value": {
+        "raw": "\\unicode and \\u{55}",
+        "cooked": null
+       },
+       "tail": true
+      }
+     ]
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 509,
+   "end": 518,
+   "expression": {
+    "type": "TaggedTemplateExpression",
+    "start": 509,
+    "end": 517,
+    "tag": {
+     "type": "Identifier",
+     "start": 509,
+     "end": 512,
+     "name": "tag"
+    },
+    "quasi": {
+     "type": "TemplateLiteral",
+     "start": 512,
+     "end": 517,
+     "expressions": [],
+     "quasis": [
+      {
+       "type": "TemplateElement",
+       "start": 513,
+       "end": 516,
+       "value": {
+        "raw": "\\01",
+        "cooked": null
+       },
+       "tail": true
+      }
+     ]
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 519,
+   "end": 542,
+   "expression": {
+    "type": "TaggedTemplateExpression",
+    "start": 519,
+    "end": 541,
+    "tag": {
+     "type": "Identifier",
+     "start": 519,
+     "end": 522,
+     "name": "tag"
+    },
+    "quasi": {
+     "type": "TemplateLiteral",
+     "start": 522,
+     "end": 541,
+     "expressions": [
+      {
+       "type": "Identifier",
+       "start": 528,
+       "end": 529,
+       "name": "a"
+      }
+     ],
+     "quasis": [
+      {
+       "type": "TemplateElement",
+       "start": 523,
+       "end": 526,
+       "value": {
+        "raw": "\\xg",
+        "cooked": null
+       },
+       "tail": false
+      },
+      {
+       "type": "TemplateElement",
+       "start": 530,
+       "end": 540,
+       "value": {
+        "raw": "\\u{110000}",
+        "cooked": null
+       },
+       "tail": true
+      }
+     ]
+    }
+   }
+  },
+  {
+   "type": "ExpressionStatement",
+   "start": 543,
+   "end": 548,
+   "expression": {
+    "type": "TemplateLiteral",
+    "start": 543,
+    "end": 547,
+    "expressions": [],
+    "quasis": [
+     {
+      "type": "TemplateElement",
+      "start": 544,
+      "end": 546,
+      "value": {
+       "raw": "\\\n",
+       "cooked": ""
+      },
+      "tail": true
+     }
+    ]
+   }
+  }
+ ],
+ "sourceType": "script"
+}
