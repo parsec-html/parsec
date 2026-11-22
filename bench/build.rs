@@ -2,9 +2,10 @@
 // Copyright 2026 James Conway
 
 //! Builds Lexbor from the submodule at bench/lexbor (with src/lexbor_css.c,
-//! the CSS benchmark's calls into it) and Ada from the one at
-//! bench/ada, each pinned to a release tag: Lexbor with its own default
-//! optimisation, Ada at -O3 as its CMake release build does.
+//! the CSS benchmark's calls into it), Ada from the one at bench/ada and
+//! libxml2 from the one at bench/libxml2, each pinned to a release tag:
+//! Lexbor with its own default optimisation, Ada at -O3 as its CMake
+//! release build does, libxml2 as its CMake release build does.
 
 use std::path::Path;
 
@@ -53,6 +54,36 @@ fn main() {
     println!("cargo:rerun-if-changed=src/ada.cpp");
     println!("cargo:rerun-if-changed=ada/include/ada/ada_version.h");
 
+    // libxml2, without what the benchmark doesn't use: no iconv, zlib,
+    // ICU or Python, no programs or tests.
+    let libxml2 = Path::new("libxml2");
+    if !libxml2.join("CMakeLists.txt").exists() {
+        panic!("bench/libxml2 is empty: run `git submodule update --init bench/libxml2`");
+    }
+    let out = cmake::Config::new(libxml2)
+        .define("BUILD_SHARED_LIBS", "OFF")
+        .define("LIBXML2_WITH_ICONV", "OFF")
+        .define("LIBXML2_WITH_ICU", "OFF")
+        .define("LIBXML2_WITH_LZMA", "OFF")
+        .define("LIBXML2_WITH_ZLIB", "OFF")
+        .define("LIBXML2_WITH_PYTHON", "OFF")
+        .define("LIBXML2_WITH_PROGRAMS", "OFF")
+        .define("LIBXML2_WITH_TESTS", "OFF")
+        .define("LIBXML2_WITH_MODULES", "OFF")
+        .define("LIBXML2_WITH_DOCS", "OFF")
+        .profile("Release")
+        .build();
+    println!("cargo:rustc-link-search=native={}/lib", out.display());
+    if cfg!(windows) {
+        println!("cargo:rustc-link-lib=static=libxml2s");
+    } else {
+        println!("cargo:rustc-link-lib=static=xml2");
+        println!("cargo:rustc-link-lib=m");
+    }
+    println!("cargo:rerun-if-changed=libxml2/VERSION");
+    let libxml2_version = std::fs::read_to_string(libxml2.join("VERSION")).unwrap_or_default();
+    println!("cargo:rustc-env=LIBXML2_VERSION={}", libxml2_version.trim());
+
     // Versions for the report's first line.
     let version = std::fs::read_to_string(src.join("version")).unwrap_or_default();
     let lexbor = version.trim().trim_start_matches("LEXBOR_VERSION=");
@@ -70,6 +101,17 @@ fn main() {
         .and_then(|p| p.lines().find_map(|l| l.strip_prefix("version = ")))
         .map_or("?", |v| v.trim_matches('"'));
     println!("cargo:rustc-env=HTML5EVER_VERSION={html5ever}");
+    for (name, var) in [
+        ("roxmltree", "ROXMLTREE_VERSION"),
+        ("quick-xml", "QUICK_XML_VERSION"),
+    ] {
+        let version = lock
+            .split("[[package]]")
+            .find(|p| p.contains(&format!("name = \"{name}\"")))
+            .and_then(|p| p.lines().find_map(|l| l.strip_prefix("version = ")))
+            .map_or("?", |v| v.trim_matches('"'));
+        println!("cargo:rustc-env={var}={version}");
+    }
     let commit = std::process::Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()

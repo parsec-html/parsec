@@ -1,0 +1,20 @@
+# name, source, address, SHA-256: the XML benchmark's documents.
+#
+# A source of 14 digits is an Internet Archive timestamp, fetched raw (the
+# `id_` form) so every run gets the same bytes; `-` is a pinned address
+# fetched as it is; `npm` is a package tarball whose svg/ files are the
+# document set; `bz2-slice:N` is the first N bytes of a bzip2 dump,
+# decompressed as far as they go and cut after the last whole </page>.
+# The SHA-256 is of the document as parsed, or of the tarball for `npm`.
+sitemap-mdn 20261012191133 https://developer.mozilla.org/sitemaps/en-us/sitemap.xml.gz d98e2a73375e77e0ed8a7b8c3f01fa488e1401b9fe07a9b6af0b4dd774c00021
+sitemap-nytimes-news 20260501001247 https://www.nytimes.com/sitemaps/new/news.xml.gz 9f2b4c1b7af2e27b369bf5824861a33fd116c554402f919956cf1d1d50d7725c
+rss-bbc-news 20261102202209 https://feeds.bbci.co.uk/news/rss.xml 6fafc6b75c8c1547acc49de7a80222d8cf30e2054ecdcabd02e8484332bfb58c
+rss-hacker-news 20261029083006 https://hnrss.org/frontpage 74f527dc37d499bcdee571e815505f3c90304b9d5352662b91ec8b280d139aae
+atom-rust-blog 20261031050301 https://blog.rust-lang.org/feed.xml 06238c6f7edaf34a97b124c4f731d3bf1d33ab0d73a633d9b6b2537a8a828f95
+atom-rust-releases 20260928172132 https://github.com/rust-lang/rust/releases.atom 4d96ff11800bc96f31fd7c13852a231c28e567b930e018798f69e9bc545e43d3
+atom-reddit-programming 20260507234853 https://www.reddit.com/r/programming/.rss afcd9df1fe15d00b87dc3aae20dafb42e09acfbb588acb1a6b97e374678e9afa
+svg-world-map 20260911083330 https://upload.wikimedia.org/wikipedia/commons/4/4d/BlankMap-World.svg 88ae6cbcbe054c00455d16899724b348a102f49ff059bf7027c94e63b040e3e7
+svg-bootstrap-icons - https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/bootstrap-icons.svg b000f622cba471181e4aa9b83e4ea38a069d0e0674cdc817148b21ef3dcd704b
+svg-mdi-icons npm https://registry.npmjs.org/@mdi/svg/-/svg-7.4.47.tgz de92e5dc9ce46c392ab5c53aa7190b19f82b40cb48872a083f788c7e13e91fef
+xml-spec 20261024022204 https://www.w3.org/TR/xml/REC-xml-20081126.xml 9f54011039f9a0e5f5629f4312c1e106ebe897707759a1d9ddee9dacf2fcc17a
+wikipedia-dump bz2-slice:25165824 https://dumps.wikimedia.org/enwiki/20261101/enwiki-20261101-pages-articles1.xml-p1p41242.bz2 a4125ca5370b5e57466e5b0f797be15217256c80ef8beba1fd6af0e22e2d3bb8

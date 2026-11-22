@@ -49,6 +49,9 @@ minor release can break the API and a patch release won't.
   - The W3C XML Conformance Test Suite runs in `cargo test`
     ([#170](https://github.com/parsec-html/parsec/issues/170)): 1,915
     cases pass and none fail, and every skipped case says why.
+  - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
+    on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
+    ([#172](https://github.com/parsec-html/parsec/issues/172)).
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).
