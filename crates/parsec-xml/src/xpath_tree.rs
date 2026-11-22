@@ -5,7 +5,61 @@
 
 use parsec_xpath::{Attr, NodeId as Id, NodeType, TagKey, Tree};
 
-use crate::tree::{Data, Document, NS_XMLNS, NodeId};
+use crate::tree::{AttrData, Data, Document, NS_XMLNS, NodeId};
+
+/// The elements that declare namespaces, and where their other attributes
+/// are, so XPath reads an attribute by place in constant time on them too.
+/// Few elements declare namespaces, so this is small: built once, on the
+/// first query that reads an attribute, in one pass over the attributes.
+#[derive(Debug, Default)]
+pub(crate) struct Declared {
+    /// Node ids, ascending.
+    elements: Vec<u32>,
+    /// Where each element's run of `positions` starts, and one past the
+    /// last element's.
+    starts: Vec<u32>,
+    /// Indexes into `Document::attrs`.
+    positions: Vec<u32>,
+    /// The elements with an `xml:lang`, ascending, and its index into
+    /// `Document::attrs`: `lang()` reads it from an attribute's owner, so
+    /// a scan of the owner's attributes would make `@*[lang('en')]`
+    /// quadratic on one wide element.
+    langs: Vec<(u32, u32)>,
+}
+
+impl Declared {
+    fn build(doc: &Document) -> Declared {
+        let mut d = Declared::default();
+        let xml_lang = doc.names.get("xml:lang");
+        for (n, node) in doc.nodes.iter().enumerate() {
+            let Data::Element {
+                attrs, attrs_len, ..
+            } = node.data
+            else {
+                continue;
+            };
+            let range = attrs..attrs + attrs_len;
+            let own = &doc.attrs[range.start as usize..range.end as usize];
+            if let Some(at) = own.iter().position(|a| Some(a.name) == xml_lang) {
+                d.langs.push((n as u32, attrs + at as u32));
+            }
+            if !own.iter().any(|a| a.ns == NS_XMLNS) {
+                continue;
+            }
+            d.elements.push(n as u32);
+            d.starts.push(d.positions.len() as u32);
+            d.positions
+                .extend(range.filter(|&i| doc.attrs[i as usize].ns != NS_XMLNS));
+        }
+        d.starts.push(d.positions.len() as u32);
+        d
+    }
+}
+
+enum Attrs<'d> {
+    Run(std::ops::Range<usize>),
+    Picked(&'d [u32]),
+}
 
 impl Document {
     fn element(&self, n: Id) -> Option<(u32, u32)> {
@@ -15,14 +69,44 @@ impl Document {
         }
     }
 
-    /// The attributes XPath sees: the element's, namespace declarations
-    /// left out.
-    // shortcut: finding the ith skips declarations one by one, which is
-    // linear in the element's attributes; index them if elements with
-    // hundreds of attributes show in profiles.
-    fn xpath_attributes(&self, n: Id) -> impl Iterator<Item = crate::Attribute<'_>> + '_ {
-        self.attributes(NodeId(n))
-            .filter(|a| !a.is_namespace_declaration())
+    fn declared(&self) -> &Declared {
+        self.xpath_attrs.get_or_init(|| Declared::build(self))
+    }
+
+    /// The element's attributes as a range of `self.attrs`.
+    fn attr_range(&self, n: Id) -> std::ops::Range<usize> {
+        match self.nodes[n as usize].data {
+            Data::Element {
+                attrs, attrs_len, ..
+            } => attrs as usize..(attrs + attrs_len) as usize,
+            _ => 0..0,
+        }
+    }
+
+    /// Where in `self.attrs` the element's attributes are, as XPath sees
+    /// them: its own run of them, or, on an element that declares
+    /// namespaces, the declarations left out.
+    fn xpath_attrs(&self, n: Id) -> Attrs<'_> {
+        let range = self.attr_range(n);
+        if !self.namespaces || range.is_empty() {
+            return Attrs::Run(range);
+        }
+        let declared = self.declared();
+        match declared.elements.binary_search(&n) {
+            Ok(k) => {
+                let (a, b) = (declared.starts[k], declared.starts[k + 1]);
+                Attrs::Picked(&declared.positions[a as usize..b as usize])
+            }
+            Err(_) => Attrs::Run(range),
+        }
+    }
+
+    fn xpath_attr(&self, n: Id, i: u32) -> Option<&AttrData> {
+        let at = match self.xpath_attrs(n) {
+            Attrs::Run(r) => r.start.checked_add(i as usize).filter(|&at| at < r.end)?,
+            Attrs::Picked(p) => *p.get(i as usize)? as usize,
+        };
+        Some(&self.attrs[at])
     }
 
     /// `n`, or the sibling `step` gives if `n` is the doctype: XPath's
@@ -98,23 +182,20 @@ impl Tree for Document {
     }
 
     fn attribute_count(&self, n: Id) -> u32 {
-        match self.nodes[n as usize].data {
-            Data::Element {
-                attrs, attrs_len, ..
-            } => {
-                let all = &self.attrs[attrs as usize..(attrs + attrs_len) as usize];
-                all.iter().filter(|a| a.ns != NS_XMLNS).count() as u32
-            }
-            _ => 0,
+        match self.xpath_attrs(n) {
+            Attrs::Run(r) => r.len() as u32,
+            Attrs::Picked(p) => p.len() as u32,
         }
     }
 
     fn attribute(&self, n: Id, i: u32) -> Option<Attr<'_>> {
-        self.xpath_attributes(n).nth(i as usize).map(|a| Attr {
-            qualified_name: a.name.qname,
-            local_name: a.name.local,
-            namespace_uri: a.name.namespace,
-            value: a.value,
+        let a = self.xpath_attr(n, i)?;
+        let q = self.names.qname_info(a.name);
+        Some(Attr {
+            qualified_name: &q.qname,
+            local_name: self.names.local(a.name),
+            namespace_uri: self.names.uri_str(a.ns),
+            value: self.str(a.value),
         })
     }
 
@@ -144,13 +225,7 @@ impl Tree for Document {
             return Some(v);
         }
         let declared = *self.id_attrs.get(&name)?;
-        let Data::Element {
-            attrs, attrs_len, ..
-        } = self.nodes[n as usize].data
-        else {
-            return None;
-        };
-        self.attrs[attrs as usize..(attrs + attrs_len) as usize]
+        self.attrs[self.attr_range(n)]
             .iter()
             .find(|a| a.name == declared)
             .map(|a| self.str(a.value))
@@ -158,6 +233,8 @@ impl Tree for Document {
 
     fn lang(&self, n: Id) -> Option<&str> {
         self.element(n)?;
-        self.attribute_named(NodeId(n), "xml:lang")
+        let langs = &self.declared().langs;
+        let k = langs.binary_search_by_key(&n, |&(e, _)| e).ok()?;
+        Some(self.str(self.attrs[langs[k].1 as usize].value))
     }
 }

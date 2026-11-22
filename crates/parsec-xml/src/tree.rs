@@ -367,6 +367,9 @@ pub struct Document {
     /// The attribute the internal subset declares as an ID for each
     /// element, both by qualified name id.
     pub(crate) id_attrs: HashMap<u32, u32>,
+    /// For XPath, built on first use: see `xpath_tree.rs`.
+    #[cfg(feature = "xpath")]
+    pub(crate) xpath_attrs: std::sync::OnceLock<crate::xpath_tree::Declared>,
     pub(crate) warnings: Vec<Diagnostic>,
     pub(crate) namespaces: bool,
 }
@@ -393,6 +396,8 @@ impl Document {
             entities: Vec::new(),
             notations: Vec::new(),
             id_attrs: HashMap::new(),
+            #[cfg(feature = "xpath")]
+            xpath_attrs: std::sync::OnceLock::new(),
             warnings: Vec::new(),
             namespaces,
         }

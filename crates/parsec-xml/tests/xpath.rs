@@ -169,3 +169,69 @@ fn without_namespaces_names_are_as_written() {
     assert_eq!(string(&doc, "namespace-uri(/*)"), "");
     assert_eq!(count(&doc, "/*/@*"), 2.0);
 }
+
+/// How long `f` takes, the best of three.
+fn time(f: impl Fn()) -> std::time::Duration {
+    (0..3)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            f();
+            t.elapsed()
+        })
+        .min()
+        .unwrap()
+}
+
+#[test]
+fn many_declarations_and_prefixed_attributes_stay_linear() {
+    // One element with n attributes. With declarations, every hundredth
+    // is an `xmlns:pN`, and the one after it uses that prefix, so the
+    // attributes XPath sees aren't the element's own run of them. Each
+    // query reads every attribute, and `lang()` its owner's `xml:lang`.
+    for declarations in [false, true] {
+        let make = |n: usize| {
+            let attrs: String = (0..n)
+                .map(|i| match i % 100 {
+                    50 if declarations => format!(" xmlns:p{i}='urn:{i}'"),
+                    51 if declarations => format!(" p{}:k{i}='{i}'", i - 1),
+                    _ => format!(" k{i}='{i}'"),
+                })
+                .collect();
+            parsec_xml::parse(&format!("<a xml:lang='en'{attrs}/>")).unwrap()
+        };
+        let (small, big) = (make(20_000), make(200_000));
+        let queries = |doc: &Document, n: usize| {
+            let index = Index::build(doc, &[0]);
+            // Less any declarations, and with xml:lang.
+            let want = n - if declarations { n / 100 } else { 0 } + 1;
+            for (expr, expect) in [
+                ("count(/a/@*)".to_string(), want as f64),
+                ("count(/a/@*[local-name()='k0'])".to_string(), 1.0),
+                ("count(/a/@*[lang('en')])".to_string(), want as f64),
+                (format!("count(/a/@k{})", n - 1), 1.0),
+            ] {
+                let got = XPath::new(&expr).unwrap().evaluate(
+                    Doc::new(doc, &index),
+                    0,
+                    &[],
+                    &[],
+                    &NoExtensions,
+                );
+                assert!(
+                    matches!(got, Ok(Value::Num(v)) if v == expect),
+                    "{expr}: {got:?}"
+                );
+            }
+        };
+        let ts = time(|| queries(&small, 20_000));
+        let tb = time(|| queries(&big, 200_000));
+        let ratio = tb.as_secs_f64() / ts.as_secs_f64().max(1e-6);
+        eprintln!(
+            "one wide element, declarations {declarations}: 20,000 attributes {ts:?}, 200,000 {tb:?}, {ratio:.1}x"
+        );
+        assert!(
+            ratio < 20.0,
+            "declarations {declarations}: 10x the attributes took {ratio:.1}x the time ({ts:?}, {tb:?})"
+        );
+    }
+}
