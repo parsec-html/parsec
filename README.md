@@ -503,7 +503,7 @@ assert_eq!(parsed.encoding.name(), "Shift_JIS");
 assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 ```
 
-**Python** 3.9 or newer, free-threaded too; then `import parsec_html`:
+**Python** 3.10 or newer, free-threaded too; then `import parsec_html`:
 
 ```sh
 pip install parsec-html

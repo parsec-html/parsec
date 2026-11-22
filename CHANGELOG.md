@@ -108,6 +108,12 @@ minor release can break the API and a patch release won't.
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
 
+### Changed (breaking)
+
+- The Python wheels need Python 3.10 or newer: 3.9 reached end of life
+  in October 2025, and its CI jobs kept a pytest with a known
+  vulnerability ([#220](https://github.com/parsec-html/parsec/issues/220)).
+
 ### Changed
 
 - `parsec-xpath` reads trees through a `Tree` trait, so XPath can run
