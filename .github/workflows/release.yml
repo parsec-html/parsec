@@ -146,7 +146,7 @@ jobs:
               "https://crates.io/api/v1/crates/$1/$version") || return 1
             jq -er .version.checksum <<< "$json"
           }
-          for crate in parsec-html-core parsec-html-encoding parsec-url parsec-xpath parsec-html-css parsec-html; do
+          for crate in parsec-base parsec-js parsec-html-core parsec-html-encoding parsec-url parsec-xpath parsec-html-css parsec-html; do
             want=$(sha256sum "$RUNNER_TEMP/dist/$crate-$version.crate" | cut -d' ' -f1)
             if have=$(checksum "$crate"); then
               echo "$crate $version is on crates.io already"
