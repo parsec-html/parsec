@@ -282,6 +282,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-xml"
+version = "0.2.0"
+dependencies = [
+ "encoding_rs",
+ "parsec-base",
+]
+
+[[package]]
 name = "parsec-xpath"
 version = "0.2.0"
 dependencies = [

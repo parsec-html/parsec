@@ -17,3 +17,7 @@ __pycache__/
 /bindings/wasm/target
 /bindings/node/target
 /bindings/node/out
+/crates/parsec-xml/fuzz/target
+/crates/parsec-xml/fuzz/corpus
+/crates/parsec-xml/fuzz/artifacts
+/crates/parsec-xml/fuzz/Cargo.lock
