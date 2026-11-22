@@ -3,7 +3,8 @@
 
 //! The tree as ESTree JSON, in the shape acorn gives for ECMAScript
 //! 2025: the same node types and fields, `start` and `end` as offsets in
-//! UTF-16 code units, and `loc` if asked for.
+//! UTF-16 code units (or characters or bytes, if asked for), and `loc` if
+//! asked for.
 //!
 //! Values JSON has no form for are `null`, as acorn's are after
 //! `JSON.stringify`: a BigInt's (its digits are in `bigint`), a regular
@@ -28,6 +29,21 @@ pub struct EstreeOptions {
     /// A `loc` on every node, with lines from 1 and columns from 0 in
     /// UTF-16 code units, as acorn's `locations` option gives.
     pub loc: bool,
+    /// What `start` and `end` count.
+    pub offsets: Offsets,
+}
+
+/// What the `start` and `end` offsets in [`Ast::to_estree_with`]'s JSON
+/// count from the start of the source.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Offsets {
+    /// UTF-16 code units, as acorn gives and a JavaScript string indexes.
+    #[default]
+    Utf16,
+    /// Characters (Unicode scalar values), as a Python `str` indexes.
+    Chars,
+    /// UTF-8 bytes, as the source `&str` indexes.
+    Bytes,
 }
 
 enum Task {
@@ -40,8 +56,10 @@ enum Task {
 struct Writer<'a> {
     ast: &'a Ast,
     src: &'a str,
-    /// `None` when the source is ASCII, and byte offsets are UTF-16 ones.
+    /// `None` when the offsets are bytes, or the source is ASCII and
+    /// every unit is a byte.
     lines: Option<LineIndex<'a>>,
+    offsets: Offsets,
     loc: Option<LineIndex<'a>>,
     out: String,
     stack: Vec<Task>,
@@ -65,7 +83,9 @@ impl Ast {
         let mut w = Writer {
             ast: self,
             src,
-            lines: (!src.is_ascii()).then(|| LineIndex::ecmascript(src)),
+            lines: (options.offsets != Offsets::Bytes && !src.is_ascii())
+                .then(|| LineIndex::ecmascript(src)),
+            offsets: options.offsets,
             loc: options.loc.then(|| LineIndex::ecmascript(src)),
             out: String::with_capacity(src.len() * 8),
             stack: vec![Task::Node(self.root())],
@@ -100,6 +120,7 @@ impl<'a> Writer<'a> {
     fn offset(&self, at: u32) -> u32 {
         match &self.lines {
             None => at,
+            Some(lines) if self.offsets == Offsets::Chars => lines.char_offset(at),
             Some(lines) => lines.utf16_offset(at),
         }
     }

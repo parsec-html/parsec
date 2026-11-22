@@ -96,7 +96,7 @@ mod unicode;
 
 pub use ast::{Ast, Comment, CommentKind, List, Node, NodeId};
 pub use early::{early_errors, early_errors_in};
-pub use estree::EstreeOptions;
+pub use estree::{EstreeOptions, Offsets};
 pub use lexer::{Goal, Lexer, SourceType};
 pub use parsec_base::{Diagnostic, Label, Limits, LineIndex, RenderOptions, Severity, Span};
 pub use parser::{DEFAULT_MAX_DEPTH, Options, parse, parse_recovering, parse_script};
