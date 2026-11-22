@@ -292,5 +292,6 @@ jobs:
           # shellcheck disable=SC2046 # pkg-config's flags are words
           clang -std=c99 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer \
             -DHTML5LIB_ENCODING='"crates/parsec/tests/html5lib-tests/encoding"' \
+            -DJS_PAGES='"crates/parsec-js/tests/pages"' \
             crates/parsec-capi/tests/capi.c $(pkg-config --cflags --libs parsec) -o "$RUNNER_TEMP/capi"
           "$RUNNER_TEMP/capi"

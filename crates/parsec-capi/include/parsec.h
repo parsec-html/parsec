@@ -2,7 +2,8 @@
  * Copyright 2026 James Conway
  *
  * Parsec's C API: an HTML parser that follows the WHATWG HTML Standard,
- * with CSS selectors, editing and serialization.
+ * with CSS selectors, editing and serialization, and a JavaScript parser
+ * that gives ESTree JSON.
  *
  * Generated from crates/parsec-capi/src/lib.rs by cbindgen; don't edit it.
  * The wiki's C-API page has a guide and examples.
@@ -11,7 +12,7 @@
  *
  * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath,
  *   parsec_xpath_result or parsec_byte_parser is made by one function and
- *   freed by one, and NULL is accepted everywhere: a call given NULL
+ *   freed by one (a parsec_js_error too, though its fields can be read), and NULL is accepted everywhere: a call given NULL
  *   fails with PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or
  *   false, and the free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
@@ -23,7 +24,8 @@
  *   UTF-8 become U+FFFD, though spans and error offsets still count the
  *   bytes you passed. The exception is a page given to
  *   parsec_parse_bytes or a parsec_byte_parser, which is decoded as a
- *   browser decodes it, in whatever encoding it's in.
+ *   browser decodes it, in whatever encoding it's in, and JavaScript
+ *   given to a parsec_js_ function, which must be UTF-8.
  * - Strings out come two ways. Borrowed ones (const char *, from
  *   parsec_node_name, parsec_node_value, parsec_attr_get and the like)
  *   point into the document, are *len bytes long with no NUL after them,
@@ -93,6 +95,9 @@
 
 #define PARSEC_NODE_FRAGMENT 11
 
+// Parse a module, with `import` and `export`, rather than a script.
+#define PARSEC_JS_MODULE 1
+
 // A parse of bytes as they arrive. Made by `parsec_byte_parser_new`,
 // freed by `parsec_byte_parser_free`.
 typedef struct parsec_byte_parser parsec_byte_parser;
@@ -149,6 +154,43 @@ typedef struct {
 // What `parsec_xpath_result_type` returns; 0 is a NULL result.
 typedef uint32_t parsec_xpath_type;
 
+// How `parsec_js_parse` parses. NULL in its place is all zeros.
+typedef struct {
+  // 0, or `PARSEC_JS_MODULE`.
+  uint32_t flags;
+  // How deep the tree may nest, at most 256; 0 is 256. Deeper fails
+  // with `PARSEC_ERR_JS` and the code `too-deep`.
+  uint32_t max_depth;
+  // The most tokens to read before giving up with
+  // `PARSEC_ERR_TIMEOUT`; 0 is no limit.
+  uint64_t max_steps;
+} parsec_js_options;
+
+// Why JavaScript didn't parse, and where. Made by `parsec_js_parse` and
+// `parsec_js_page_state`, freed by `parsec_js_error_free`, which frees
+// its strings too.
+typedef struct {
+  // Its stable name, `code_len` bytes with no NUL after them, static:
+  // `unexpected-token`, `too-deep`, `step-budget` and the rest, as the
+  // wiki's JavaScript page lists them.
+  const char *code;
+  size_t code_len;
+  // A sentence saying what's wrong, NUL-terminated.
+  char *message;
+  size_t message_len;
+  // Byte offsets into the source.
+  size_t start;
+  size_t end;
+  // From 1.
+  size_t line;
+  // From 1, in characters.
+  size_t column;
+  // The lines it's on, with carets under the place, as a compiler
+  // prints it; NUL-terminated.
+  char *frame;
+  size_t frame_len;
+} parsec_js_error;
+
 // No node: what navigation returns at the end of a list, and what you pass
 // to `parsec_insert_before` to insert last.
 #define PARSEC_NO_NODE UINT32_MAX
@@ -162,12 +204,14 @@ typedef uint32_t parsec_xpath_type;
 // over `PTRDIFF_MAX`.
 #define PARSEC_ERR_INVALID 2
 
-// The input is over the 512 MiB a document can hold.
+// The input is over the 512 MiB a document can hold, or JavaScript over
+// the 4 GiB a source can be.
 #define PARSEC_ERR_TOO_LARGE 3
 
-// The parse ran past the budget given to `parsec_parse_with`, or a match
+// The parse ran past the budget given to `parsec_parse_with`, a match
 // past the step limit or budget given to `parsec_select_with` or
-// `parsec_matches_with`.
+// `parsec_matches_with`, or JavaScript past the `max_steps` given to
+// `parsec_js_parse`.
 #define PARSEC_ERR_TIMEOUT 4
 
 // The selector doesn't parse, or uses something Parsec doesn't support.
@@ -210,6 +254,10 @@ typedef uint32_t parsec_xpath_type;
 
 // The document can't be changed from inside a `parsec_select` callback.
 #define PARSEC_ERR_BUSY 15
+
+// The JavaScript doesn't parse, or nests deeper than its `max_depth`:
+// the `parsec_js_error` says where.
+#define PARSEC_ERR_JS 16
 
 // A node-set: `parsec_xpath_result_count` items, in document order.
 #define PARSEC_XPATH_NODES 1
@@ -669,6 +717,52 @@ double parsec_xpath_result_number(const parsec_xpath_result *result);
 
 // A boolean result; false for any other result.
 bool parsec_xpath_result_boolean(const parsec_xpath_result *result);
+
+// Parses `len` bytes of UTF-8 as JavaScript, a script or, with
+// `PARSEC_JS_MODULE`, a module, and puts its ESTree in `*out`: JSON in
+// the shape acorn gives, `start` and `end` as byte offsets into the
+// source. `*out_len` (if not NULL) is its length; free it with
+// `parsec_string_free`. `opts` may be NULL.
+//
+// Fails with `PARSEC_ERR_JS` for a syntax error or nesting past
+// `max_depth`, `PARSEC_ERR_TIMEOUT` past `max_steps`, and
+// `PARSEC_ERR_TOO_LARGE` over 4 GiB; each puts a `parsec_js_error` in
+// `*err`, if `err` isn't NULL, to free with `parsec_js_error_free`.
+// Source that isn't UTF-8, or a `max_depth` over 256 (deeper needs more
+// stack than a thread is sure to have), fails with `PARSEC_ERR_INVALID`.
+// On any error `*out` is NULL, and `*err` is NULL unless set as above.
+parsec_status parsec_js_parse(const char *src,
+                              size_t len,
+                              const parsec_js_options *opts,
+                              char **out,
+                              size_t *out_len,
+                              parsec_js_error **err);
+
+// Reads the state a page keeps in a script (`window.__NUXT__ = …`, a
+// top-level `var`, `JSON.parse("…")`, Next.js's `self.__next_f.push`)
+// from `len` bytes of UTF-8, the text of one `<script>`, without running
+// anything. `*out` is a JSON array in source order of
+// `{"name": …, "value": …}`, or `{"name": …, "error": {"code": …,
+// "source": …}}` for a value that isn't data; free it with
+// `parsec_string_free`.
+//
+// Fails as `parsec_js_parse` does, with `*err` set the same way.
+parsec_status parsec_js_page_state(const char *src,
+                                   size_t len,
+                                   char **out,
+                                   size_t *out_len,
+                                   parsec_js_error **err);
+
+// `parsec_js_page_state` of each inline script in `doc` a browser would
+// run, in document order, in one JSON array in `*out`; free it with
+// `parsec_string_free`. A script with `src`, one that isn't JavaScript
+// (`type="application/json"`), one inside a `<template>`, and one that
+// doesn't parse are passed over.
+parsec_status parsec_js_document_state(const parsec_document *doc, char **out, size_t *out_len);
+
+// Frees a `parsec_js_error` and its strings. NULL is fine and does
+// nothing.
+void parsec_js_error_free(parsec_js_error *err);
 
 #ifdef __cplusplus
 }  // extern "C"

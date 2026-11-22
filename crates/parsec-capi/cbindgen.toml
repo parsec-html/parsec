@@ -23,7 +23,8 @@ header = """
  * Copyright 2026 James Conway
  *
  * Parsec's C API: an HTML parser that follows the WHATWG HTML Standard,
- * with CSS selectors, editing and serialization.
+ * with CSS selectors, editing and serialization, and a JavaScript parser
+ * that gives ESTree JSON.
  *
  * Generated from crates/parsec-capi/src/lib.rs by cbindgen; don't edit it.
  * The wiki's C-API page has a guide and examples.
@@ -32,7 +33,7 @@ header = """
  *
  * - Handles are opaque. A parsec_document, parsec_selector, parsec_xpath,
  *   parsec_xpath_result or parsec_byte_parser is made by one function and
- *   freed by one, and NULL is accepted everywhere: a call given NULL
+ *   freed by one (a parsec_js_error too, though its fields can be read), and NULL is accepted everywhere: a call given NULL
  *   fails with PARSEC_ERR_NULL, or returns NULL, PARSEC_NO_NODE, 0 or
  *   false, and the free functions do nothing.
  * - Nodes are numbers. A parsec_node is valid for as long as its document
@@ -44,7 +45,8 @@ header = """
  *   UTF-8 become U+FFFD, though spans and error offsets still count the
  *   bytes you passed. The exception is a page given to
  *   parsec_parse_bytes or a parsec_byte_parser, which is decoded as a
- *   browser decodes it, in whatever encoding it's in.
+ *   browser decodes it, in whatever encoding it's in, and JavaScript
+ *   given to a parsec_js_ function, which must be UTF-8.
  * - Strings out come two ways. Borrowed ones (const char *, from
  *   parsec_node_name, parsec_node_value, parsec_attr_get and the like)
  *   point into the document, are *len bytes long with no NUL after them,

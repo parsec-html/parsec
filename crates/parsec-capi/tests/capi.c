@@ -2,9 +2,10 @@
  * Copyright 2026 James Conway
  *
  * The C API from C: parse, select, read, edit, serialize, bytes in any
- * encoding, and every error path a binding could hit. Built with
- * HTML5LIB_ENCODING defined as the html5lib-tests encoding/ folder, it
- * runs those cases too. Built and run by tests/c.rs, by CI on Linux, macOS and Windows
+ * encoding, JavaScript, and every error path a binding could hit. Built
+ * with HTML5LIB_ENCODING defined as the html5lib-tests encoding/ folder,
+ * it runs those cases too, and with JS_PAGES defined as
+ * crates/parsec-js/tests/pages, page state from those pages. Built and run by tests/c.rs, by CI on Linux, macOS and Windows
  * through CMake, and on Linux under AddressSanitizer, LeakSanitizer and
  * UndefinedBehaviorSanitizer. Exits 0 when every check passes; the first
  * failure prints its line.
@@ -898,6 +899,117 @@ static void html5lib_encoding(const char *dir) {
     printf("html5lib encoding: %zu of %zu passed, whole and in pieces\n", passed, cases);
 }
 
+/* JavaScript: a script and a module to ESTree JSON, errors with their
+ * place, the limits, and page state from a script and from a page. */
+static void javascript(void) {
+    char *json = NULL;
+    size_t len = 0;
+    parsec_js_error *err = NULL;
+    const char *script = "let x = a?.b ?? 1;";
+    CHECK(parsec_js_parse(script, strlen(script), NULL, &json, &len, &err) == PARSEC_OK && err == NULL);
+    CHECK(json != NULL && len == strlen(json));
+    CHECK(json != NULL && strncmp(json, "{\"type\":\"Program\",\"start\":0,\"end\":18,", 37) == 0);
+    CHECK(json != NULL && strstr(json, "\"sourceType\":\"script\"") != NULL);
+    CHECK(json != NULL && strstr(json, "\"type\":\"ChainExpression\"") != NULL);
+    parsec_string_free(json);
+
+    /* Offsets are bytes: "é" is two, so `export` starts at byte 20. */
+    const char *module = "import a from \"\xc3\xa9\";\nexport default a;";
+    parsec_js_options opts = {PARSEC_JS_MODULE, 0, 0};
+    CHECK(parsec_js_parse(module, strlen(module), &opts, &json, &len, &err) == PARSEC_OK);
+    CHECK(json != NULL && strstr(json, "\"sourceType\":\"module\"") != NULL);
+    CHECK(json != NULL && strstr(json, "{\"type\":\"ExportDefaultDeclaration\",\"start\":20,\"end\":37") != NULL);
+    parsec_string_free(json);
+    CHECK(parsec_js_parse(module, strlen(module), NULL, &json, &len, &err) == PARSEC_ERR_JS && json == NULL);
+    CHECK(err != NULL && err->line == 1);
+    parsec_js_error_free(err);
+
+    const char *bad = "let ok = 1;\nlet x = ;";
+    CHECK(parsec_js_parse(bad, strlen(bad), NULL, &json, &len, &err) == PARSEC_ERR_JS && json == NULL);
+    CHECK(err != NULL && is(err->code, &err->code_len, "unexpected-token"));
+    CHECK(err != NULL && err->start == 20 && err->end == 21 && err->line == 2 && err->column == 9);
+    CHECK(err != NULL && strcmp(err->message, "`;` can't go here") == 0 && err->message_len == 17);
+    CHECK(err != NULL && strncmp(err->frame, "error[unexpected-token]: `;` can't go here\n --> 2:9\n", 51) == 0);
+    CHECK(err != NULL && err->frame_len == strlen(err->frame));
+    parsec_js_error_free(err);
+    CHECK(parsec_js_parse(bad, strlen(bad), NULL, &json, &len, NULL) == PARSEC_ERR_JS);
+
+    /* Deep nesting is an error, never a stack overflow. */
+    size_t deep_len = 100000;
+    char *deep = malloc(deep_len);
+    CHECK(deep != NULL);
+    if (deep != NULL) {
+        memset(deep, '(', deep_len);
+        CHECK(parsec_js_parse(deep, deep_len, NULL, &json, &len, &err) == PARSEC_ERR_JS);
+        CHECK(err != NULL && is(err->code, &err->code_len, "too-deep"));
+        parsec_js_error_free(err);
+        free(deep);
+    }
+    parsec_js_options shallow = {0, 3, 0};
+    CHECK(parsec_js_parse("((((x))))", 9, &shallow, &json, &len, &err) == PARSEC_ERR_JS);
+    parsec_js_error_free(err);
+    parsec_js_options steps = {0, 0, 10};
+    const char *many = "a; b; c; d; e; f; g; h; i; j; k; l;";
+    CHECK(parsec_js_parse(many, strlen(many), &steps, &json, &len, &err) == PARSEC_ERR_TIMEOUT);
+    CHECK(err != NULL && is(err->code, &err->code_len, "step-budget"));
+    parsec_js_error_free(err);
+    parsec_js_options too_deep = {0, 100000, 0}, unknown = {0x100, 0, 0};
+    CHECK(parsec_js_parse("x", 1, &too_deep, &json, &len, &err) == PARSEC_ERR_INVALID && err == NULL);
+    CHECK(parsec_js_parse("x", 1, &unknown, &json, &len, &err) == PARSEC_ERR_INVALID);
+    CHECK(parsec_js_parse("\xff", 1, NULL, &json, &len, &err) == PARSEC_ERR_INVALID && json == NULL);
+    CHECK(parsec_js_parse(NULL, 1, NULL, &json, &len, &err) == PARSEC_ERR_NULL);
+    CHECK(parsec_js_parse("x", 1, NULL, NULL, &len, &err) == PARSEC_ERR_NULL);
+    CHECK(parsec_js_parse(NULL, 0, NULL, &json, NULL, NULL) == PARSEC_OK);
+    parsec_string_free(json);
+    parsec_js_error_free(NULL);
+
+    const char *state = "window.__S = {a: [1, , !0]}; var q = f();";
+    CHECK(parsec_js_page_state(state, strlen(state), &json, &len, &err) == PARSEC_OK);
+    CHECK(owned_is(json, &len,
+                   "[{\"name\":\"window.__S\",\"value\":{\"a\":[1,null,true]}},"
+                   "{\"name\":\"q\",\"error\":{\"code\":\"not-a-literal\",\"source\":\"f()\"}}]"));
+    CHECK(parsec_js_page_state("window.X = {", 12, &json, &len, &err) == PARSEC_ERR_JS && json == NULL);
+    CHECK(err != NULL && is(err->code, &err->code_len, "unexpected-end"));
+    parsec_js_error_free(err);
+
+    const char *page = "<script>window.a = [1]</script>"
+                       "<script type=application/json>{}</script>"
+                       "<script src=x.js>window.b = 1</script>"
+                       "<script>window.broken = {</script>"
+                       "<template><script>window.c = 1</script></template>"
+                       "<script type=module>window.d = \"\xc3\xa9\"</script>";
+    parsec_document *doc = NULL;
+    CHECK(parsec_parse(page, strlen(page), 0, &doc) == PARSEC_OK);
+    CHECK(parsec_js_document_state(doc, &json, &len) == PARSEC_OK);
+    CHECK(owned_is(json, &len,
+                   "[{\"name\":\"window.a\",\"value\":[1]},{\"name\":\"window.d\",\"value\":\"\xc3\xa9\"}]"));
+    CHECK(parsec_js_document_state(NULL, &json, &len) == PARSEC_ERR_NULL && json == NULL);
+    parsec_document_free(doc);
+}
+
+/* page state from the pages in crates/parsec-js/tests/pages. */
+static void javascript_pages(const char *dir) {
+    const char *names[] = {"nuxt2-backmarket.js", "nuxt3-gitlab.js", "redux-lowes.js", "json-parse-target.js",
+                           "var-youtube.js", "nextjs-app-router.js"};
+    const char *wants[] = {"\"title\":\"iPhone\"", "\"name\":\"window.__NUXT__.config\"", "\"channel\":\"desktop\"",
+                           "\"GLOBAL_ADOBE_TAG_MANAGER_ENABLED\":true", "\"name\":\"ytInitialData\"",
+                           "\"value\":[1,\"1:\\\"$Sreact.fragment\\\"\\n"};
+    for (size_t i = 0; i < sizeof names / sizeof *names; i++) {
+        size_t n = 0, len = 0;
+        char *src = slurp(dir, names[i], &n);
+        CHECK(src != NULL);
+        if (src == NULL) continue;
+        char *json = NULL;
+        CHECK(parsec_js_page_state(src, n, &json, &len, NULL) == PARSEC_OK);
+        int ok = json != NULL && find(json, len, wants[i]) != NULL;
+        if (!ok) fprintf(stderr, "%s: no %s in %s\n", names[i], wants[i], json ? json : "(null)");
+        CHECK(ok);
+        parsec_string_free(json);
+        free(src);
+    }
+    printf("JavaScript pages: page state read from each\n");
+}
+
 int main(void) {
     parse_select_read();
     edit_and_serialize();
@@ -911,6 +1023,10 @@ int main(void) {
     syntax_errors();
     xpath();
     bytes_and_encodings();
+    javascript();
+#ifdef JS_PAGES
+    javascript_pages(JS_PAGES);
+#endif
     /* tests/c.rs and the sanitizer job build this with the html5lib-tests
      * encoding folder defined; the CMake runs, from a package, have none. */
 #ifdef HTML5LIB_ENCODING

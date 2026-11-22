@@ -25,6 +25,10 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use encoding::{Encoding, Offsets, Parsed};
 use html::css::{MatchOptions, SelectorList};
 use html::{Document, Kind, NodeId, Ns, Options, ParseError};
+use js::data::{Found, page_state_in, script_type};
+use js::{
+    DEFAULT_MAX_DEPTH, Diagnostic, EstreeOptions, Limits, LineIndex, RenderOptions, SourceType,
+};
 use xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
 
 /// A parsed document. Made by `parsec_parse` and friends, freed by
@@ -109,11 +113,13 @@ pub const PARSEC_ERR_NULL: parsec_status = 1;
 /// An argument was out of range: an unknown flag or namespace, or a length
 /// over `PTRDIFF_MAX`.
 pub const PARSEC_ERR_INVALID: parsec_status = 2;
-/// The input is over the 512 MiB a document can hold.
+/// The input is over the 512 MiB a document can hold, or JavaScript over
+/// the 4 GiB a source can be.
 pub const PARSEC_ERR_TOO_LARGE: parsec_status = 3;
-/// The parse ran past the budget given to `parsec_parse_with`, or a match
+/// The parse ran past the budget given to `parsec_parse_with`, a match
 /// past the step limit or budget given to `parsec_select_with` or
-/// `parsec_matches_with`.
+/// `parsec_matches_with`, or JavaScript past the `max_steps` given to
+/// `parsec_js_parse`.
 pub const PARSEC_ERR_TIMEOUT: parsec_status = 4;
 /// The selector doesn't parse, or uses something Parsec doesn't support.
 pub const PARSEC_ERR_SELECTOR: parsec_status = 5;
@@ -145,6 +151,9 @@ pub const PARSEC_ERR_XPATH: parsec_status = 13;
 pub const PARSEC_ERR_REMOVED: parsec_status = 14;
 /// The document can't be changed from inside a `parsec_select` callback.
 pub const PARSEC_ERR_BUSY: parsec_status = 15;
+/// The JavaScript doesn't parse, or nests deeper than its `max_depth`:
+/// the `parsec_js_error` says where.
+pub const PARSEC_ERR_JS: parsec_status = 16;
 
 /// Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 /// holds raw text.
@@ -436,7 +445,7 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
         PARSEC_OK => "no error\0",
         PARSEC_ERR_NULL => "a pointer that must not be NULL was NULL\0",
         PARSEC_ERR_INVALID => "an argument was out of range\0",
-        PARSEC_ERR_TOO_LARGE => "the input is over the 512 MiB limit\0",
+        PARSEC_ERR_TOO_LARGE => "the input is over the size limit\0",
         PARSEC_ERR_TIMEOUT => "the parse or the match ran past its limit\0",
         PARSEC_ERR_SELECTOR => "the selector isn't valid, or isn't supported\0",
         PARSEC_ERR_NO_SUCH_NODE => "no such node in this document\0",
@@ -451,6 +460,7 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
         PARSEC_ERR_XPATH => "the XPath expression isn't valid, or couldn't be evaluated\0",
         PARSEC_ERR_REMOVED => "the node was removed from its document, so it can't be used again\0",
         PARSEC_ERR_BUSY => "the document can't be changed from a parsec_select callback\0",
+        PARSEC_ERR_JS => "the JavaScript doesn't parse, or nests too deep\0",
         _ => "unknown status\0",
     };
     s.as_ptr().cast()
@@ -1913,6 +1923,263 @@ pub unsafe extern "C" fn parsec_xpath_result_boolean(result: *const parsec_xpath
     )
 }
 
+// ---- JavaScript ------------------------------------------------------------
+
+/// Parse a module, with `import` and `export`, rather than a script.
+pub const PARSEC_JS_MODULE: u32 = 1;
+
+/// How `parsec_js_parse` parses. NULL in its place is all zeros.
+#[repr(C)]
+pub struct parsec_js_options {
+    /// 0, or `PARSEC_JS_MODULE`.
+    pub flags: u32,
+    /// How deep the tree may nest, at most 256; 0 is 256. Deeper fails
+    /// with `PARSEC_ERR_JS` and the code `too-deep`.
+    pub max_depth: u32,
+    /// The most tokens to read before giving up with
+    /// `PARSEC_ERR_TIMEOUT`; 0 is no limit.
+    pub max_steps: u64,
+}
+
+/// Why JavaScript didn't parse, and where. Made by `parsec_js_parse` and
+/// `parsec_js_page_state`, freed by `parsec_js_error_free`, which frees
+/// its strings too.
+#[repr(C)]
+pub struct parsec_js_error {
+    /// Its stable name, `code_len` bytes with no NUL after them, static:
+    /// `unexpected-token`, `too-deep`, `step-budget` and the rest, as the
+    /// wiki's JavaScript page lists them.
+    pub code: *const c_char,
+    pub code_len: usize,
+    /// A sentence saying what's wrong, NUL-terminated.
+    pub message: *mut c_char,
+    pub message_len: usize,
+    /// Byte offsets into the source.
+    pub start: usize,
+    pub end: usize,
+    /// From 1.
+    pub line: usize,
+    /// From 1, in characters.
+    pub column: usize,
+    /// The lines it's on, with carets under the place, as a compiler
+    /// prints it; NUL-terminated.
+    pub frame: *mut c_char,
+    pub frame_len: usize,
+}
+
+/// `len` bytes at `s`, which must be UTF-8: JavaScript offsets count the
+/// bytes passed, so nothing is replaced.
+unsafe fn utf8<'a>(s: *const c_char, len: usize) -> Result<&'a str, parsec_status> {
+    // SAFETY: as the caller vouches for `s` and `len`.
+    std::str::from_utf8(unsafe { bytes(s, len)? }).map_err(|_| PARSEC_ERR_INVALID)
+}
+
+/// Puts `d` in `*err`, if `err` isn't NULL, and gives the status for it.
+unsafe fn js_error(d: &Diagnostic, src: &str, err: *mut *mut parsec_js_error) -> parsec_status {
+    if !err.is_null() {
+        let lines = LineIndex::ecmascript(src);
+        let at = lines.line_col(d.span.start);
+        let (mut message_len, mut frame_len) = (0, 0);
+        // SAFETY: the lengths are written to locals.
+        let message = unsafe { owned(&d.message, &mut message_len) };
+        let frame = unsafe {
+            owned(
+                &d.render(src, &lines, &RenderOptions::default()),
+                &mut frame_len,
+            )
+        };
+        let e = Box::new(parsec_js_error {
+            code: d.code.as_ptr().cast(),
+            code_len: d.code.len(),
+            message,
+            message_len,
+            start: d.span.start as usize,
+            end: d.span.end as usize,
+            line: at.line as usize,
+            column: at.column as usize,
+            frame,
+            frame_len,
+        });
+        // SAFETY: a non-NULL `err` points at writable space (header).
+        unsafe { err.write(Box::into_raw(e)) };
+    }
+    match d.code {
+        "step-budget" => PARSEC_ERR_TIMEOUT,
+        "input-too-large" => PARSEC_ERR_TOO_LARGE,
+        _ => PARSEC_ERR_JS,
+    }
+}
+
+/// `found` as a JSON array, from scripts' sources.
+fn push_found(out: &mut String, found: &[Found], src: &str) {
+    for f in found {
+        if out.len() > 1 {
+            out.push(',');
+        }
+        f.write_json(src, out);
+    }
+}
+
+/// Parses `len` bytes of UTF-8 as JavaScript, a script or, with
+/// `PARSEC_JS_MODULE`, a module, and puts its ESTree in `*out`: JSON in
+/// the shape acorn gives, `start` and `end` as byte offsets into the
+/// source. `*out_len` (if not NULL) is its length; free it with
+/// `parsec_string_free`. `opts` may be NULL.
+///
+/// Fails with `PARSEC_ERR_JS` for a syntax error or nesting past
+/// `max_depth`, `PARSEC_ERR_TIMEOUT` past `max_steps`, and
+/// `PARSEC_ERR_TOO_LARGE` over 4 GiB; each puts a `parsec_js_error` in
+/// `*err`, if `err` isn't NULL, to free with `parsec_js_error_free`.
+/// Source that isn't UTF-8, or a `max_depth` over 256 (deeper needs more
+/// stack than a thread is sure to have), fails with `PARSEC_ERR_INVALID`.
+/// On any error `*out` is NULL, and `*err` is NULL unless set as above.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_js_parse(
+    src: *const c_char,
+    len: usize,
+    opts: *const parsec_js_options,
+    out: *mut *mut c_char,
+    out_len: *mut usize,
+    err: *mut *mut parsec_js_error,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: as the header says for every argument.
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = ptr::null_mut();
+            }
+            let out = unsafe { clear(out)? };
+            let src = unsafe { utf8(src, len)? };
+            let (flags, max_depth, max_steps) =
+                unsafe { opts.as_ref() }.map_or((0, 0, 0), |o| (o.flags, o.max_depth, o.max_steps));
+            if flags & !PARSEC_JS_MODULE != 0 || max_depth > DEFAULT_MAX_DEPTH {
+                return Err(PARSEC_ERR_INVALID);
+            }
+            let options = js::Options {
+                source_type: if flags & PARSEC_JS_MODULE != 0 {
+                    SourceType::Module
+                } else {
+                    SourceType::Script
+                },
+                limits: Limits {
+                    max_depth: (max_depth != 0).then_some(max_depth),
+                    max_steps: (max_steps != 0).then_some(max_steps),
+                    ..Limits::default()
+                },
+            };
+            let ast = js::parse(src, &options).map_err(|d| unsafe { js_error(&d, src, err) })?;
+            let estree = ast.to_estree_with(
+                src,
+                EstreeOptions {
+                    offsets: js::Offsets::Bytes,
+                    ..EstreeOptions::default()
+                },
+            );
+            *out = unsafe { owned(&estree, out_len) };
+            Ok(())
+        })())
+    })
+}
+
+/// Reads the state a page keeps in a script (`window.__NUXT__ = …`, a
+/// top-level `var`, `JSON.parse("…")`, Next.js's `self.__next_f.push`)
+/// from `len` bytes of UTF-8, the text of one `<script>`, without running
+/// anything. `*out` is a JSON array in source order of
+/// `{"name": …, "value": …}`, or `{"name": …, "error": {"code": …,
+/// "source": …}}` for a value that isn't data; free it with
+/// `parsec_string_free`.
+///
+/// Fails as `parsec_js_parse` does, with `*err` set the same way.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_js_page_state(
+    src: *const c_char,
+    len: usize,
+    out: *mut *mut c_char,
+    out_len: *mut usize,
+    err: *mut *mut parsec_js_error,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: as the header says for every argument.
+            if let Some(err) = unsafe { err.as_mut() } {
+                *err = ptr::null_mut();
+            }
+            let out = unsafe { clear(out)? };
+            let src = unsafe { utf8(src, len)? };
+            let found = js::data::page_state(src).map_err(|d| unsafe { js_error(&d, src, err) })?;
+            let mut json = String::from("[");
+            push_found(&mut json, &found, src);
+            json.push(']');
+            *out = unsafe { owned(&json, out_len) };
+            Ok(())
+        })())
+    })
+}
+
+/// `parsec_js_page_state` of each inline script in `doc` a browser would
+/// run, in document order, in one JSON array in `*out`; free it with
+/// `parsec_string_free`. A script with `src`, one that isn't JavaScript
+/// (`type="application/json"`), one inside a `<template>`, and one that
+/// doesn't parse are passed over.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_js_document_state(
+    doc: *const parsec_document,
+    out: *mut *mut c_char,
+    out_len: *mut usize,
+) -> parsec_status {
+    guard(PARSEC_ERR_PANIC, || {
+        status((|| {
+            // SAFETY: as the header says for every argument.
+            let out = unsafe { clear(out)? };
+            let doc = unsafe { doc_ref(doc)? };
+            let scripts = SelectorList::parse("script").expect("a valid selector");
+            let mut json = String::from("[");
+            for el in scripts.select(doc, doc.root()) {
+                let attr = |name: &str| {
+                    doc.attrs(el)
+                        .find(|&(ns, n, _)| ns == html::AttrNs::None && n == name)
+                        .map(|(_, _, v)| v)
+                };
+                if attr("src").is_some() {
+                    continue;
+                }
+                let Some(source_type) = script_type(attr("type"), attr("language")) else {
+                    continue;
+                };
+                let src = doc.text(el);
+                let options = js::Options {
+                    source_type,
+                    ..js::Options::default()
+                };
+                if let Ok(ast) = js::parse(&src, &options) {
+                    push_found(&mut json, &page_state_in(&ast, &src), &src);
+                }
+            }
+            json.push(']');
+            *out = unsafe { owned(&json, out_len) };
+            Ok(())
+        })())
+    })
+}
+
+/// Frees a `parsec_js_error` and its strings. NULL is fine and does
+/// nothing.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn parsec_js_error_free(err: *mut parsec_js_error) {
+    if err.is_null() {
+        return;
+    }
+    guard((), || {
+        // SAFETY: `err` came from `js_error`'s Box, and its strings from
+        // `owned`.
+        let e = unsafe { Box::from_raw(err) };
+        unsafe {
+            parsec_string_free(e.message);
+            parsec_string_free(e.frame);
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1978,7 +2245,7 @@ mod tests {
 
     #[test]
     fn every_status_has_a_message() {
-        for s in PARSEC_OK..=PARSEC_ERR_BUSY {
+        for s in PARSEC_OK..=PARSEC_ERR_JS {
             let m = unsafe { std::ffi::CStr::from_ptr(parsec_status_message(s)) };
             assert_ne!(m.to_str().unwrap(), "unknown status", "{s}");
         }

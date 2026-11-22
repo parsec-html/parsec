@@ -26,6 +26,10 @@ fn the_c_test_program_passes() {
             here.join("../parsec/tests/html5lib-tests/encoding")
                 .display()
         ))
+        .arg(format!(
+            "-DJS_PAGES=\"{}\"",
+            here.join("../parsec-js/tests/pages").display()
+        ))
         .arg(here.join("tests/capi.c"))
         .arg("-L")
         .arg(lib_dir)
