@@ -314,9 +314,20 @@ impl<'a> Parser<'a> {
 
     /// The next token that isn't a comment, read with [`Goal::Div`].
     fn next_token(&mut self) -> R<Token> {
+        let t = self.lexer.next_token(Goal::Div);
+        self.check_lexer()?;
+        if t.is_trivia() {
+            return self.after_comments(t);
+        }
+        Ok(t)
+    }
+
+    /// Keeps `t`, a comment, and any more after it, and gives the token
+    /// that follows them. Out of line, so the path for a token with no
+    /// comment before it stays short.
+    #[inline(never)]
+    fn after_comments(&mut self, mut t: Token) -> R<Token> {
         loop {
-            let t = self.lexer.next_token(Goal::Div);
-            self.check_lexer()?;
             let kind = match t.kind {
                 Kind::LineComment => CommentKind::Line,
                 Kind::BlockComment => CommentKind::Block,
@@ -326,6 +337,8 @@ impl<'a> Parser<'a> {
                 _ => return Ok(t),
             };
             self.ast.comments.push(Comment { kind, span: t.span });
+            t = self.lexer.next_token(Goal::Div);
+            self.check_lexer()?;
         }
     }
 
