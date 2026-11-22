@@ -271,9 +271,16 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
   elements cost no recursion. Bytes in, with the encoding from the byte
   order mark or the declaration; a serializer that writes every prefix
   and declaration back as it was; and a fuzz target in the nightly run.
-- Still to come: the W3C conformance suite in CI
-  ([#170](https://github.com/parsec-html/parsec/issues/170)), XPath over
-  XML ([#171](https://github.com/parsec-html/parsec/issues/171)), and the
+- Done: the W3C XML Conformance Test Suite in `cargo test`, with its
+  counts in every CI run's summary
+  ([#170](https://github.com/parsec-html/parsec/issues/170)). Of its
+  2,585 cases, 1,915 run and pass, 227 of them matching their canonical
+  output byte for byte, and none fail. The 670 skipped are XML 1.1 and
+  Namespaces 1.1 (274), editions before the Fifth (310), errors the spec
+  lets a processor report or not (27), and documents whose fault is in
+  an external entity, which Parsec never reads (59).
+- Still to come: XPath over XML
+  ([#171](https://github.com/parsec-html/parsec/issues/171)), and the
   bench against libxml2
   ([#172](https://github.com/parsec-html/parsec/issues/172)).
 

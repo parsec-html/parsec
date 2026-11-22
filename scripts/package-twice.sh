@@ -33,8 +33,9 @@ build() { # name umask
 		git -C "$repo" worktree add --quiet --detach "$work/$1" "$commit"
 	)
 	# The C API isn't on crates.io; its libraries go with the release.
+	# parsec-reduce is a tool for this repository, never published.
 	cargo package --quiet --manifest-path "$work/$1/Cargo.toml" --workspace \
-		--exclude parsec-capi --locked --no-verify --target-dir "$work/target-$1"
+		--exclude parsec-capi --exclude parsec-reduce --locked --no-verify --target-dir "$work/target-$1"
 }
 
 build a 022

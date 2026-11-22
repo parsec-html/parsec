@@ -156,7 +156,7 @@ jobs:
       - name: The crates package the same twice, and with submodules
         run: |
           scripts/package-twice.sh HEAD > "$RUNNER_TEMP/twice"
-          cargo package --quiet --workspace --exclude parsec-capi --locked
+          cargo package --quiet --workspace --exclude parsec-capi --exclude parsec-reduce --locked
           (cd target/package && sha256sum -- *.crate) > "$RUNNER_TEMP/here"
           cat "$RUNNER_TEMP/twice"
           diff "$RUNNER_TEMP/twice" "$RUNNER_TEMP/here"
@@ -195,6 +195,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
+      # The W3C XML conformance suite isn't in the repository: the script
+      # downloads the pinned release and checks its SHA-256.
+      - name: Fetch xmlconf
+        shell: bash
+        run: crates/parsec-xml/scripts/fetch-xmlconf.sh
       # The conformance runners write each suite's counts to
       # $CONFORMANCE_DIR/<suite>.json; Linux's go up as an artifact and into
       # the run's summary, even when a suite fails. (conformance/ in the
