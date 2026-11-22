@@ -388,6 +388,19 @@ every pull request, failing on a crash or a hang. The wiki's
 [Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks#the-final-boss)
 page has every quirk, the seed and the raw output.
 
+### The real web
+
+The final boss is built to hurt. The real web is just big: 1,731
+production pages, 559 MB of home pages and inner pages in 8 encodings
+and over 60 languages, fetched on 21 November 2026. Parsec parses them
+at 933 MB a second to Lexbor's 523 and html5ever's 160, 1.78 times
+Lexbor overall, with all three building the same number of elements on
+every page and none crashing. The wiki's
+[Real-world benchmarks](https://github.com/parsec-html/parsec/wiki/Real-world-benchmarks)
+page has the method, the breakdowns by size and encoding, where Parsec
+loses, and how to refetch the same pages; only their addresses and
+hashes are published.
+
 ## What's coming
 
 The [roadmap](https://github.com/parsec-html/parsec/blob/main/ROADMAP.md) has the order. In short, Parsec is set to cover
