@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "memchr",
  "url",
@@ -361,7 +361,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html-css"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "encoding_rs",
  "parsec-html-core",
@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-html-encoding"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "encoding_rs",
  "parsec-html-core",
@@ -377,7 +377,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-url"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "percent-encoding"
