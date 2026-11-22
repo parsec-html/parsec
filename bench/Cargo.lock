@@ -336,6 +336,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-base"
+version = "0.2.0"
+
+[[package]]
 name = "parsec-html-bench"
 version = "0.0.0"
 dependencies = [
@@ -348,6 +352,9 @@ dependencies = [
  "parsec-html-css",
  "parsec-html-encoding",
  "parsec-url",
+ "parsec-xml",
+ "quick-xml",
+ "roxmltree",
  "serde_json",
 ]
 
@@ -378,6 +385,14 @@ dependencies = [
 [[package]]
 name = "parsec-url"
 version = "0.2.0"
+
+[[package]]
+name = "parsec-xml"
+version = "0.2.0"
+dependencies = [
+ "encoding_rs",
+ "parsec-base",
+]
 
 [[package]]
 name = "percent-encoding"
@@ -463,6 +478,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -478,6 +502,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "roxmltree"
+version = "0.21.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9da7f59328b09405b181fee1018925fad50f157afb43c0c0f5c522c256dd5907"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

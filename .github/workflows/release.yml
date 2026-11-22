@@ -70,6 +70,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
+      # The W3C XML suite isn't in the repository; xmlconf fails under CI
+      # without it, as it should.
+      - run: crates/parsec-xml/scripts/fetch-xmlconf.sh
       - run: cargo test --workspace --no-fail-fast
         env:
           CONFORMANCE_DIR: ${{ runner.temp }}/conformance

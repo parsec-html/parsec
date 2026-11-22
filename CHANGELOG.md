@@ -8,6 +8,22 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- A native build for Node.js, which the npm package `parsec-html` now
+  loads in Node wherever there's one for the platform: Linux on x86-64
+  and ARM64, with glibc or musl, macOS on both, and Windows on both
+  ([#177](https://github.com/parsec-html/parsec/issues/177)). It has the
+  WebAssembly's API, names, options and error messages, and parses the
+  13 benchmark pages 1.5 times as fast. Each platform's build is an
+  optional dependency, `@parsec-web/binding-<platform>`; anywhere else,
+  and in browsers, the package is the WebAssembly it was.
+  - `parseAsync(html, options)` parses on Node's thread pool and gives a
+    promise of the document. With the WebAssembly build it parses before
+    it returns.
+  - `backend` says which build loaded, and `PARSEC_BACKEND=wasm` or
+    `native` chooses one.
+  - A panic in the native build is an `Error` (a rejected promise from
+    `parseAsync`), as it is in the WebAssembly and Python builds, never
+    the end of the process.
 - `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
   and Namespaces in XML 1.0, not validating
   ([#169](https://github.com/parsec-html/parsec/issues/169)).
@@ -30,6 +46,12 @@ minor release can break the API and a patch release won't.
     its span, and the line and column.
   - `to_xml` and `write_xml` write a document or a subtree back out,
     prefixes and namespace declarations as they were.
+  - The W3C XML Conformance Test Suite runs in `cargo test`
+    ([#170](https://github.com/parsec-html/parsec/issues/170)): 1,915
+    cases pass and none fail, and every skipped case says why.
+  - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
+    on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
+    ([#172](https://github.com/parsec-html/parsec/issues/172)).
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).

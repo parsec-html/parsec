@@ -295,7 +295,7 @@ impl<'s, 'o> Parser<'s, 'o> {
         Parser {
             src,
             opts,
-            doc: Document::new(opts.namespaces),
+            doc: Document::new(opts.namespaces, src.len()),
             dtd: Dtd::default(),
             stack: Vec::new(),
             scope: Scope::new(),

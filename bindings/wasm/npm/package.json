@@ -1,7 +1,7 @@
 {
   "name": "parsec-html",
   "version": "0.2.0",
-  "description": "An HTML parser that follows the WHATWG spec, with CSS selectors and an editable tree, compiled to WebAssembly.",
+  "description": "An HTML parser that follows the WHATWG spec, with CSS selectors and an editable tree: native in Node where there's a build for the machine, WebAssembly everywhere else.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -9,22 +9,26 @@
     "directory": "bindings/wasm"
   },
   "homepage": "https://github.com/parsec-html/parsec/wiki/WASM",
-  "keywords": ["html", "parser", "html5", "css-selectors", "wasm"],
+  "keywords": ["html", "parser", "html5", "css-selectors", "wasm", "napi"],
   "type": "module",
   "exports": {
     ".": {
       "node": {
-        "types": "./node/parsec_html.d.ts",
-        "default": "./node/parsec_html.js"
+        "types": "./index.d.ts",
+        "import": "./index.mjs",
+        "default": "./index.cjs"
       },
       "types": "./parsec_html.d.ts",
       "default": "./parsec_html.js"
     },
     "./package.json": "./package.json"
   },
-  "main": "./node/parsec_html.js",
+  "main": "./index.cjs",
   "types": "./parsec_html.d.ts",
   "files": [
+    "index.cjs",
+    "index.mjs",
+    "index.d.ts",
     "parsec_html.js",
     "parsec_html.d.ts",
     "parsec_html_bg.wasm",
@@ -33,5 +37,9 @@
     "LICENSE",
     "NOTICE"
   ],
-  "sideEffects": false
+  "sideEffects": false,
+  "napi": {
+    "binaryName": "parsec-html",
+    "packageName": "@parsec-web/binding"
+  }
 }
