@@ -1,0 +1,31 @@
+name: Community dashboards
+
+# Refreshes the three dashboards pinned on the issues page: help wanted,
+# community pull requests and roadmap status. scripts/dashboards.py finds
+# each issue by the marker in its body and rewrites it.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboards
+
+jobs:
+  refresh:
+    if: github.repository == 'parsec-html/parsec'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 scripts/dashboards.py
+        env:
+          GH_TOKEN: ${{ github.token }}
