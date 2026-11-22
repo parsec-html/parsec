@@ -11,8 +11,9 @@ keywords = ["xml", "parser", "namespaces", "dom", "serializer"]
 categories = ["parser-implementations", "web-programming"]
 documentation = "https://docs.rs/parsec-xml"
 
-# The tests run from the repository; they're nothing a build needs.
-exclude = ["tests/"]
+# The conformance suite runs from the repository; its data would be most
+# of the package and nothing a build needs.
+exclude = ["tests/", "scripts/"]
 
 [lib]
 name = "parsec_xml"
@@ -22,3 +23,6 @@ name = "parsec_xml"
 parsec-base = { path = "../parsec-base", version = "0.2.0" }
 # Bytes in: the encodings XML documents declare, decoded strictly.
 encoding_rs = "0.8.35"
+
+[dev-dependencies]
+serde_json = "1"

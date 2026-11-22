@@ -106,25 +106,34 @@ pub(crate) struct Names {
     uri_ids: HashMap<Box<str>, u32>,
 }
 
+/// Names a document can have before they're looked up by hash.
+const SCAN: usize = 16;
+
+/// The URIs and prefixes every document has, which take no allocation.
+const BUILTIN_URIS: [&str; 3] = ["", XML_NS, XMLNS_NS];
+const BUILTIN_PREFIXES: [&str; 3] = ["", "xml", "xmlns"];
+
 impl Names {
     pub fn new() -> Names {
-        let mut names = Names {
+        Names {
             qnames: Vec::new(),
             qname_ids: HashMap::new(),
             prefix_ids: HashMap::new(),
             uris: Vec::new(),
             uri_ids: HashMap::new(),
-        };
-        for uri in ["", XML_NS, XMLNS_NS] {
-            names.uri(uri);
         }
-        for prefix in ["", "xml", "xmlns"] {
-            names.prefix(prefix);
-        }
-        names
     }
 
     pub fn get(&self, qname: &str) -> Option<u32> {
+        // A small document's few names are quicker found by looking at
+        // each than by hashing; the map is built once there are more.
+        if self.qnames.len() <= SCAN {
+            return self
+                .qnames
+                .iter()
+                .position(|q| &*q.qname == qname)
+                .map(|i| i as u32);
+        }
         self.qname_ids.get(qname).copied()
     }
 
@@ -140,24 +149,39 @@ impl Names {
             colon,
             prefix,
         });
-        self.qname_ids.insert(qname.into(), id);
+        if self.qnames.len() == SCAN + 1 {
+            self.qname_ids = self
+                .qnames
+                .iter()
+                .enumerate()
+                .map(|(i, q)| (q.qname.clone(), i as u32))
+                .collect();
+        } else if self.qnames.len() > SCAN + 1 {
+            self.qname_ids.insert(qname.into(), id);
+        }
         id
     }
 
     pub fn prefix(&mut self, prefix: &str) -> u32 {
+        if let Some(i) = BUILTIN_PREFIXES.iter().position(|&p| p == prefix) {
+            return i as u32;
+        }
         if let Some(&id) = self.prefix_ids.get(prefix) {
             return id;
         }
-        let id = self.prefix_ids.len() as u32;
+        let id = (BUILTIN_PREFIXES.len() + self.prefix_ids.len()) as u32;
         self.prefix_ids.insert(prefix.into(), id);
         id
     }
 
     pub fn uri(&mut self, uri: &str) -> u32 {
+        if let Some(i) = BUILTIN_URIS.iter().position(|&u| u == uri) {
+            return i as u32;
+        }
         if let Some(&id) = self.uri_ids.get(uri) {
             return id;
         }
-        let id = self.uris.len() as u32;
+        let id = (BUILTIN_URIS.len() + self.uris.len()) as u32;
         self.uris.push(uri.into());
         self.uri_ids.insert(uri.into(), id);
         id
@@ -181,7 +205,10 @@ impl Names {
     }
 
     pub fn uri_str(&self, id: u32) -> &str {
-        &self.uris[id as usize]
+        match BUILTIN_URIS.get(id as usize) {
+            Some(u) => u,
+            None => &self.uris[id as usize - BUILTIN_URIS.len()],
+        }
     }
 
     fn name(&self, qname: u32, ns: u32) -> Name<'_> {
@@ -331,7 +358,9 @@ pub struct Document {
 }
 
 impl Document {
-    pub(crate) fn new(namespaces: bool) -> Document {
+    /// A document for a source of `len` bytes, whose text is rarely
+    /// longer than that.
+    pub(crate) fn new(namespaces: bool, len: usize) -> Document {
         Document {
             nodes: vec![Node {
                 parent: NONE,
@@ -343,7 +372,7 @@ impl Document {
                 data: Data::Document,
             }],
             attrs: Vec::new(),
-            text: String::new(),
+            text: String::with_capacity(len),
             names: Names::new(),
             decl: None,
             doctype: None,
@@ -606,3 +635,39 @@ const _: () = {
     const fn send_sync<T: Send + Sync>() {}
     send_sync::<Document>();
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_are_found_either_side_of_the_map() {
+        let mut names = Names::new();
+        let ids: Vec<u32> = (0..40)
+            .map(|i| names.insert(&format!("n{i}"), NONE))
+            .collect();
+        for (i, &id) in ids.iter().enumerate() {
+            assert_eq!(names.get(&format!("n{i}")), Some(id));
+            assert_eq!(names.qname_str(id), format!("n{i}"));
+        }
+        assert_eq!(names.get("n40"), None);
+        assert_eq!(
+            (names.uri(""), names.uri(XML_NS), names.uri(XMLNS_NS)),
+            (0, NS_XML, NS_XMLNS)
+        );
+        let u = names.uri("urn:x");
+        assert_eq!(
+            (names.uri("urn:x"), names.uri_str(u), names.uri_str(NS_XML)),
+            (u, "urn:x", XML_NS)
+        );
+        assert_eq!(
+            (
+                names.prefix("xml"),
+                names.prefix("xmlns"),
+                names.prefix("p")
+            ),
+            (PREFIX_XML, PREFIX_XMLNS, 3)
+        );
+        assert_eq!(names.prefix("p"), 3);
+    }
+}
