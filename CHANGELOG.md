@@ -44,7 +44,7 @@ minor release can break the API and a patch release won't.
   over a tree other than Parsec's HTML document, such as `parsec-xml`'s
   (#171). The HTML document's impl is behind a default `html` feature;
   with `default-features = false` the crate builds without the HTML
-  parser. `Doc::xml` and `Namespaces::id_of` are gone: an XML document
+  parser. `Index::build` is generic over the tree, so a call through a smart pointer (a `Ref` or a lock guard) needs `&*doc` where `&doc` coerced before. `Doc::xml` and `Namespaces::id_of` are gone: an XML document
   in the HTML tree goes through `XmlTree`, and namespace tests compare
   URIs. In XML, `local-name()` of a processing instruction is now its
   whole target, as libxml2 has it.
