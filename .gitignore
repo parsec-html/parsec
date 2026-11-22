@@ -15,3 +15,5 @@
 /bindings/wasm/node_modules
 __pycache__/
 /bindings/wasm/target
+/bindings/node/target
+/bindings/node/out
