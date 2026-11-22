@@ -21,6 +21,9 @@ minor release can break the API and a patch release won't.
     it returns.
   - `backend` says which build loaded, and `PARSEC_BACKEND=wasm` or
     `native` chooses one.
+  - A panic in the native build is an `Error` (a rejected promise from
+    `parseAsync`), as it is in the WebAssembly and Python builds, never
+    the end of the process.
 - `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
   and Namespaces in XML 1.0, not validating
   ([#169](https://github.com/parsec-html/parsec/issues/169)).

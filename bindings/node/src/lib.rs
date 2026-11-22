@@ -76,7 +76,7 @@ impl Tree {
                 let roots: Vec<NodeId> = (0..doc.len() as NodeId)
                     .filter(|&n| doc.parent(n).is_none())
                     .collect();
-                Rc::new(Index::build(&doc, &roots))
+                Rc::new(Index::build(&*doc, &roots))
             })
             .clone()
     }
@@ -286,7 +286,7 @@ fn bytes<'a>(b: &'a Bytes<'_>) -> &'a [u8] {
 
 /// Parses a whole document given as bytes, decoding them first as a
 /// browser would.
-#[napi(js_name = "parseBytes")]
+#[napi(js_name = "parseBytes", catch_unwind)]
 pub fn parse_bytes(bytes: Bytes, options: Option<ByteParseOptions>) -> Result<Document> {
     let bytes = self::bytes(&bytes);
     let options = byte_options(options)?;
@@ -306,7 +306,7 @@ pub struct ByteParser {
 
 #[napi]
 impl ByteParser {
-    #[napi(constructor)]
+    #[napi(constructor, catch_unwind)]
     pub fn new(options: Option<ByteParseOptions>) -> Result<ByteParser> {
         let options = byte_options(options)?;
         let keep = options.html.spans || options.html.errors;
@@ -317,7 +317,7 @@ impl ByteParser {
     }
 
     /// The next piece of the input.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn feed(&mut self, chunk: Bytes) -> Result<()> {
         let chunk = bytes(&chunk);
         let parser = self.parser.as_mut().ok_or_else(finished)?;
@@ -329,7 +329,7 @@ impl ByteParser {
     }
 
     /// The end of the input: the document. A parser finishes once.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn finish(&mut self) -> Result<Document> {
         let parser = self.parser.take().ok_or_else(finished)?;
         let parsed = parser.finish().map_err(error)?;
@@ -343,7 +343,7 @@ fn finished() -> Error {
 }
 
 /// Parses a whole document, as a browser does.
-#[napi]
+#[napi(catch_unwind)]
 pub fn parse(html: String, options: Option<ParseOptions>) -> Result<Document> {
     let (doc, units) = run(&html, self::options(options.as_ref()), None)?;
     Ok(document(doc, units, None))
@@ -351,7 +351,7 @@ pub fn parse(html: String, options: Option<ParseOptions>) -> Result<Document> {
 
 /// Parses `html` as the contents of a `context` element (`"div"` if not
 /// given), as setting `innerHTML` does.
-#[napi(js_name = "parseFragment")]
+#[napi(js_name = "parseFragment", catch_unwind)]
 pub fn parse_fragment(
     html: String,
     context: Option<String>,
@@ -360,6 +360,19 @@ pub fn parse_fragment(
     let context = context.as_deref().unwrap_or("");
     let (doc, units) = run(&html, self::options(options.as_ref()), Some(context))?;
     Ok(document(doc, units, None))
+}
+
+/// Runs `f`, turning a panic into an error rather than letting it end the
+/// process.
+fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|panic| {
+        let what = panic
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| panic.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "unknown".into());
+        Err(Error::from_reason(format!("parsec panicked: {what}")))
+    })
 }
 
 /// `parse` on the thread pool.
@@ -373,7 +386,11 @@ impl Task for Parse {
     type JsValue = Document;
 
     fn compute(&mut self) -> Result<Self::Output> {
-        run(&self.html, self.options, None)
+        // napi-rs runs this on a pool thread with no catch_unwind of its
+        // own, and a panic out of its extern "C" callback aborts the
+        // process: reject the promise instead, as the WebAssembly build
+        // throws and Python raises.
+        guard(|| run(&self.html, self.options, None))
     }
 
     fn resolve(&mut self, _: Env, (doc, units): Self::Output) -> Result<Document> {
@@ -383,7 +400,11 @@ impl Task for Parse {
 
 /// Parses a whole document on one of Node's worker threads, so the main
 /// thread carries on meanwhile: a promise of what `parse` gives.
-#[napi(js_name = "parseAsync", ts_return_type = "Promise<Document>")]
+#[napi(
+    js_name = "parseAsync",
+    ts_return_type = "Promise<Document>",
+    catch_unwind
+)]
 pub fn parse_async(html: String, options: Option<ParseOptions>) -> AsyncTask<Parse> {
     AsyncTask::new(Parse {
         html,
@@ -423,7 +444,7 @@ type XPathResult = Either4<Vec<Either<Node, String>>, String, f64, bool>;
 #[napi]
 impl Document {
     /// The document node, or the fragment's root, which holds its nodes.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn root(&self) -> Node {
         Node {
             doc: self.doc.clone(),
@@ -432,7 +453,7 @@ impl Document {
     }
 
     /// The `<html>` element.
-    #[napi(getter, js_name = "documentElement")]
+    #[napi(getter, js_name = "documentElement", catch_unwind)]
     pub fn document_element(&self) -> Maybe<Node> {
         let id = {
             let doc = self.doc.borrow();
@@ -442,26 +463,26 @@ impl Document {
         node(&self.doc, id)
     }
 
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn head(&self) -> Maybe<Node> {
         let id = html_child(&self.doc.borrow(), "head");
         node(&self.doc, id)
     }
 
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn body(&self) -> Maybe<Node> {
         let id = html_child(&self.doc.borrow(), "body");
         node(&self.doc, id)
     }
 
     /// Every element that matches, in document order.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn select(&self, selector: String, options: Option<SelectOptions>) -> Result<Vec<Node>> {
         self.root().select(selector, options)
     }
 
     /// The first element that matches.
-    #[napi(js_name = "selectFirst")]
+    #[napi(js_name = "selectFirst", catch_unwind)]
     pub fn select_first(
         &self,
         selector: String,
@@ -471,25 +492,25 @@ impl Document {
     }
 
     /// The whole document as markup.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn html(&self) -> String {
         self.doc.borrow().inner_html(0)
     }
 
     /// Every text node's text, in tree order.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn text(&self) -> String {
         self.doc.borrow().text(0)
     }
 
     /// The encoding the document was decoded from: "UTF-8" for a string.
-    #[napi(getter, js_name = "characterSet")]
+    #[napi(getter, js_name = "characterSet", catch_unwind)]
     pub fn character_set(&self) -> String {
         self.doc.encoding.map_or("UTF-8", |(e, _)| e.name()).into()
     }
 
     /// `"certain"` or `"tentative"`; undefined for a string.
-    #[napi(getter, js_name = "encodingConfidence")]
+    #[napi(getter, js_name = "encodingConfidence", catch_unwind)]
     pub fn encoding_confidence(&self) -> Maybe<String> {
         maybe(self.doc.encoding.map(|(_, c)| {
             match c {
@@ -502,7 +523,7 @@ impl Document {
 
     /// The parse errors, in source order: empty unless parsed with
     /// `{ errors: true }`.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn errors(&self) -> Vec<ParseError> {
         self.doc
             .borrow()
@@ -518,7 +539,7 @@ impl Document {
     }
 
     /// Runs an XPath 1.0 expression over the document.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn xpath(&self, expr: String) -> Result<XPathResult> {
         self.root().xpath(expr)
     }
@@ -527,7 +548,7 @@ impl Document {
 #[napi]
 impl Node {
     /// The DOM's `nodeType`.
-    #[napi(getter, js_name = "nodeType")]
+    #[napi(getter, js_name = "nodeType", catch_unwind)]
     pub fn node_type(&self) -> u8 {
         match self.doc.borrow().kind(self.id) {
             Kind::Element { .. } => 1,
@@ -543,7 +564,7 @@ impl Node {
     }
 
     /// The DOM's `nodeName`.
-    #[napi(getter, js_name = "nodeName")]
+    #[napi(getter, js_name = "nodeName", catch_unwind)]
     pub fn node_name(&self) -> String {
         match self.doc.borrow().kind(self.id) {
             Kind::Element { ns: Ns::Html, name } => name.to_ascii_uppercase(),
@@ -559,7 +580,7 @@ impl Node {
     }
 
     /// An element's name, lowercase for HTML.
-    #[napi(getter, js_name = "localName")]
+    #[napi(getter, js_name = "localName", catch_unwind)]
     pub fn local_name(&self) -> Maybe<String> {
         maybe(match self.doc.borrow().kind(self.id) {
             Kind::Element { name, .. } => Some(name.to_string()),
@@ -567,45 +588,45 @@ impl Node {
         })
     }
 
-    #[napi(getter, js_name = "parentNode")]
+    #[napi(getter, js_name = "parentNode", catch_unwind)]
     pub fn parent_node(&self) -> Maybe<Node> {
         let id = self.doc.borrow().parent(self.id);
         node(&self.doc, id)
     }
 
-    #[napi(getter, js_name = "firstChild")]
+    #[napi(getter, js_name = "firstChild", catch_unwind)]
     pub fn first_child(&self) -> Maybe<Node> {
         let id = self.doc.borrow().first_child(self.id);
         node(&self.doc, id)
     }
 
-    #[napi(getter, js_name = "lastChild")]
+    #[napi(getter, js_name = "lastChild", catch_unwind)]
     pub fn last_child(&self) -> Maybe<Node> {
         let id = self.doc.borrow().last_child(self.id);
         node(&self.doc, id)
     }
 
-    #[napi(getter, js_name = "nextSibling")]
+    #[napi(getter, js_name = "nextSibling", catch_unwind)]
     pub fn next_sibling(&self) -> Maybe<Node> {
         let id = self.doc.borrow().next_sibling(self.id);
         node(&self.doc, id)
     }
 
-    #[napi(getter, js_name = "previousSibling")]
+    #[napi(getter, js_name = "previousSibling", catch_unwind)]
     pub fn previous_sibling(&self) -> Maybe<Node> {
         let id = self.doc.borrow().prev_sibling(self.id);
         node(&self.doc, id)
     }
 
     /// Every child, text and comments included.
-    #[napi(getter, js_name = "childNodes")]
+    #[napi(getter, js_name = "childNodes", catch_unwind)]
     pub fn child_nodes(&self) -> Vec<Node> {
         let ids = self.doc.borrow().children(self.id).collect();
         nodes(&self.doc, ids)
     }
 
     /// The children that are elements.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn children(&self) -> Vec<Node> {
         let ids = {
             let doc = self.doc.borrow();
@@ -617,21 +638,21 @@ impl Node {
     }
 
     /// A template element's contents.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn content(&self) -> Maybe<Node> {
         let id = self.doc.borrow().template_contents(self.id);
         node(&self.doc, id)
     }
 
     /// The elements under this node that match, in document order.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn select(&self, selector: String, options: Option<SelectOptions>) -> Result<Vec<Node>> {
         let (list, options) = (compile(&selector)?, match_options(options)?);
         let ids = list.try_select_with(&self.doc.borrow(), self.id, &options);
         Ok(nodes(&self.doc, ids.map_err(match_error)?))
     }
 
-    #[napi(js_name = "selectFirst")]
+    #[napi(js_name = "selectFirst", catch_unwind)]
     pub fn select_first(
         &self,
         selector: String,
@@ -650,7 +671,7 @@ impl Node {
     }
 
     /// Runs an XPath 1.0 expression with this node as the context.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn xpath(&self, expr: String) -> Result<XPathResult> {
         let compiled = XPath::new(&expr).map_err(error)?;
         let index = self.doc.index();
@@ -680,21 +701,21 @@ impl Node {
     }
 
     /// Where the node was written.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn span(&self) -> Maybe<Span> {
         let doc = self.doc.borrow();
         maybe(span(&self.doc, &doc, doc.span(self.id)))
     }
 
     /// Where an element's end tag was written, if it had one.
-    #[napi(getter, js_name = "endSpan")]
+    #[napi(getter, js_name = "endSpan", catch_unwind)]
     pub fn end_span(&self) -> Maybe<Span> {
         let doc = self.doc.borrow();
         maybe(span(&self.doc, &doc, doc.end_span(self.id)))
     }
 
     /// Where the attribute `name` was written.
-    #[napi(js_name = "attributeSpan")]
+    #[napi(js_name = "attributeSpan", catch_unwind)]
     pub fn attribute_span(&self, name: String) -> Maybe<Span> {
         let doc = self.doc.borrow();
         let html = matches!(doc.kind(self.id), Kind::Element { ns: Ns::Html, .. });
@@ -709,7 +730,7 @@ impl Node {
     }
 
     /// Whether this element matches, with the limit `select` takes.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn matches(&self, selector: String, options: Option<SelectOptions>) -> Result<bool> {
         let (list, options) = (compile(&selector)?, match_options(options)?);
         let doc = self.doc.borrow();
@@ -719,18 +740,18 @@ impl Node {
                 .map_err(match_error)?)
     }
 
-    #[napi(js_name = "getAttribute")]
+    #[napi(js_name = "getAttribute", catch_unwind)]
     pub fn get_attribute(&self, name: String) -> Maybe<String> {
         maybe(self.attribute(&name))
     }
 
-    #[napi(js_name = "hasAttribute")]
+    #[napi(js_name = "hasAttribute", catch_unwind)]
     pub fn has_attribute(&self, name: String) -> bool {
         self.attribute(&name).is_some()
     }
 
     /// The attributes' names as written, in source order.
-    #[napi(js_name = "getAttributeNames")]
+    #[napi(js_name = "getAttributeNames", catch_unwind)]
     pub fn get_attribute_names(&self) -> Vec<String> {
         self.doc
             .borrow()
@@ -740,7 +761,7 @@ impl Node {
     }
 
     /// Sets an attribute, as `setAttribute` does. Only elements have them.
-    #[napi(js_name = "setAttribute")]
+    #[napi(js_name = "setAttribute", catch_unwind)]
     pub fn set_attribute(&self, name: String, value: String) -> Result<()> {
         let mut doc = self.doc.borrow_mut();
         if !matches!(doc.kind(self.id), Kind::Element { .. }) {
@@ -751,13 +772,13 @@ impl Node {
     }
 
     /// Removes an attribute; false if there wasn't one.
-    #[napi(js_name = "removeAttribute")]
+    #[napi(js_name = "removeAttribute", catch_unwind)]
     pub fn remove_attribute(&self, name: String) -> bool {
         self.doc.borrow_mut().remove_attr(self.id, &name)
     }
 
     /// The `id` attribute, or `""`.
-    #[napi(getter)]
+    #[napi(getter, catch_unwind)]
     pub fn id(&self) -> String {
         let doc = self.doc.borrow();
         doc.attrs(self.id)
@@ -766,45 +787,45 @@ impl Node {
     }
 
     /// The text of this node and everything under it, as `textContent`.
-    #[napi(getter, js_name = "textContent")]
+    #[napi(getter, js_name = "textContent", catch_unwind)]
     pub fn text_content(&self) -> String {
         self.doc.borrow().text(self.id)
     }
 
     /// The node and its contents as markup.
-    #[napi(getter, js_name = "outerHTML")]
+    #[napi(getter, js_name = "outerHTML", catch_unwind)]
     pub fn outer_html(&self) -> String {
         self.doc.borrow().outer_html(self.id)
     }
 
     /// The contents as markup.
-    #[napi(getter, js_name = "innerHTML")]
+    #[napi(getter, js_name = "innerHTML", catch_unwind)]
     pub fn inner_html(&self) -> String {
         self.doc.borrow().inner_html(self.id)
     }
 
     /// Takes the node out of the tree. It can still be read, and put back.
-    #[napi]
+    #[napi(catch_unwind)]
     pub fn remove(&self) {
         self.doc.borrow_mut().detach(self.id);
     }
 
     /// Moves `child`, a node of the same document, to the end of this
     /// one's children.
-    #[napi(js_name = "appendChild")]
+    #[napi(js_name = "appendChild", catch_unwind)]
     pub fn append_child(&self, child: &Node) -> Result<()> {
         self.insert(child, None)
     }
 
     /// Moves `child`, a node of the same document, in before `reference`,
     /// one of this node's children.
-    #[napi(js_name = "insertBefore")]
+    #[napi(js_name = "insertBefore", catch_unwind)]
     pub fn insert_before(&self, child: &Node, reference: &Node) -> Result<()> {
         self.insert(child, Some(reference))
     }
 
     /// Whether `other` is this same node.
-    #[napi(js_name = "isSameNode")]
+    #[napi(js_name = "isSameNode", catch_unwind)]
     pub fn is_same_node(&self, other: &Node) -> bool {
         Rc::ptr_eq(&self.doc, &other.doc) && self.id == other.id
     }
@@ -845,4 +866,18 @@ fn attr_value(doc: &parsec::Document, owner: parsec::NodeId, index: u32) -> &str
     doc.attrs(owner)
         .nth(index as usize)
         .map_or("", |(_, _, value)| value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::guard;
+
+    #[test]
+    fn a_panic_becomes_an_error() {
+        let err = guard::<()>(|| panic!("boom")).unwrap_err();
+        assert_eq!(err.reason, "parsec panicked: boom");
+        let err = guard::<()>(|| panic!("{}", String::from("formatted"))).unwrap_err();
+        assert_eq!(err.reason, "parsec panicked: formatted");
+        assert_eq!(guard(|| Ok(7)).unwrap(), 7);
+    }
 }
