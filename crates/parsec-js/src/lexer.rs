@@ -691,13 +691,9 @@ impl<'a> Lexer<'a> {
         let mut flags = Flags::empty();
         self.pos = start + 1;
         loop {
-            // Skip what can't end the string or start an escape in one
-            // tight loop: long strings in inline scripts are mostly that.
-            let rest = &b[self.pos..];
-            self.pos += rest
-                .iter()
-                .position(|&c| matches!(c, b'"' | b'\'' | b'\\' | b'\n' | b'\r'))
-                .unwrap_or(rest.len());
+            // Skip what can't end the string or start an escape at once:
+            // long strings in inline scripts are mostly that.
+            self.pos += string_run(&b[self.pos..], quote);
             match b.get(self.pos) {
                 None | Some(b'\n' | b'\r') => {
                     self.error(
@@ -1016,6 +1012,32 @@ impl<'a> Lexer<'a> {
     }
 }
 
+/// How many bytes from the start of `b` are none of `quote`, `\\`, LF
+/// and CR: what a string literal holds before it ends, or might end or
+/// escape. Eight bytes at a time, by the bit trick that finds a zero
+/// byte in a word (a byte equal to `t` is a zero byte of `word ^ t`).
+fn string_run(b: &[u8], quote: u8) -> usize {
+    const ONES: u64 = u64::from_ne_bytes([0x01; 8]);
+    const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);
+    // Its lowest set bit is the high bit of the first zero byte; bits
+    // above that may be wrong, and aren't looked at.
+    let zero_bytes = |v: u64| v.wrapping_sub(ONES) & !v & HIGHS;
+    let stops = [quote, b'\\', b'\n', b'\r'].map(|t| ONES * u64::from(t));
+    let mut i = 0;
+    while let Some(&chunk) = b.get(i..).and_then(|r| r.first_chunk::<8>()) {
+        let w = u64::from_le_bytes(chunk);
+        let found = stops.iter().fold(0, |m, &t| m | zero_bytes(w ^ t));
+        if found != 0 {
+            return i + (found.trailing_zeros() / 8) as usize;
+        }
+        i += 8;
+    }
+    i + b[i..]
+        .iter()
+        .position(|&c| c == quote || matches!(c, b'\\' | b'\n' | b'\r'))
+        .unwrap_or(b.len() - i)
+}
+
 /// U+2028 or U+2029 at the start of `b`.
 fn is_separator(b: &[u8]) -> bool {
     b.len() >= 3 && b[0] == 0xE2 && b[1] == 0x80 && (b[2] == 0xA8 || b[2] == 0xA9)
@@ -1081,6 +1103,32 @@ pub(crate) fn is_id_continue(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn string_runs() {
+        let naive = |b: &[u8], q: u8| {
+            b.iter()
+                .position(|&c| c == q || matches!(c, b'\\' | b'\n' | b'\r'))
+                .unwrap_or(b.len())
+        };
+        // Every stop byte at every offset of inputs around the word size,
+        // with near misses (0x80, the bytes one off) around it.
+        for len in 0..20 {
+            for at in 0..=len {
+                for stop in *b"\"'\\\n\r" {
+                    let mut b: Vec<u8> = (0..len)
+                        .map(|i| [b'a', 0x80, b'#', b'[', 0xFF][i % 5])
+                        .collect();
+                    if at < len {
+                        b[at] = stop;
+                    }
+                    for q in *b"\"'" {
+                        assert_eq!(string_run(&b, q), naive(&b, q), "{b:?} {q}");
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn unicode_tables() {
