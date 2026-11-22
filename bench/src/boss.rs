@@ -9,6 +9,10 @@
 //! 1,000 pages three times through each parser. `-- boss --smoke` is the
 //! CI check: 300 pages, no page over 2 MB, Parsec only, once, and a
 //! non-zero exit if any page crashes it, hangs it or leaves no document.
+//! `-- boss --gate` is the release's check (release.yml): all 1,000
+//! pages, once, through Parsec and html5ever, with the same non-zero exit,
+//! and also if html5ever builds a different number of elements than
+//! Parsec on any page.
 //! `--pages N`, `--runs N`, `--seed N` and `--tools parsec,lexbor,...`
 //! change the rest, and `--now` skips waiting for a quiet machine.
 //! `boss-page <n> [pages] [seed]` prints page `n` of the batch, to look
@@ -965,7 +969,7 @@ fn median(mut v: Vec<f64>) -> f64 {
     v[v.len() / 2]
 }
 
-/// `boss [--smoke] [--now] [--pages N] [--runs N] [--seed N] [--tools a,b]`.
+/// `boss [--smoke | --gate] [--now] [--pages N] [--runs N] [--seed N] [--tools a,b]`.
 pub fn run(args: &[String]) {
     match args.first().map(String::as_str) {
         Some("boss-worker") => return worker(&args[1..]),
@@ -991,6 +995,7 @@ pub fn run(args: &[String]) {
         _ => {}
     }
     let smoke = args.iter().any(|a| a == "--smoke");
+    let gate = args.iter().any(|a| a == "--gate");
     // Don't wait for a quiet machine (for trying things out).
     let now = args.iter().any(|a| a == "--now");
     let value = |flag: &str| {
@@ -1003,7 +1008,8 @@ pub fn run(args: &[String]) {
         seed: value("--seed").map_or(SEED, |v| v.parse().unwrap()),
         giant_cap: if smoke { 2_000_000 } else { usize::MAX },
     };
-    let runs: usize = value("--runs").map_or(if smoke { 1 } else { 3 }, |v| v.parse().unwrap());
+    let runs: usize =
+        value("--runs").map_or(if smoke || gate { 1 } else { 3 }, |v| v.parse().unwrap());
     let tools: Vec<usize> = match value("--tools") {
         Some(list) => list
             .split(',')
@@ -1015,6 +1021,7 @@ pub fn run(args: &[String]) {
             })
             .collect(),
         None if smoke => vec![0],
+        None if gate => vec![0, 2],
         None => vec![0, 1, 2, 3],
     };
 
@@ -1075,7 +1082,7 @@ pub fn run(args: &[String]) {
         for k in 0..tools.len() {
             let slot = (k + r) % tools.len();
             let tool = tools[slot];
-            let load = if smoke || now {
+            let load = if smoke || gate || now {
                 load_average()
             } else {
                 wait_for_quiet(deadline)
@@ -1262,6 +1269,7 @@ pub fn run(args: &[String]) {
                     differ[plan[i]] += 1;
                 }
             }
+            failed |= gate && differ.iter().sum::<usize>() > 0;
             println!(
                 "Pages where {}'s element count differs from Parsec's: {} (fragments {}, real {}, encodings {}, giants {})",
                 TOOLS[tool],
@@ -1291,8 +1299,15 @@ pub fn run(args: &[String]) {
     for e in &events {
         println!("{e}");
     }
-    if smoke && failed {
-        eprintln!("Parsec crashed, hung, refused a page or left one without a document");
+    if (smoke || gate) && failed {
+        eprintln!(
+            "A parser crashed, hung, refused a page or left one without a document{}",
+            if gate {
+                ", or the element counts differ"
+            } else {
+                ""
+            }
+        );
         std::process::exit(1);
     }
 }
