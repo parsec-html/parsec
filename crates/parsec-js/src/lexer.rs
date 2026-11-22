@@ -679,6 +679,13 @@ impl<'a> Lexer<'a> {
         let mut flags = Flags::empty();
         self.pos = start + 1;
         loop {
+            // Skip what can't end the string or start an escape in one
+            // tight loop: long strings in inline scripts are mostly that.
+            let rest = &b[self.pos..];
+            self.pos += rest
+                .iter()
+                .position(|&c| matches!(c, b'"' | b'\'' | b'\\' | b'\n' | b'\r'))
+                .unwrap_or(rest.len());
             match b.get(self.pos) {
                 None | Some(b'\n' | b'\r') => {
                     self.error(
