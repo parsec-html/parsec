@@ -1,15 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-labelledby="title desc">
   <title id="title">Parsec</title>
-  <desc id="desc">A line-drawn rocket flies through a field of stars, leaving HTML tags in its exhaust, beside the word Parsec.</desc>
+  <desc id="desc">A line-drawn rocket flies through a field of stars, leaving pieces of HTML, CSS, JavaScript and XML in its exhaust, beside the word Parsec and the line: the parsing foundation for the web, in Rust. HTML and CSS are shipped; JavaScript and XML are on the way.</desc>
   <style>
     .line { fill: none; stroke: #f4f4f6; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
     .hull { fill: #0b0d17; stroke: #f4f4f6; stroke-width: 5; stroke-linejoin: round; }
     .star { fill: #f4f4f6; }
     .tag { fill: #9aa3ff; font: 600 20px ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .tag.css { fill: #7ee0c3; }
+    .tag.js { fill: #f1d96b; }
+    .tag.xml { fill: #ff9f8a; }
     .title { fill: #f4f4f6; font: 800 104px "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing: -2px; }
     .sub { fill: #a7abc2; font: 400 27px "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; }
     .chip { fill: #1a1e33; stroke: #3a3f66; stroke-width: 1.5; }
     .chiptext { fill: #c9ccff; font: 600 18px ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .chiptext.css { fill: #7ee0c3; }
+    .chiptext.js { fill: #f1d96b; }
+    .chiptext.xml { fill: #ff9f8a; }
+    /* A dashed chip is a parser still being built. */
+    .chip.soon { fill: none; stroke-dasharray: 6 5; }
 
     /* The rocket drifts as if riding turbulence. */
     .ship { animation: bob 3.2s ease-in-out infinite; }
@@ -36,7 +44,7 @@
     }
 
     /* Parsed tags tumble out of the exhaust. */
-    .spill { animation: spill 2.6s ease-in infinite; opacity: 0; }
+    .spill { animation: spill 3.2s ease-in infinite; opacity: 0; }
     @keyframes spill {
       0% { transform: translate(0px, 0px) rotate(0deg); opacity: 0; }
       15% { opacity: 1; }
@@ -59,6 +67,15 @@
     @media (prefers-reduced-motion: reduce) {
       .ship, .flame, .drift, .spill, .twinkle, .planet { animation: none; }
       .spill { opacity: 0.8; }
+      /* Still, the pieces lie along the exhaust instead of on top of each other. */
+      .spill:nth-child(1) { transform: translate(0px, 0px) rotate(0deg); }
+      .spill:nth-child(2) { transform: translate(-22px, 19px) rotate(-5deg); }
+      .spill:nth-child(3) { transform: translate(-44px, 38px) rotate(-10deg); }
+      .spill:nth-child(4) { transform: translate(-66px, 57px) rotate(-15deg); }
+      .spill:nth-child(5) { transform: translate(-88px, 76px) rotate(-20deg); }
+      .spill:nth-child(6) { transform: translate(-110px, 95px) rotate(-25deg); }
+      .spill:nth-child(7) { transform: translate(-132px, 114px) rotate(-30deg); }
+      .spill:nth-child(8) { transform: translate(-154px, 133px) rotate(-35deg); }
     }
   </style>
 
@@ -101,12 +118,16 @@
     <line class="drift" x1="400" y1="-30" x2="370" y2="0" style="animation-duration:1.2s;animation-delay:-0.9s"/>
   </g>
 
-  <!-- Tags spilling from the exhaust, near the rocket's tail. -->
+  <!-- Pieces of each language spilling from the exhaust, near the rocket's tail. -->
   <g transform="translate(178 292)">
     <text class="tag spill" x="0" y="0">&lt;div&gt;</text>
-    <text class="tag spill" x="10" y="-6" style="animation-delay:-0.65s">&lt;/p&gt;</text>
-    <text class="tag spill" x="-6" y="8" style="animation-delay:-1.3s">&lt;a&gt;</text>
-    <text class="tag spill" x="4" y="2" style="animation-delay:-1.95s">&lt;li&gt;</text>
+    <text class="tag spill css" x="10" y="-6" style="animation-delay:-0.4s">a:hover</text>
+    <text class="tag spill js" x="-6" y="8" style="animation-delay:-0.8s">=&gt;</text>
+    <text class="tag spill xml" x="4" y="2" style="animation-delay:-1.2s">&lt;?xml?&gt;</text>
+    <text class="tag spill" x="-2" y="-4" style="animation-delay:-1.6s">&lt;/p&gt;</text>
+    <text class="tag spill css" x="8" y="6" style="animation-delay:-2.0s">{ }</text>
+    <text class="tag spill js" x="-4" y="0" style="animation-delay:-2.4s">const</text>
+    <text class="tag spill xml" x="6" y="-2" style="animation-delay:-2.8s">xmlns:</text>
   </g>
 
   <!-- The rocket, pointing up and to the right. -->
@@ -123,13 +144,15 @@
   </g>
 
   <text class="title" x="520" y="168">Parsec</text>
-  <text class="sub" x="524" y="216">An HTML parser in Rust, built for speed.</text>
+  <text class="sub" x="524" y="216">The parsing foundation for the web, in Rust.</text>
   <g transform="translate(524 244)">
     <rect class="chip" width="130" height="36" rx="18"/>
     <text class="chiptext" x="65" y="24" text-anchor="middle">&lt;/&gt; HTML</text>
-    <rect class="chip" x="142" width="186" height="36" rx="18"/>
-    <text class="chiptext" x="235" y="24" text-anchor="middle">:has(selectors)</text>
-    <rect class="chip" x="340" width="96" height="36" rx="18"/>
-    <text class="chiptext" x="388" y="24" text-anchor="middle">Rust</text>
+    <rect class="chip" x="142" width="112" height="36" rx="18"/>
+    <text class="chiptext css" x="198" y="24" text-anchor="middle">{ } CSS</text>
+    <rect class="chip soon" x="266" width="180" height="36" rx="18"/>
+    <text class="chiptext js" x="356" y="24" text-anchor="middle">( ) JavaScript</text>
+    <rect class="chip soon" x="458" width="112" height="36" rx="18"/>
+    <text class="chiptext xml" x="514" y="24" text-anchor="middle">&lt;?/&gt; XML</text>
   </g>
 </svg>
