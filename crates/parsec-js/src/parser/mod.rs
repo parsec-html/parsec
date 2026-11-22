@@ -330,7 +330,18 @@ impl<'a> Parser<'a> {
     }
 
     /// Stops at the first error the lexer has reported since last asked.
+    /// It runs once a token, so the check is inlined and the rest isn't.
+    #[inline(always)]
     fn check_lexer(&mut self) -> R<()> {
+        if self.lexer.diagnostics().len() > self.seen {
+            return self.lexer_reported();
+        }
+        Ok(())
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn lexer_reported(&mut self) -> R<()> {
         let diagnostics = self.lexer.diagnostics();
         if diagnostics.len() > self.seen {
             let new = &diagnostics[self.seen..];
