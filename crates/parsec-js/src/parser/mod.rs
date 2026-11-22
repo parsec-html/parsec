@@ -191,9 +191,9 @@ impl<'a> Parser<'a> {
         // About one node per eight bytes of a large bundle, but small
         // scripts run denser, one per four or five, and growing the
         // vectors costs a short parse more than the room does: the first
-        // 64 KB are sized at one per four.
+        // 64 KB are sized at one per four, with 16 more for the tiniest.
         let len = lexer.source().len();
-        let ast = Ast::new(len.min(1 << 16) / 4 + len.saturating_sub(1 << 16) / 8);
+        let ast = Ast::new(16 + len.min(1 << 16) / 4 + len.saturating_sub(1 << 16) / 8);
         let module = options.source_type == SourceType::Module;
         Parser {
             src: lexer.source(),
