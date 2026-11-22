@@ -96,6 +96,12 @@ The fuzz target builds on nightly with
 cargo +nightly fuzz run parse
 ```
 
+The JavaScript lexer has one too, from `crates/parsec-js`:
+
+```
+cargo +nightly fuzz run lex
+```
+
 Each conformance suite writes its counts when `CONFORMANCE_DIR` is set,
 and `conformance/baseline.json` holds the last release's. CI's
 `conformance` job compares the two on every pull request, and a release

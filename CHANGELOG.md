@@ -8,6 +8,20 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- The start of a JavaScript parser of Parsec's own, in two new crates
+  ([#143](https://github.com/parsec-html/parsec/issues/143),
+  [#147](https://github.com/parsec-html/parsec/issues/147)).
+  - `parsec-base` is the plumbing every parser here will share: `Span`,
+    `LineIndex` (line, column and UTF-16 offsets), `Diagnostic` and
+    `Severity`, `Limits` and `Budget`. It has no dependencies.
+  - `parsec-js` lexes ECMAScript 2025: identifiers with Unicode 17.0's
+    `ID_Start` and `ID_Continue` and escapes, every numeric literal form,
+    strings, template parts, regular expression literals, punctuators,
+    comments, a hashbang, and Annex B's HTML-like comments in scripts.
+    You pass the goal (`Goal::Div`, `Goal::RegExp` and the template
+    ones), so `/` and `}` are never guessed. A legacy octal literal or
+    escape is flagged on its token, and reported as an error in a
+    module.
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler
