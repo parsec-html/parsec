@@ -5,3 +5,4 @@ crates/parsec-css/tests/css-tokenizer-tests/** -text
 crates/parsec-css/tests/urange/** -text
 crates/parsec/tests/tree-construction/*.dat -text
 crates/parsec/tests/shadow-dom/* -text
+crates/parsec-js/fuzz/corpus/** -text

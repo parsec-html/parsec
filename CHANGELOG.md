@@ -50,6 +50,9 @@ minor release can break the API and a patch release won't.
     ones), so `/` and `}` are never guessed. A legacy octal literal or
     escape is flagged on its token, and reported as an error in a
     module.
+  - test262 runs in `cargo test` through the lexer, and CI's summary
+    has its counts: all 49,655 files that should parse tokenize
+    ([#148](https://github.com/parsec-html/parsec/issues/148)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

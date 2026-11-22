@@ -293,6 +293,10 @@ fn division_and_regexps_from_the_driver() {
     assert_eq!(lex("return /x/")[1], (Kind::RegExp, "/x/"));
     assert_eq!(lex("this / 2")[1], (P(Punct::Slash), "/"));
     assert_eq!(lex("a++ / 2")[2], (P(Punct::Slash), "/"));
+    assert_eq!(lex("if (a) /b/.test(c)")[4], (Kind::RegExp, "/b/"));
+    assert_eq!(lex("f(a) / 2")[4], (P(Punct::Slash), "/"));
+    // `of` is an identifier more often than not.
+    assert_eq!(lex("of / 2")[1], (P(Punct::Slash), "/"));
 }
 
 // 12.9.3 Numeric literals.
@@ -655,6 +659,9 @@ fn html_close_comments() {
         (P(Punct::MinusMinus), "--")
     );
     assert_eq!(lex("x = a\n// c\n-->")[4], (Kind::HtmlCloseComment, "-->"));
+    // The first line is a line start too.
+    assert_eq!(lex("--> x\ny")[0], (Kind::HtmlCloseComment, "--> x"));
+    assert_eq!(lex(" /* a */ --> x")[1], (Kind::HtmlCloseComment, "--> x"));
 }
 
 // Tokens and spans as a whole.

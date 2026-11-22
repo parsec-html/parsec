@@ -218,11 +218,15 @@ against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
   The caller passes the goal, so `/` and `}` are never guessed; every
   token has a span and none allocates
   ([#147](https://github.com/parsec-html/parsec/issues/147)).
-- Done: a fuzz target for the lexer in the nightly fuzz run
-  ([#150](https://github.com/parsec-html/parsec/issues/150)); its corpus
-  comes with test262.
-- Still to come: test262 in CI, with the counts in every run's summary
-  ([#148](https://github.com/parsec-html/parsec/issues/148)).
+- Done: a fuzz target for the lexer in the nightly fuzz run, its corpus
+  seeded from test262
+  ([#150](https://github.com/parsec-html/parsec/issues/150)).
+- Done: test262, pinned as a submodule, in `cargo test`, with the counts
+  in every CI run's summary
+  ([#148](https://github.com/parsec-html/parsec/issues/148)). All 49,655
+  files that should parse tokenize. Of the 4,676 that shouldn't, the
+  lexer catches the 267 whose error is in the tokens; the parser will
+  check the rest.
 
 ## M10. JavaScript syntax tree
 

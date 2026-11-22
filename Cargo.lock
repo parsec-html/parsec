@@ -362,6 +362,7 @@ name = "parsec-js"
 version = "0.2.0"
 dependencies = [
  "parsec-base",
+ "serde_json",
 ]
 
 [[package]]
