@@ -11,6 +11,8 @@
 //! interpreter (see `HtmlParser::read`), and nothing makes a Python object
 //! while holding it, since that can need every other thread to pause.
 
+#[cfg(feature = "js")]
+mod js;
 mod units;
 
 use std::borrow::Cow;
@@ -969,6 +971,18 @@ impl HtmlParser {
         slf.get()
             .html_child(py, "body")
             .map(|id| node(py, slf.as_unbound(), id))
+    }
+
+    /// The state the page keeps in its scripts, as
+    /// `parsec_html.js.page_state` reads it from each inline script a
+    /// browser would run, in document order, in one list. A script that
+    /// doesn't parse is passed over.
+    #[cfg(feature = "js")]
+    fn page_state<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let json = py.detach(|| {
+            js::document_state(&self.doc.read().unwrap_or_else(PoisonError::into_inner))
+        });
+        js::loads(py, &json)
     }
 
     /// The whole document's markup, or every node of a fragment's.
@@ -1985,6 +1999,8 @@ fn parsec_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("SelectorError", m.py().get_type::<SelectorError>())?;
     m.add("XPathError", m.py().get_type::<XPathError>())?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    #[cfg(feature = "js")]
+    js::add(m)?;
     Ok(())
 }
 

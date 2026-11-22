@@ -97,6 +97,40 @@ What you get over selectolax:
   aren't valid UTF-8 and don't say what they are used to get U+FFFD in
   place of each bad byte; now they decode as windows-1252, as in a
   browser. Pass `transport_encoding` if you know better.
+- **JavaScript.** `parsec_html.js.parse()` gives a script's ESTree, the
+  tree acorn and ESLint use, as dicts and lists; `module=True` parses a
+  module. `start` and `end` are indexes into your `str`. A syntax error
+  raises `JSSyntaxError`, a `ValueError` with `code`, `line`, `column`,
+  `start`, `end` and the `frame` a compiler would print:
+
+  ```python
+  from parsec_html import js
+
+  tree = js.parse("export const a = [1, 2];", module=True)
+  tree["body"][0]["declaration"]["declarations"][0]["init"]["type"]   # 'ArrayExpression'
+  try:
+      js.parse("let x = ;")
+  except js.JSSyntaxError as e:
+      print(e.frame)
+  ```
+
+  `max_depth=` (at most and by default 256) and `max_steps=` bound a
+  script you don't trust: too deep raises `JSSyntaxError` with the code
+  `too-deep`, and past the steps, `TimeoutError`.
+- **The state pages keep in scripts**, read without running anything:
+  `window.__NUXT__ = …`, a top-level `var ytInitialData = …`,
+  `JSON.parse("…")`, Nuxt 2's function form and Next.js's
+  `self.__next_f` pushes. `page.page_state()` reads every inline script
+  on a page; `js.page_state(source)` reads one.
+
+  ```python
+  page = HTMLParser(html)
+  for found in page.page_state():
+      print(found["name"], found.get("value", found.get("error")))
+  ```
+
+  Each is `{"name", "value"}`, or `{"name", "error": {"code", "source"}}`
+  when the value would need code to run, like `window.x = f()`.
 
 ## Installing
 
