@@ -34,6 +34,9 @@ jobs:
           components: clippy, rustfmt
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # XPath without the HTML parser, as a crate with its own tree uses it.
+      - run: cargo clippy -p parsec-xpath --no-default-features --all-targets -- -D warnings
+      - run: cargo test -p parsec-xpath --no-default-features
       # A crate at a time: three of them name their library `parsec`, which
       # one `cargo doc --workspace` can't write side by side.
       - name: The API docs build without warnings
