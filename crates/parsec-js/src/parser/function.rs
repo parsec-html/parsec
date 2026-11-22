@@ -355,6 +355,9 @@ impl Parser<'_> {
             Node::Identifier => self.name(span) == name,
             Node::Literal(LiteralKind::String) => {
                 let body = Span::new(span.start + 1, span.end - 1).text(self.src);
+                if !body.contains('\\') {
+                    return body == name;
+                }
                 text::string_value(body)
                     .iter()
                     .copied()
