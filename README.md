@@ -13,8 +13,9 @@ XML, one crate at a time, so you build on exactly the parsers you need.
 The HTML parser reads pages the way a browser does, finds what you're after with
 CSS selectors, and lets you change the tree and write it back out. Beside
 it sit CSS with the cascade, XPath, and the WHATWG Encoding and URL
-standards. JavaScript is next, then XML, each with its own tree, so
-nobody who only wants HTML compiles a JavaScript parser.
+standards. JavaScript and XML are next, each with its own tree, so
+nobody who only wants HTML compiles a JavaScript parser. Both parse on
+`main` already; neither is in a release yet.
 
 If you use Lexbor today, directly or through selectolax, PHP's `Dom\HTMLDocument`,
 nokolexbor or lazy_html, the HTML parser was built for you. Lexbor is fast and
@@ -430,8 +431,8 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
-| JavaScript syntax tree | no | yes, `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and 3,824 of the 4,374 that shouldn't fail, in `cargo test` |
-| XML | no | yes, `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
+| JavaScript syntax tree | no | not released yet; on `main` in `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and 3,824 of the 4,374 that shouldn't fail, in `cargo test` |
+| XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
 | Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
 | WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
@@ -465,12 +466,17 @@ page.
 | M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
 | M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | under way |
 | M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11) | under way |
-| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12) | planned |
+| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12) | under way |
 | M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13) | planned |
 | M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | planned |
-| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16) | planned |
-| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | planned |
+| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16) | under way |
+| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | under way |
 | M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15) | planned |
+
+"Under way" means part of it is merged on `main` with its tests, but
+none of it is in a release: today that's `parsec-base`, the JavaScript
+lexer and script parser, `parsec-xml`, and the native Node build.
+0.3.0 is the first release with `parsec-js`.
 
 ## Using it
 

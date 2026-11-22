@@ -22,17 +22,19 @@ its tests.
 Targets, not promises: a milestone ships when it's done and tested, and
 the order can change when users show us something more urgent.
 
-| Milestone | Target |
-|---|---|
-| M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 |
-| M15. One toolkit, in pieces | December 2026 |
-| M9. JavaScript tokens | December 2026 |
-| M10. JavaScript syntax tree | early 2027, with 0.3.0 |
-| M11. JavaScript scope and modules | spring 2027 |
-| M12. Data from scripts | spring 2027 |
-| M14. XML | summer 2027 |
-| M16. Every language, every way in | alongside each parser |
-| M13. JavaScript diagnostics and incremental parsing | late 2027 |
+| Milestone | Target | Today |
+|---|---|---|
+| M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
+| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` on `main` |
+| M9. JavaScript tokens | December 2026 | under way: the lexer, test262 and fuzzing on `main` |
+| M10. JavaScript syntax tree | early 2027, with 0.3.0 | under way: scripts on `main` |
+| M11. JavaScript scope and modules | spring 2027 | planned |
+| M12. Data from scripts | spring 2027 | planned |
+| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite and the bench on `main` |
+| M16. Every language, every way in | alongside each parser | under way: the native Node build on `main` |
+| M13. JavaScript diagnostics and incremental parsing | late 2027 | planned |
+
+Nothing marked "on `main`" is in a release yet.
 
 ## M0. Foundations
 
@@ -349,6 +351,16 @@ should, and the architecture written down on the wiki
 JavaScript and XML through the C API, Python and WebAssembly, the way
 HTML is today, and a native Node.js package beside the WebAssembly one
 ([#173](https://github.com/parsec-html/parsec/issues/173)).
+
+- Done: the native Node.js build
+  ([#177](https://github.com/parsec-html/parsec/issues/177)). The npm
+  package loads it on Linux (glibc and musl), macOS and Windows, x86-64
+  and ARM64, with the WebAssembly's API and `parseAsync`, and falls back
+  to the WebAssembly anywhere else. It ships in the next release.
+- Still to come: JavaScript and XML in the C API, Python and
+  WebAssembly ([#174](https://github.com/parsec-html/parsec/issues/174),
+  [#175](https://github.com/parsec-html/parsec/issues/175),
+  [#176](https://github.com/parsec-html/parsec/issues/176)).
 
 ## Releases
 
