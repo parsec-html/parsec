@@ -8,6 +8,22 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- A native build for Node.js, which the npm package `parsec-html` now
+  loads in Node wherever there's one for the platform: Linux on x86-64
+  and ARM64, with glibc or musl, macOS on both, and Windows on both
+  ([#177](https://github.com/parsec-html/parsec/issues/177)). It has the
+  WebAssembly's API, names, options and error messages, and parses the
+  13 benchmark pages 1.5 times as fast. Each platform's build is an
+  optional dependency, `@parsec-web/binding-<platform>`; anywhere else,
+  and in browsers, the package is the WebAssembly it was.
+  - `parseAsync(html, options)` parses on Node's thread pool and gives a
+    promise of the document. With the WebAssembly build it parses before
+    it returns.
+  - `backend` says which build loaded, and `PARSEC_BACKEND=wasm` or
+    `native` chooses one.
+  - A panic in the native build is an `Error` (a rejected promise from
+    `parseAsync`), as it is in the WebAssembly and Python builds, never
+    the end of the process.
 - `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
   and Namespaces in XML 1.0, not validating
   ([#169](https://github.com/parsec-html/parsec/issues/169)).

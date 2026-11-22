@@ -422,6 +422,7 @@ every module Lexbor has, and then go past it:
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
 | Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
 | WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
+| Node.js, native | not from Lexbor | next release: the npm package picks a native build on Linux, macOS and Windows, x86-64 and ARM, with the same API, `parseAsync`, and 1.5 times the WebAssembly's speed |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
