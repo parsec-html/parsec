@@ -3,13 +3,16 @@
 //
 // The npm package as someone installs it: run `./build.sh`, then
 // `npm install --no-save ./pkg` and `node --test tests/package.test.mjs`.
+// In Node it's the native build when the platform's package is installed
+// (bindings/node), else the WebAssembly; CI runs these tests on both,
+// choosing with PARSEC_BACKEND=native or wasm.
 
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import test from "node:test";
 
-import { ByteParser, parse, parseBytes, parseFragment } from "parsec-html";
+import { ByteParser, backend, parse, parseAsync, parseBytes, parseFragment } from "parsec-html";
 
 test("Node gets the build that loads itself", () => {
   const doc = parse("<ul><li class=hit>one<li>two</ul>");
@@ -19,6 +22,43 @@ test("Node gets the build that loads itself", () => {
   assert.equal(doc.selectFirst("li + li").outerHTML, "<li>two</li>");
   assert.equal(doc.body.firstChild.nodeName, "UL");
   assert.throws(() => doc.select("li["), /expected/);
+});
+
+test("the build asked for is the one that loaded", () => {
+  assert.ok(["native", "wasm"].includes(backend), backend);
+  if (process.env.PARSEC_BACKEND) assert.equal(backend, process.env.PARSEC_BACKEND);
+});
+
+test("parseAsync gives what parse gives, off the main thread when native", async () => {
+  const page = "<ul>" + "<li class=x>one <b>two</b>".repeat(200_000) + "</ul>";
+  let ticks = 0;
+  let waiting = true;
+  const tick = () => {
+    if (!waiting) return;
+    ticks++;
+    setImmediate(tick);
+  };
+  setImmediate(tick);
+  const doc = await parseAsync(page, { maxDepth: 5 });
+  waiting = false;
+  assert.equal(doc.select("li.x").length, 200_000);
+  assert.equal(doc.selectFirst("li").outerHTML, parse(page, { maxDepth: 5 }).selectFirst("li").outerHTML);
+  // The event loop turned while the page parsed on a worker thread; the
+  // WebAssembly build parsed it before parseAsync returned.
+  if (backend === "native") assert.ok(ticks > 0, `${ticks} turns`);
+  const spans = await parseAsync("<p>caf\u00e9</p>", { spans: true });
+  assert.deepEqual([spans.selectFirst("p").endSpan.start, spans.selectFirst("p").endSpan.end], [7, 11]);
+});
+
+test("free and Symbol.dispose are there on either build", () => {
+  const doc = parse("<p>x");
+  const p = doc.selectFirst("p");
+  for (const o of [doc, p]) {
+    assert.equal(typeof o.free, "function");
+    assert.equal(typeof o[Symbol.dispose], "function");
+  }
+  p.free();
+  doc[Symbol.dispose]();
 });
 
 test("a removed node stays usable, as the DOM's remove() leaves it", () => {
@@ -142,6 +182,9 @@ test("the types ship with it", async () => {
   assert.match(types, /export interface ByteParseOptions extends ParseOptions/);
   assert.match(types, /feed\(chunk: Uint8Array \| number\[\]\): void;/);
   assert.match(types, /readonly encodingConfidence: "certain" \| "tentative" \| undefined;/);
+  const node = await readFile(new URL("../node_modules/parsec-html/index.d.ts", import.meta.url), "utf8");
+  assert.match(node, /export function parseAsync\(html: string, options\?: ParseOptions \| null\): Promise<Document>;/);
+  assert.match(node, /export \* from "\.\/node\/parsec_html\.js";/);
   // `[Symbol.dispose]` needs this lib, which a project may not list.
   for (const build of ["parsec_html.d.ts", "node/parsec_html.d.ts"]) {
     const d = await readFile(new URL(`../node_modules/parsec-html/${build}`, import.meta.url), "utf8");
@@ -177,6 +220,9 @@ test("bytes, sniffed as a browser sniffs them", () => {
   assert.equal(parseBytes(new Uint8Array([0xe9]), { transportEncoding: "nope" }).characterSet, "windows-1252");
   assert.throws(() => parseBytes(e9, { defaultEncoding: "nope" }), /defaultEncoding/);
   assert.equal(parse("<p>").characterSet, "UTF-8");
+  // An array of numbers, or a Buffer, works as a Uint8Array does.
+  assert.equal(parseBytes([...e9]).text, "é");
+  assert.equal(parseBytes(Buffer.from(e9)).text, "é");
   assert.equal(parse("<p>").encodingConfidence, undefined);
 
   const parser = new ByteParser({ transportEncoding: "shift_jis" });

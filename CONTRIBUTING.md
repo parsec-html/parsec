@@ -71,6 +71,11 @@ submodule, so fetch it before you test:
 git submodule update --init
 ```
 
+The W3C XML conformance suite isn't in the repository at all: its
+tarball is pinned by address and SHA-256, and
+`crates/parsec-xml/scripts/fetch-xmlconf.sh` downloads it. Without it,
+`cargo test` skips that suite and says so; CI always runs it.
+
 The tree-construction tests aren't a submodule. They moved from
 html5lib-tests to web-platform-tests, and the files are pinned in
 `crates/parsec/tests/tree-construction`, with the WPT commit in `COMMIT`
@@ -131,6 +136,41 @@ A bug fix comes with the test that would have caught it. A new feature
 comes with tests, and a page in the
 [wiki](https://github.com/parsec-html/parsec/wiki) if you'd use it from
 your own code.
+
+## When a real page breaks Parsec
+
+A page from a real site belongs to the site, so it can't go in the
+repository. What can is the smallest input that still fails, and
+`parsec-reduce` finds it by delta debugging: it removes tags, then
+attributes, then words, then characters, for as long as the failure
+still happens.
+
+```
+cargo run --release -p parsec-reduce -- page.html --check panic
+```
+
+`--check` is what failing means: `panic`, `hang:MS` (parsing takes over
+MS milliseconds), `differs-from-html5ever` (the two trees differ), or
+`cmd:COMMAND`, where COMMAND gets the candidate's path as `$1` and exits
+non-zero while the bug is there. The result goes beside the page as
+`page.reduced.html`.
+
+Put it in `crates/parsec-html/tests/regressions/` as `<short-name>.html`,
+starting with a line that says where it came from:
+
+```
+<!-- site: https://example.com/the/page; date: 2026-11-21; failed: a panic in the table code; issue: #123 -->
+```
+
+The `regressions` test parses every file there, and fails on a panic or
+a parse over 10 seconds. A `<short-name>.tree` beside it, the
+html5lib-tests tree dump, holds the tree to that as well;
+`BLESS_REGRESSIONS=1 cargo test -p parsec-html --test regressions` writes
+one from what Parsec builds now, once the fix is in.
+
+Reduced inputs only, never whole pages, and always with the site's URL
+and the date. The test refuses a file over 64 KB or one without the
+header.
 
 ## Commits and pull requests
 

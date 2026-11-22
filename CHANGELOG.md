@@ -8,6 +8,22 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- A native build for Node.js, which the npm package `parsec-html` now
+  loads in Node wherever there's one for the platform: Linux on x86-64
+  and ARM64, with glibc or musl, macOS on both, and Windows on both
+  ([#177](https://github.com/parsec-html/parsec/issues/177)). It has the
+  WebAssembly's API, names, options and error messages, and parses the
+  13 benchmark pages 1.5 times as fast. Each platform's build is an
+  optional dependency, `@parsec-web/binding-<platform>`; anywhere else,
+  and in browsers, the package is the WebAssembly it was.
+  - `parseAsync(html, options)` parses on Node's thread pool and gives a
+    promise of the document. With the WebAssembly build it parses before
+    it returns.
+  - `backend` says which build loaded, and `PARSEC_BACKEND=wasm` or
+    `native` chooses one.
+  - A panic in the native build is an `Error` (a rejected promise from
+    `parseAsync`), as it is in the WebAssembly and Python builds, never
+    the end of the process.
 - `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
   and Namespaces in XML 1.0, not validating
   ([#169](https://github.com/parsec-html/parsec/issues/169)).
@@ -30,6 +46,22 @@ minor release can break the API and a patch release won't.
     its span, and the line and column.
   - `to_xml` and `write_xml` write a document or a subtree back out,
     prefixes and namespace declarations as they were.
+  - The W3C XML Conformance Test Suite runs in `cargo test`
+    ([#170](https://github.com/parsec-html/parsec/issues/170)): 1,915
+    cases pass and none fail, and every skipped case says why.
+  - XPath 1.0 over the document with the `xpath` feature, off by
+    default: `parsec_xml::xpath` is `parsec-xpath` without its HTML
+    tree, and `Document` implements its `Tree`
+    ([#171](https://github.com/parsec-html/parsec/issues/171)). Names
+    compare exactly, `xmlns` and `xmlns:*` aren't attributes, `id()`
+    finds `xml:id` and attributes the internal subset declares `ID`,
+    and `lang()` reads `xml:lang`. `NodeId::from_index` turns a result's
+    node back into a `NodeId`. libxml2's XPath document tests run in
+    `cargo test`: 79 pass, none fail, and the 5 skipped use the
+    namespace axis, which is empty.
+  - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
+    on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
+    ([#172](https://github.com/parsec-html/parsec/issues/172)).
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).
@@ -91,6 +123,12 @@ minor release can break the API and a patch release won't.
   - WebAssembly: `select`, `selectFirst` and `matches` take
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
+
+### Changed (breaking)
+
+- The Python wheels need Python 3.10 or newer: 3.9 reached end of life
+  in October 2025, and its CI jobs kept a pytest with a known
+  vulnerability ([#220](https://github.com/parsec-html/parsec/issues/220)).
 
 ### Changed
 

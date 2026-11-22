@@ -1089,3 +1089,49 @@ fn modules_are_strict_and_top_level() {
     );
     ok(&["import('a')", "a = import('b')"]);
 }
+
+/// How long `f` takes, the best of three.
+fn best_of_three(f: impl Fn()) -> std::time::Duration {
+    (0..3)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            f();
+            t.elapsed()
+        })
+        .min()
+        .unwrap()
+}
+
+/// Ten times the input in at most about ten times the time, with room for
+/// noise: a quadratic check would take a hundred.
+fn assert_linear(what: &str, make: impl Fn(usize) -> String) {
+    let (small, big) = (make(20_000), make(200_000));
+    let parse = |src: &str| {
+        module(src).unwrap();
+    };
+    let (ts, tb) = (
+        best_of_three(|| parse(&small)),
+        best_of_three(|| parse(&big)),
+    );
+    let ratio = tb.as_secs_f64() / ts.as_secs_f64().max(1e-6);
+    assert!(
+        ratio < 35.0,
+        "{what}: 10x the input took {ratio:.1}x the time ({ts:?}, {tb:?})"
+    );
+}
+
+#[test]
+fn many_import_attributes_stay_linear() {
+    let attributes = |n: usize| {
+        (0..n)
+            .map(|i| format!("k{i}:'v'"))
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    assert_linear("import with {…}", |n| {
+        format!("import 'a' with {{{}}};", attributes(n))
+    });
+    assert_linear("export * from with {…}", |n| {
+        format!("export * from 'a' with {{{}}};", attributes(n))
+    });
+}
