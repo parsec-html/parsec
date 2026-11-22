@@ -8,6 +8,28 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
+  and Namespaces in XML 1.0, not validating
+  ([#169](https://github.com/parsec-html/parsec/issues/169)).
+  - `parse`, `parse_with` and `parse_bytes` give a `Document`: an arena
+    of nodes in document order, each element's and attribute's `Name`
+    resolved to its namespace, a `Span` on every node and attribute,
+    attributes in their order, and `xml_lang` and `preserves_space` read
+    up the tree.
+  - The internal subset's general and parameter entities are expanded
+    and its attribute defaults applied. The external subset and external
+    entities are never fetched or opened; the document's `warnings` say
+    what wasn't read, and a reference to such an entity stays in the
+    tree as `NodeKind::EntityRef`.
+  - Entity expansion stops with an error past `max_entity_depth` (16)
+    or past 1 MiB plus 8 bytes per byte of input, so billion laughs and
+    quadratic blowup cost what you allow. Elements nest at most 2,048
+    deep by default, and with no limit a million levels parse without
+    recursion.
+  - A document that isn't well-formed is an `Error` with a stable code,
+    its span, and the line and column.
+  - `to_xml` and `write_xml` write a document or a subtree back out,
+    prefixes and namespace declarations as they were.
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).
@@ -40,6 +62,25 @@ minor release can break the API and a patch release won't.
   - WebAssembly: `select`, `selectFirst` and `matches` take
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
+
+### Changed
+
+- `parsec-xpath` reads trees through a `Tree` trait, so XPath can run
+  over a tree other than Parsec's HTML document, such as `parsec-xml`'s
+  (#171). The HTML document's impl is behind a default `html` feature;
+  with `default-features = false` the crate builds without the HTML
+  parser. `Index::build` is generic over the tree, so a call through a smart pointer (a `Ref` or a lock guard) needs `&*doc` where `&doc` coerced before. `Doc::xml` and `Namespaces::id_of` are gone: an XML document
+  in the HTML tree goes through `XmlTree`, and namespace tests compare
+  URIs. In XML, `local-name()` of a processing instruction is now its
+  whole target, as libxml2 has it.
+
+### Fixed
+
+- XPath read an element's attributes by walking every one before the
+  one it wanted, so a name test like `@id` on an element with 20,000
+  attributes took quadratic time: 3.9 seconds where it now takes 4 ms.
+  A page built to stall a crawler's XPath could have used it.
+  `Document::attr_at(id, i)` reads one attribute in constant time.
 
 ## 0.2.0
 
