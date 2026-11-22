@@ -113,10 +113,61 @@ So does the XML parser, from `crates/parsec-xml`:
 cargo +nightly fuzz run xml
 ```
 
+Each conformance suite writes its counts when `CONFORMANCE_DIR` is set,
+and `conformance/baseline.json` holds the last release's. CI's
+`conformance` job compares the two on every pull request, and a release
+can't ship with any suite passing fewer cases or failing more. To see the
+comparison before you push:
+
+```
+CONFORMANCE_DIR=target/conformance cargo test --workspace
+scripts/conformance-gate.sh conformance/baseline.json target/conformance
+```
+
+Don't edit the baseline to make your pull request pass: it changes only
+in a release pull request. If your change trades one case for a better
+one, say so in the pull request; the drop shows there in red for
+everyone to weigh.
+
 A bug fix comes with the test that would have caught it. A new feature
 comes with tests, and a page in the
 [wiki](https://github.com/parsec-html/parsec/wiki) if you'd use it from
 your own code.
+
+## When a real page breaks Parsec
+
+A page from a real site belongs to the site, so it can't go in the
+repository. What can is the smallest input that still fails, and
+`parsec-reduce` finds it by delta debugging: it removes tags, then
+attributes, then words, then characters, for as long as the failure
+still happens.
+
+```
+cargo run --release -p parsec-reduce -- page.html --check panic
+```
+
+`--check` is what failing means: `panic`, `hang:MS` (parsing takes over
+MS milliseconds), `differs-from-html5ever` (the two trees differ), or
+`cmd:COMMAND`, where COMMAND gets the candidate's path as `$1` and exits
+non-zero while the bug is there. The result goes beside the page as
+`page.reduced.html`.
+
+Put it in `crates/parsec-html/tests/regressions/` as `<short-name>.html`,
+starting with a line that says where it came from:
+
+```
+<!-- site: https://example.com/the/page; date: 2026-11-21; failed: a panic in the table code; issue: #123 -->
+```
+
+The `regressions` test parses every file there, and fails on a panic or
+a parse over 10 seconds. A `<short-name>.tree` beside it, the
+html5lib-tests tree dump, holds the tree to that as well;
+`BLESS_REGRESSIONS=1 cargo test -p parsec-html --test regressions` writes
+one from what Parsec builds now, once the fix is in.
+
+Reduced inputs only, never whole pages, and always with the site's URL
+and the date. The test refuses a file over 64 KB or one without the
+header.
 
 ## Commits and pull requests
 

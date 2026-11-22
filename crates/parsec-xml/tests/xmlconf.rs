@@ -28,6 +28,72 @@ const BAD_OUTPUT: &[(&str, &str)] = &[(
     "its canonical output puts a processing instruction from the internal subset before the <!DOCTYPE>",
 )];
 
+/// `not-wf` cases whose fault is in an external entity, which Parsec never
+/// reads, so the main document parses. Listed rather than decided at run
+/// time: if the parser stopped catching a fault in a main document, that
+/// case would fail here instead of joining these.
+const EXTERNAL_FAULT: &[&str] = &[
+    "cond01",
+    "cond02",
+    "decl01",
+    "dtd07",
+    "encoding07",
+    "ibm-not-wf-P30-ibm30n01.xml",
+    "ibm-not-wf-P31-ibm31n01.xml",
+    "ibm-not-wf-P61-ibm61n01.xml",
+    "ibm-not-wf-P62-ibm62n01.xml",
+    "ibm-not-wf-P62-ibm62n02.xml",
+    "ibm-not-wf-P62-ibm62n03.xml",
+    "ibm-not-wf-P62-ibm62n04.xml",
+    "ibm-not-wf-P62-ibm62n05.xml",
+    "ibm-not-wf-P62-ibm62n06.xml",
+    "ibm-not-wf-P62-ibm62n07.xml",
+    "ibm-not-wf-P62-ibm62n08.xml",
+    "ibm-not-wf-P63-ibm63n01.xml",
+    "ibm-not-wf-P63-ibm63n02.xml",
+    "ibm-not-wf-P63-ibm63n03.xml",
+    "ibm-not-wf-P63-ibm63n04.xml",
+    "ibm-not-wf-P63-ibm63n05.xml",
+    "ibm-not-wf-P63-ibm63n06.xml",
+    "ibm-not-wf-P63-ibm63n07.xml",
+    "ibm-not-wf-P64-ibm64n01.xml",
+    "ibm-not-wf-P64-ibm64n02.xml",
+    "ibm-not-wf-P64-ibm64n03.xml",
+    "ibm-not-wf-P65-ibm65n01.xml",
+    "ibm-not-wf-P65-ibm65n02.xml",
+    "ibm-not-wf-P77-ibm77n01.xml",
+    "ibm-not-wf-P77-ibm77n02.xml",
+    "ibm-not-wf-P77-ibm77n03.xml",
+    "ibm-not-wf-P77-ibm77n04.xml",
+    "ibm-not-wf-P78-ibm78n01.xml",
+    "ibm-not-wf-P78-ibm78n02.xml",
+    "ibm-not-wf-P79-ibm79n01.xml",
+    "ibm-not-wf-P79-ibm79n02.xml",
+    "ibm-not-wf-p28a-ibm28an01.xml",
+    "not-wf-ext-sa-001",
+    "not-wf-ext-sa-002",
+    "not-wf-ext-sa-003",
+    "not-wf-not-sa-001",
+    "not-wf-not-sa-003",
+    "not-wf-not-sa-004",
+    "not-wf-not-sa-006",
+    "not-wf-not-sa-007",
+    "not-wf-not-sa-008",
+    "not-wf-not-sa-009",
+    "o-p09fail1",
+    "o-p09fail2",
+    "o-p30fail1",
+    "o-p31fail1",
+    "o-p61fail1",
+    "o-p62fail1",
+    "o-p62fail2",
+    "o-p63fail1",
+    "o-p63fail2",
+    "o-p64fail1",
+    "o-p64fail2",
+    "rmt-e2e-38",
+];
+
 fn data_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/xmlconf")
 }
@@ -221,6 +287,14 @@ fn xmlconf() {
         return;
     }
     let cases = cases();
+    // A stale entry would hide nothing, but a typo would hide a real skip.
+    for id in EXTERNAL_FAULT {
+        let case = cases.iter().find(|c| c.id == *id);
+        assert!(
+            case.is_some_and(|c| c.kind == "not-wf" && c.entities != "none"),
+            "EXTERNAL_FAULT lists {id}, which isn't a not-wf case with external entities"
+        );
+    }
     let (mut passed, mut compared, mut failures) = (0, 0, Vec::new());
     let mut skipped: BTreeMap<&str, usize> = BTreeMap::new();
     for case in &cases {
@@ -288,7 +362,7 @@ fn xmlconf() {
                 failures.push(format!("{} ({}): {e}", case.id, case.kind));
             }
             ("not-wf", Err(_)) => passed += 1,
-            ("not-wf", Ok(_)) if case.entities != "none" => {
+            ("not-wf", Ok(_)) if EXTERNAL_FAULT.contains(&case.id.as_str()) => {
                 *skipped
                     .entry("not well-formed in an external entity, which Parsec never reads")
                     .or_default() += 1;

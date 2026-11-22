@@ -274,7 +274,7 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
 - Done: the W3C XML Conformance Test Suite in `cargo test`, with its
   counts in every CI run's summary
   ([#170](https://github.com/parsec-html/parsec/issues/170)). Of its
-  2,585 cases, 1,915 run and pass, 223 of them matching their canonical
+  2,585 cases, 1,915 run and pass, 227 of them matching their canonical
   output byte for byte, and none fail. The 670 skipped are XML 1.1 and
   Namespaces 1.1 (274), editions before the Fifth (310), errors the spec
   lets a processor report or not (27), and documents whose fault is in

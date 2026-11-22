@@ -1,0 +1,17 @@
+[package]
+name = "parsec-reduce"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Shrinks an HTML page that breaks Parsec to the smallest input that still does, for a regression fixture."
+# Not published; and CI checks that no package lists tests/.
+exclude = ["tests/"]
+
+[dependencies]
+parsec-html-core = { path = "../parsec", version = "0.2.0" }
+# The same html5ever as bench/, to compare trees with.
+html5ever = "0.40"
+markup5ever_rcdom = "0.40"

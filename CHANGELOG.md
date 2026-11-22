@@ -66,6 +66,25 @@ minor release can break the API and a patch release won't.
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
 
+### Changed
+
+- `parsec-xpath` reads trees through a `Tree` trait, so XPath can run
+  over a tree other than Parsec's HTML document, such as `parsec-xml`'s
+  (#171). The HTML document's impl is behind a default `html` feature;
+  with `default-features = false` the crate builds without the HTML
+  parser. `Index::build` is generic over the tree, so a call through a smart pointer (a `Ref` or a lock guard) needs `&*doc` where `&doc` coerced before. `Doc::xml` and `Namespaces::id_of` are gone: an XML document
+  in the HTML tree goes through `XmlTree`, and namespace tests compare
+  URIs. In XML, `local-name()` of a processing instruction is now its
+  whole target, as libxml2 has it.
+
+### Fixed
+
+- XPath read an element's attributes by walking every one before the
+  one it wanted, so a name test like `@id` on an element with 20,000
+  attributes took quadratic time: 3.9 seconds where it now takes 4 ms.
+  A page built to stall a crawler's XPath could have used it.
+  `Document::attr_at(id, i)` reads one attribute in constant time.
+
 ## 0.2.0
 
 A security release. A page could crash any program using Parsec
