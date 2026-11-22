@@ -420,9 +420,9 @@ every module Lexbor has, and then go past it:
 | JavaScript incremental parsing | no | yes, `Ast::reparse`: after an edit, only the function body or statement around it is parsed again, and the tree is the one a full parse gives, which `cargo test` checks on random edits |
 | JavaScript module records | no | yes, `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
 | State from a page's scripts | no | yes, `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
-| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
-| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
-| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
+| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; JavaScript to ESTree JSON, and page state |
+| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.js` for JavaScript's ESTree and page state |
+| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseJs` and `pageState` for JavaScript |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
