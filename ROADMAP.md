@@ -30,7 +30,7 @@ the order can change when users show us something more urgent.
 | M10. JavaScript syntax tree | early 2027, with 0.3.0 | under way: scripts on `main` |
 | M11. JavaScript scope and modules | spring 2027 | planned |
 | M12. Data from scripts | spring 2027 | planned |
-| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite and the bench on `main` |
+| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite, the bench and XPath on `main` |
 | M16. Every language, every way in | alongside each parser | under way: the native Node build on `main` |
 | M13. JavaScript diagnostics and incremental parsing | late 2027 | planned |
 
@@ -334,10 +334,16 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
   RSS and Atom feeds, SVGs, the XML spec and a Wikipedia dump slice),
   Parsec parses 1,314 MB/s to libxml2's 495 and roxmltree's 327, ahead
   of both on every document, and holds no more memory than libxml2 on any.
-- Still to come: XPath over XML
-  ([#171](https://github.com/parsec-html/parsec/issues/171)), which
-  needs `parsec-xpath` to read a tree through a trait; that change
-  starts in Netweir.
+- Done: XPath over XML
+  ([#171](https://github.com/parsec-html/parsec/issues/171)).
+  `parsec-xml`'s `xpath` feature makes its `Document` a tree
+  `parsec-xpath` reads, with no HTML parser in the build: names compared
+  exactly, prefixes from the query's namespaces, namespace declarations
+  left out of the attributes, `id()` from `xml:id` and the DTD's `ID`
+  attributes, and `lang()` from `xml:lang`. libxml2's XPath document
+  tests run against it in `cargo test`: 79 of 84 queries pass and none
+  fail; the 5 skipped use the namespace axis, which `parsec-xpath`
+  leaves empty.
 
 ## M15. One toolkit, in pieces
 

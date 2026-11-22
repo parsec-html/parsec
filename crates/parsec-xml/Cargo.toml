@@ -23,6 +23,24 @@ name = "parsec_xml"
 parsec-base = { path = "../parsec-base", version = "0.2.0" }
 # Bytes in: the encodings XML documents declare, decoded strictly.
 encoding_rs = "0.8.35"
+# XPath 1.0, without its HTML tree: parsec-xml implements its Tree.
+parsec-xpath = { path = "../parsec-xpath", version = "0.2.0", default-features = false, optional = true }
+
+[features]
+# parsec_xml::xpath: XPath 1.0 over the parsed document. Off by default,
+# so the parser alone needs only parsec-base and encoding_rs.
+xpath = ["dep:parsec-xpath"]
 
 [dev-dependencies]
 serde_json = "1"
+
+[[test]]
+name = "xpath"
+required-features = ["xpath"]
+
+[[test]]
+name = "libxml2_xpath"
+required-features = ["xpath"]
+
+[package.metadata.docs.rs]
+all-features = true
