@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/parsec-html/parsec/main/assets/parsec-header.svg" alt="Parsec" width="100%">
+  <img src="https://raw.githubusercontent.com/parsec-html/parsec/main/assets/parsec-header.svg" alt="Parsec, the parsing foundation for the web, in Rust" width="100%">
 </h1>
 
 <p align="center">
@@ -8,12 +8,16 @@
   <a href="https://github.com/parsec-html/parsec/actions/workflows/ci.yml"><img src="https://github.com/parsec-html/parsec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
-An HTML parser in Rust that reads pages the way a browser does, finds what
-you're after with CSS selectors, and lets you change the tree and write it
-back out.
+The parsing foundation for the web, in Rust: HTML, CSS, JavaScript and
+XML, one crate at a time, so you build on exactly the parsers you need.
+The HTML parser reads pages the way a browser does, finds what you're after with
+CSS selectors, and lets you change the tree and write it back out. Beside
+it sit CSS with the cascade, XPath, and the WHATWG Encoding and URL
+standards. JavaScript is next, then XML, each with its own tree, so
+nobody who only wants HTML compiles a JavaScript parser.
 
 If you use Lexbor today, directly or through selectolax, PHP's `Dom\HTMLDocument`,
-nokolexbor or lazy_html, Parsec is being built for you. Lexbor is fast and
+nokolexbor or lazy_html, the HTML parser was built for you. Lexbor is fast and
 follows the spec. What we want to add is everything people keep asking it
 for: positions on nodes, a worst case that stays linear, documents you can
 share across threads, XPath, selectors for everything a static page can
@@ -423,11 +427,42 @@ every module Lexbor has, and then go past it:
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; JavaScript to ESTree JSON, and page state |
 | Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.js` for JavaScript's ESTree and page state |
 | WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseJs` and `pageState` for JavaScript |
+| XML | no | yes, `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
 and Firefox. A
 "planned" becomes a "yes" only when it ships.
+
+## Roadmap
+
+What's done, what's under way, and what's after that. Each milestone links
+to its issues, and the [Road to the parsing
+platform](https://github.com/orgs/parsec-html/projects/2) board shows who
+has what. [ROADMAP.md](https://github.com/parsec-html/parsec/blob/main/ROADMAP.md) has the detail and the target dates.
+How the crates fit together is on the wiki's
+[Architecture](https://github.com/parsec-html/parsec/wiki/Architecture#the-crates-and-how-they-fit)
+page.
+
+| | Milestone | State |
+|---|---|---|
+| M0 | [Foundations](https://github.com/parsec-html/parsec/milestone/1?closed=1) | done |
+| M1 | [Proof: the bench against Lexbor's C](https://github.com/parsec-html/parsec/milestone/2?closed=1) | done |
+| M2 | [HTML, past Lexbor](https://github.com/parsec-html/parsec/milestone/3?closed=1) | done |
+| M3 | [Selectors that match what a page can decide](https://github.com/parsec-html/parsec/milestone/4?closed=1) | done |
+| M4 | [Every way in: C, Python, WebAssembly](https://github.com/parsec-html/parsec/milestone/5?closed=1) | done |
+| M5 | [Encoding](https://github.com/parsec-html/parsec/milestone/6?closed=1) | done |
+| M6 | [URL](https://github.com/parsec-html/parsec/milestone/7?closed=1) | done |
+| M7 | [CSS, through the cascade](https://github.com/parsec-html/parsec/milestone/8?closed=1) | done |
+| M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
+| M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | under way |
+| M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11) | under way |
+| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12) | planned |
+| M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13) | planned |
+| M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | planned |
+| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16) | planned |
+| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | planned |
+| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15) | planned |
 
 ## Using it
 
