@@ -401,6 +401,22 @@ impl<'a> Lexer<'a> {
 
     fn ident(&mut self, start: usize) -> Token {
         let b = self.src.as_bytes();
+        // Most identifiers are plain ASCII: read those in a tight loop,
+        // and leave escapes and other characters to the loop below.
+        if matches!(b[start], b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_') {
+            let mut end = start + 1;
+            while b
+                .get(end)
+                .is_some_and(|&c| c < 0x80 && ID_CONTINUE_ASCII[c as usize])
+            {
+                end += 1;
+            }
+            if !matches!(b.get(end), Some(b'\\' | 0x80..)) {
+                self.pos = end;
+                let kind = Keyword::from_bytes(&b[start..end]).map_or(Kind::Ident, Kind::Keyword);
+                return self.token(kind, start, Flags::empty());
+            }
+        }
         let mut flags = Flags::empty();
         self.pos = start;
         let mut first = true;
@@ -459,9 +475,7 @@ impl<'a> Lexer<'a> {
             first = false;
         }
         let kind = match flags.contains(Flags::ESCAPED) {
-            false => {
-                Keyword::from_str(&self.src[start..self.pos]).map_or(Kind::Ident, Kind::Keyword)
-            }
+            false => Keyword::from_bytes(&b[start..self.pos]).map_or(Kind::Ident, Kind::Keyword),
             true => Kind::Ident,
         };
         self.token(kind, start, flags)
