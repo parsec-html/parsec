@@ -196,6 +196,18 @@ impl<'a> Lexer<'a> {
             b'`' => return self.template(start, false),
             b'}' if goal.template_tail() => return self.template(start, true),
             b'#' => return self.private_name(start),
+            // The punctuators that are one character whatever follows,
+            // most of them, without the lookahead the others need.
+            b'{' => self.punct(1, Punct::LBrace),
+            b'}' => self.punct(1, Punct::RBrace),
+            b'(' => self.punct(1, Punct::LParen),
+            b')' => self.punct(1, Punct::RParen),
+            b'[' => self.punct(1, Punct::LBracket),
+            b']' => self.punct(1, Punct::RBracket),
+            b';' => self.punct(1, Punct::Semicolon),
+            b',' => self.punct(1, Punct::Comma),
+            b':' => self.punct(1, Punct::Colon),
+            b'~' => self.punct(1, Punct::Tilde),
             0x80.. => {
                 let ch = self.char_at(start);
                 if is_id_start(ch) {
@@ -943,23 +955,14 @@ impl<'a> Lexer<'a> {
 
     // Punctuators (12.8).
 
-    /// The longest punctuator at `start`, other than `/`, `/=` and `}`
-    /// with a template goal, which the caller has handled.
+    /// The longest punctuator at `start` of those that can be longer
+    /// than one character; the caller has handled the rest, and `/`,
+    /// `/=` and `}` with a template goal.
     fn punctuator(&mut self, start: usize) -> Option<Punct> {
         let b = &self.src.as_bytes()[start..];
         let at = |i: usize| b.get(i).copied().unwrap_or(0);
         use Punct::*;
         let (len, p) = match (b[0], at(1), at(2), at(3)) {
-            (b'{', ..) => (1, LBrace),
-            (b'}', ..) => (1, RBrace),
-            (b'(', ..) => (1, LParen),
-            (b')', ..) => (1, RParen),
-            (b'[', ..) => (1, LBracket),
-            (b']', ..) => (1, RBracket),
-            (b';', ..) => (1, Semicolon),
-            (b',', ..) => (1, Comma),
-            (b':', ..) => (1, Colon),
-            (b'~', ..) => (1, Tilde),
             (b'.', b'.', b'.', _) => (3, Ellipsis),
             (b'.', ..) => (1, Dot),
             (b'<', b'<', b'=', _) => (3, ShlEq),
