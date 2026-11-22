@@ -34,6 +34,7 @@ jobs:
       - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
         with:
           tool: cargo-llvm-cov
+      - run: crates/parsec-xml/scripts/fetch-xmlconf.sh
       - name: Run the tests on an instrumented build
         run: |
           cargo llvm-cov --workspace --branch --no-report

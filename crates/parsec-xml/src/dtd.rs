@@ -381,14 +381,16 @@ impl Parser<'_, '_> {
             };
             let name = self.qname(name, cur.span(at, cur.i))?;
             self.need_space(cur, "an attribute type")?;
+            let mut id = false;
             let tokenized = if cur.eat("CDATA") {
                 false
-            } else if [
+            } else if let Some(k) = [
                 "IDREFS", "IDREF", "ID", "ENTITIES", "ENTITY", "NMTOKENS", "NMTOKEN",
             ]
-            .iter()
-            .any(|k| cur.eat(k))
+            .into_iter()
+            .find(|k| cur.eat(k))
             {
+                id = k == "ID";
                 true
             } else if cur.eat("NOTATION") {
                 self.need_space(cur, "`(`")?;
@@ -415,6 +417,7 @@ impl Parser<'_, '_> {
             defs.push(AttDef {
                 name,
                 tokenized,
+                id,
                 default,
                 cached: None,
             });
@@ -428,6 +431,10 @@ impl Parser<'_, '_> {
         for def in defs {
             // The first declaration of an attribute is the one that counts.
             if !list.iter().any(|d| d.name == def.name) {
+                if def.id {
+                    // An element type has one ID attribute; the first counts.
+                    self.doc.id_attrs.entry(element).or_insert(def.name);
+                }
                 list.push(def);
             }
         }

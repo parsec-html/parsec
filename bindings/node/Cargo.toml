@@ -1,0 +1,31 @@
+[package]
+name = "parsec-html-node"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+repository = "https://github.com/parsec-html/parsec"
+description = "Parsec for Node.js, built for the machine: the same API as the WebAssembly package, with napi-rs."
+publish = false
+
+# Its own workspace, as bindings/wasm is: a Node-API addon only links
+# inside Node, so the root's `cargo test --workspace` leaves it out.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = "=3.16.2"
+napi-derive = "=3.7.1"
+parsec-html-core = { path = "../../crates/parsec" }
+parsec-html-encoding = { path = "../../crates/parsec-encoding" }
+parsec-xpath = { path = "../../crates/parsec-xpath" }
+
+[build-dependencies]
+napi-build = "=2.6.0"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
