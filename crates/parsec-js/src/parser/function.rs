@@ -3,7 +3,7 @@
 
 //! Functions, arrows, methods and classes (ECMA-262 clause 15).
 
-use parsec_base::Span;
+use parsec_base::{Diagnostic, Span};
 
 use super::{ClassScope, Ctx, Parser, Private, R};
 use crate::ast::{Class, Function, FunctionKind, List, LiteralKind, MethodKind, Node, NodeId};
@@ -109,7 +109,7 @@ impl Parser<'_> {
 
     /// `( FormalParameters )`, and whether they're all plain identifiers.
     pub(super) fn formal_params(&mut self) -> R<(List, bool)> {
-        self.expect(Punct::LParen)?;
+        let open = self.expect(Punct::LParen)?;
         let mark = self.scratch.len();
         let mut simple = true;
         while !self.at(Punct::RParen) {
@@ -126,10 +126,10 @@ impl Parser<'_> {
             simple &= matches!(self.node(param), Node::Identifier);
             self.scratch.push(param);
             if !self.at(Punct::RParen) {
-                self.expect(Punct::Comma)?;
+                self.expect_in(Punct::Comma, open)?;
             }
         }
-        self.expect(Punct::RParen)?;
+        self.expect_in(Punct::RParen, open)?;
         Ok((self.take_list(mark), simple))
     }
 
@@ -143,18 +143,21 @@ impl Parser<'_> {
         name: Option<Token>,
     ) -> R<NodeId> {
         let start = self.tok.span.start;
-        self.expect(Punct::LBrace)?;
+        let open = self.expect(Punct::LBrace)?;
         let was_strict = self.ctx.strict;
         let mark = self.scratch.len();
         let use_strict = self.statement_list(true)?;
-        if use_strict && !simple {
-            return self.err(
-                "use-strict-with-complex-params",
-                Span::at(start),
-                "a function with defaults, patterns or a rest parameter can't say \"use strict\"",
+        if let Some(directive) = use_strict.filter(|_| !simple) {
+            return self.fail(
+                Diagnostic::error(
+                    "use-strict-with-complex-params",
+                    Span::at(start),
+                    "a function with defaults, patterns or a rest parameter can't say \"use strict\"",
+                )
+                .with_label(directive, "it says so here"),
             );
         }
-        self.expect(Punct::RBrace)?;
+        self.expect_in(Punct::RBrace, open)?;
         let body = self.take_list(mark);
         let block = self.finish(start, Node::Block { body });
         self.check_params(params, simple, unique, was_strict, name)?;
@@ -221,17 +224,20 @@ impl Parser<'_> {
             names.extend(spans.iter().map(|&s| (self.name(s), s)));
             names.sort_unstable();
             if let Some(w) = names.windows(2).find(|w| w[0].0 == w[1].0) {
-                duplicate = Some((w[1].0.to_string(), w[1].1));
+                duplicate = Some((w[1].0.to_string(), w[1].1, w[0].1));
             }
             names.clear();
             self.sorted_names = names;
         }
         self.names = spans;
-        if let Some((name, span)) = duplicate {
-            return self.err(
-                "duplicate-binding",
-                span,
-                format!("`{name}` is bound twice here"),
+        if let Some((name, span, first)) = duplicate {
+            return self.fail(
+                Diagnostic::error(
+                    "duplicate-binding",
+                    span,
+                    format!("`{name}` is bound twice here"),
+                )
+                .with_label(first, "bound here first"),
             );
         }
         Ok(())
@@ -402,11 +408,14 @@ impl Parser<'_> {
             None
         };
         let bstart = self.tok.span.start;
-        self.expect(Punct::LBrace)?;
+        let open = self.expect(Punct::LBrace)?;
         self.classes.push(ClassScope::default());
         let mark = self.scratch.len();
-        let mut constructor = false;
+        let mut constructor = None;
         while !self.at(Punct::RBrace) {
+            if self.tok.kind == Kind::Eof {
+                return self.unclosed(open);
+            }
             if self.eat(Punct::Semicolon)? {
                 continue;
             }
@@ -442,7 +451,7 @@ impl Parser<'_> {
             || (self.at_kw(Keyword::Get) || self.at_kw(Keyword::Set)) && next.kind == Kind::Punct(Punct::Star)
     }
 
-    fn class_element(&mut self, derived: bool, constructor: &mut bool) -> R<NodeId> {
+    fn class_element(&mut self, derived: bool, constructor: &mut Option<Span>) -> R<NodeId> {
         let start = self.tok.span.start;
         let mut is_static = false;
         if self.at_kw(Keyword::Static) && !self.modifier_is_name(false) {
@@ -493,15 +502,18 @@ impl Parser<'_> {
                         "a constructor can't be a getter, setter, generator or async",
                     );
                 }
-                if *constructor {
-                    let span = self.span(key);
-                    return self.err(
-                        "duplicate-constructor",
-                        span,
-                        "a class can have only one constructor",
+                let span = self.span(key);
+                if let Some(first) = *constructor {
+                    return self.fail(
+                        Diagnostic::error(
+                            "duplicate-constructor",
+                            span,
+                            "a class can have only one constructor",
+                        )
+                        .with_label(first, "the first constructor"),
                     );
                 }
-                *constructor = true;
+                *constructor = Some(span);
                 kind = MethodType::Constructor;
             }
             if is_static && named(self, "prototype") {
@@ -587,7 +599,7 @@ impl Parser<'_> {
 
     /// `static { ... }`, from the `{`.
     fn static_block(&mut self, start: u32) -> R<NodeId> {
-        self.bump()?;
+        let open = self.bump()?;
         let outer = self.ctx;
         self.ctx = Ctx {
             strict: true,
@@ -602,7 +614,7 @@ impl Parser<'_> {
         let result = self.statement_list(false);
         self.ctx = outer;
         result?;
-        self.expect(Punct::RBrace)?;
+        self.expect_in(Punct::RBrace, open)?;
         let body = self.take_list(mark);
         Ok(self.finish(start, Node::StaticBlock { body }))
     }

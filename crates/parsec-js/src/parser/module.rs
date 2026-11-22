@@ -4,7 +4,7 @@
 //! Modules' imports and exports (ECMA-262 clause 16.2), with import
 //! attributes.
 
-use parsec_base::Span;
+use parsec_base::{Diagnostic, Span};
 
 use super::{Parser, R};
 use crate::ast::{FunctionKind, List, LiteralKind, Node, NodeId, VarKind};
@@ -78,13 +78,17 @@ impl Parser<'_> {
 
     /// Records an exported name, which a module may export only once.
     fn export(&mut self, name: String, span: Span) -> R<()> {
-        if !self.exports.insert(name.clone()) {
-            return self.err(
-                "duplicate-export",
-                span,
-                format!("`{name}` is exported twice"),
+        if let Some(&first) = self.exports.get(&name) {
+            return self.fail(
+                Diagnostic::error(
+                    "duplicate-export",
+                    span,
+                    format!("`{name}` is exported twice"),
+                )
+                .with_label(first, "exported here first"),
             );
         }
+        self.exports.insert(name, span);
         Ok(())
     }
 
@@ -112,15 +116,18 @@ impl Parser<'_> {
                 _ => self.identifier_name()?,
             };
             let name = self.export_name(key);
-            if keys.contains(&name) {
-                let span = self.span(key);
-                return self.err(
-                    "duplicate-attribute",
-                    span,
-                    format!("the attribute `{name}` is given twice"),
+            let span = self.span(key);
+            if let Some(&(_, first)) = keys.iter().find(|(n, _)| *n == name) {
+                return self.fail(
+                    Diagnostic::error(
+                        "duplicate-attribute",
+                        span,
+                        format!("the attribute `{name}` is given twice"),
+                    )
+                    .with_label(first, "given here first"),
                 );
             }
-            keys.push(name);
+            keys.push((name, span));
             self.expect(Punct::Colon)?;
             let value = self.string_literal()?;
             let a = self.finish(start, Node::ImportAttribute { key, value });

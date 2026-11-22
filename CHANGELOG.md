@@ -69,6 +69,17 @@ minor release can break the API and a patch release won't.
     import attributes, ImportEntry records, and ExportEntry records in
     local, indirect and star lists
     ([#160](https://github.com/parsec-html/parsec/issues/160)).
+  - Every `parsec-js` diagnostic code is listed in
+    `parsec_js::diagnostics` with what it means and the spec section it
+    comes from, and a code won't be renamed. Errors that involve a
+    second place point at it with a label: the first of two
+    declarations, labels or constructors, and the `(`, `[` or `{` still
+    open. `Diagnostic::render` in `parsec-base` prints a diagnostic as a
+    code frame, with tabs expanded, wide characters measured, and a
+    minified line cut to a window around the error.
+    `parse_recovering` skips a statement that fails and goes on, so one
+    parse reports every error, not only the first
+    ([#166](https://github.com/parsec-html/parsec/issues/166)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

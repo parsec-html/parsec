@@ -9,13 +9,19 @@
 //! exists, resolved to a binding that exists or listed as free; and its
 //! early errors, regular expression patterns' included, have spans in
 //! the input; and its module records point at requests that exist.
+//! Parsing with recovery agrees: the same tree when there's no error,
+//! and when there is, the first error is the same and every error's
+//! span is in the input; and each error renders as a code frame.
 
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use parsec_js::scope::Scopes;
 use parsec_js::module::ModuleRecord;
-use parsec_js::{Ast, Limits, Node, Options, SourceType, early_errors, parse};
+use parsec_js::{
+    Ast, LineIndex, Limits, Node, Options, RenderOptions, SourceType, early_errors, parse,
+    parse_recovering,
+};
 
 fn on_boundaries(src: &str, start: u32, end: u32) -> bool {
     start <= end
@@ -71,6 +77,19 @@ fuzz_target!(|data: &[u8]| {
     for source_type in [SourceType::Script, SourceType::Module] {
         for limits in [Limits::default(), small] {
             let options = Options { source_type, limits };
+            let recovering = parse_recovering(&src, &options);
+            match (&parse(&src, &options), &recovering) {
+                (Ok(a), Ok(b)) => assert_eq!(a.to_estree(&src), b.to_estree(&src)),
+                (Err(d), Err(all)) => {
+                    assert_eq!(Some(d), all.first());
+                    let lines = LineIndex::ecmascript(&src);
+                    for e in all {
+                        assert!(on_boundaries(&src, e.span.start, e.span.end), "{e}");
+                        assert!(e.render(&src, &lines, &RenderOptions::default()).contains(e.code));
+                    }
+                }
+                _ => panic!("parse and parse_recovering disagree"),
+            }
             match parse(&src, &options) {
                 Ok(ast) => {
                     for id in ast.ids() {

@@ -3,7 +3,8 @@
 
 //! What Parsec's parsers share, and nothing they don't: a [`Span`] of
 //! input, a [`LineIndex`] that turns byte offsets into lines, columns and
-//! UTF-16 offsets, a [`Diagnostic`] with a code and a span, and the
+//! UTF-16 offsets, a [`Diagnostic`] with a code and a span that
+//! [`Diagnostic::render`] prints as a code frame, and the
 //! [`Limits`] and [`Budget`] that keep hostile input from costing more
 //! than you allow.
 //!
@@ -23,6 +24,10 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::ops::Range;
+
+mod render;
+
+pub use render::RenderOptions;
 
 /// A byte range in the input, `start..end`.
 ///
