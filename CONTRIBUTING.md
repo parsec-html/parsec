@@ -17,7 +17,15 @@ I'll help you through it.
 
 ## Where a change goes
 
-The parser itself has two homes. Its source is Netweir's
+Parsec is a set of crates, one per language, over shared plumbing. The
+wiki's [Architecture](https://github.com/parsec-html/parsec/wiki/Architecture#the-crates-and-how-they-fit)
+page has a diagram of them and the rule they follow: each language keeps
+its own tree and its own error handling, and only `parsec-base` is
+shared. A change that makes one crate depend on another needs a reason
+in its pull request.
+
+Everything new, `parsec-js`, `parsec-xml` and `parsec-base` included, is
+written here. The HTML parser is the exception: it has two homes. Its source is Netweir's
 [`crates/netweir-html`](https://github.com/netweir/netweir/tree/main/crates/netweir-html),
 and `scripts/sync-from-netweir.sh` copies it into `crates/parsec`,
 renaming as it goes. The Netweir commit it came from is in
@@ -98,6 +106,28 @@ cargo +nightly fuzz run parse
 cargo +nightly fuzz run regexp
 cargo +nightly fuzz run data
 ```
+
+So does the XML parser, from `crates/parsec-xml`:
+
+```
+cargo +nightly fuzz run xml
+```
+
+Each conformance suite writes its counts when `CONFORMANCE_DIR` is set,
+and `conformance/baseline.json` holds the last release's. CI's
+`conformance` job compares the two on every pull request, and a release
+can't ship with any suite passing fewer cases or failing more. To see the
+comparison before you push:
+
+```
+CONFORMANCE_DIR=target/conformance cargo test --workspace
+scripts/conformance-gate.sh conformance/baseline.json target/conformance
+```
+
+Don't edit the baseline to make your pull request pass: it changes only
+in a release pull request. If your change trades one case for a better
+one, say so in the pull request; the drop shows there in red for
+everyone to weigh.
 
 A bug fix comes with the test that would have caught it. A new feature
 comes with tests, and a page in the

@@ -1,0 +1,162 @@
+{
+  "css-parsing-tests": {
+    "passed": 5096,
+    "failed": 3270,
+    "skipped": 0
+  },
+  "css-parsing-tests-urange": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0
+  },
+  "css-tokenizer-tests": {
+    "passed": 287,
+    "failed": 0,
+    "skipped": 0
+  },
+  "encoding-legacy-multi-byte-encoder": {
+    "passed": 53813,
+    "failed": 0,
+    "skipped": 0
+  },
+  "html5lib-encoding": {
+    "passed": 82,
+    "failed": 0,
+    "skipped": 1
+  },
+  "html5lib-serializer": {
+    "passed": 229,
+    "failed": 0,
+    "skipped": 1
+  },
+  "html5lib-tokenizer": {
+    "passed": 7042,
+    "failed": 0,
+    "skipped": 4
+  },
+  "html5lib-tokenizer-errors": {
+    "passed": 7042,
+    "failed": 0,
+    "skipped": 4
+  },
+  "html5lib-tree-construction": {
+    "passed": 3898,
+    "failed": 0,
+    "skipped": 6
+  },
+  "html5lib-tree-construction-error-counts": {
+    "passed": 1802,
+    "failed": 165,
+    "skipped": 6
+  },
+  "html5lib-tree-construction-new-errors": {
+    "passed": 336,
+    "failed": 0,
+    "skipped": 6
+  },
+  "streaming-html5lib-encoding": {
+    "passed": 369396,
+    "failed": 0,
+    "skipped": 0
+  },
+  "streaming-wpt-legacy-multi-byte": {
+    "passed": 49422,
+    "failed": 0,
+    "skipped": 0
+  },
+  "unicode-normalization": {
+    "passed": 20172,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-cascade": {
+    "passed": 1343,
+    "failed": 131,
+    "skipped": 199
+  },
+  "wpt-computed-values": {
+    "passed": 11356,
+    "failed": 755,
+    "skipped": 355
+  },
+  "wpt-css-parsing": {
+    "passed": 14758,
+    "failed": 135,
+    "skipped": 129
+  },
+  "wpt-css-selectors": {
+    "passed": 476,
+    "failed": 0,
+    "skipped": 653
+  },
+  "wpt-declarative-shadow-dom": {
+    "passed": 7590,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-dom-selectors": {
+    "passed": 1719,
+    "failed": 0,
+    "skipped": 8
+  },
+  "wpt-encoding-gb18030": {
+    "passed": 357,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-encoding-iso-2022-jp": {
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-encoding-labels": {
+    "passed": 228,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-encoding-legacy-multi-byte": {
+    "passed": 62352,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-encoding-single-byte": {
+    "passed": 168,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-media-queries": {
+    "passed": 1370,
+    "failed": 0,
+    "skipped": 14
+  },
+  "wpt-url-idna": {
+    "passed": 2675,
+    "failed": 0,
+    "skipped": 1
+  },
+  "wpt-url-idna-removed": {
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-url-origin": {
+    "passed": 421,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-url-parsing": {
+    "passed": 904,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-url-setters": {
+    "passed": 284,
+    "failed": 0,
+    "skipped": 0
+  },
+  "wpt-url-toascii": {
+    "passed": 261,
+    "failed": 0,
+    "skipped": 522
+  }
+}

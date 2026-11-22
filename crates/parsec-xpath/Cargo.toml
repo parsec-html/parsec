@@ -8,7 +8,7 @@ rust-version.workspace = true
 readme = "../../README.md"
 # The libxml2 cases run from the repository; a build needs none of them.
 exclude = ["tests/"]
-description = "XPath 1.0 over Parsec's HTML document tree."
+description = "XPath 1.0 over any tree that implements its Tree trait; Parsec's HTML document with the default html feature."
 keywords = ["xpath", "html", "parser", "dom"]
 categories = ["parser-implementations", "web-programming"]
 documentation = "https://docs.rs/parsec-xpath"
@@ -16,6 +16,20 @@ documentation = "https://docs.rs/parsec-xpath"
 [lib]
 name = "parsec_xpath"
 
+[features]
+default = ["html"]
+# XPath over parsec-html-core's Document. Without it, any tree that
+# implements `Tree`, and no HTML parser in the build.
+html = ["dep:parsec-html-core"]
+
 [dependencies]
-parsec-html-core = { path = "../parsec", version = "0.2.0" }
+parsec-html-core = { path = "../parsec", version = "0.2.0", optional = true }
 stacker = "0.1"
+
+[[test]]
+name = "xpath"
+required-features = ["html"]
+
+[[test]]
+name = "libxml2"
+required-features = ["html"]
