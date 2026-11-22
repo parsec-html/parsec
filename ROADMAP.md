@@ -30,7 +30,7 @@ the order can change when users show us something more urgent.
 | M10. JavaScript syntax tree | early 2027, with 0.3.0 | under way: scripts on `main` |
 | M11. JavaScript scope and modules | spring 2027 | planned |
 | M12. Data from scripts | spring 2027 | planned |
-| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite and the bench on `main` |
+| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite, the bench and XPath on `main` |
 | M16. Every language, every way in | alongside each parser | under way: the native Node build on `main` |
 | M13. JavaScript diagnostics and incremental parsing | late 2027 | planned |
 
@@ -250,7 +250,7 @@ real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
   that shouldn't, 3,639 fail to; the other 535 are early errors that
   need scope analysis (a name declared twice) or the regular expression
   pattern grammar, which `cargo test` skips and counts until M11.
-- Done: the tree and its ESTree JSON, apart from the bench check
+- Done: the tree and its ESTree JSON
   ([#152](https://github.com/parsec-html/parsec/issues/152)). Every node
   sits in one arena with a span beside it, and comments are kept on the
   side. `Ast::to_estree` writes the shape acorn gives, offsets in UTF-16.
@@ -278,8 +278,15 @@ real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
   grows linearly, and a million-deep member chain writes out as ESTree
   on a 256 KB thread. A `parse` fuzz target joins the lexer's in the
   nightly run.
-- Planned: a bench against oxc and swc on real bundles
-  ([#156](https://github.com/parsec-html/parsec/issues/156)).
+- Done: a bench against oxc and swc on real bundles
+  ([#156](https://github.com/parsec-html/parsec/issues/156)):
+  `parsec-html-bench js`, on react-dom, three.js and typescript.js
+  pinned in `bench/scripts.txt` and the real pages' inline scripts.
+  parsec-js parses 202 MB/s, 1.26 times swc_ecma_parser's speed and
+  0.57 times oxc_parser's, and holds less memory than either; the gap
+  to oxc is [#190](https://github.com/parsec-html/parsec/issues/190).
+  `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
+  same as acorn's, which finishes #152.
 
 ## M11. JavaScript scope and modules
 
@@ -334,10 +341,16 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
   RSS and Atom feeds, SVGs, the XML spec and a Wikipedia dump slice),
   Parsec parses 1,314 MB/s to libxml2's 495 and roxmltree's 327, ahead
   of both on every document, and holds no more memory than libxml2 on any.
-- Still to come: XPath over XML
-  ([#171](https://github.com/parsec-html/parsec/issues/171)), which
-  needs `parsec-xpath` to read a tree through a trait; that change
-  starts in Netweir.
+- Done: XPath over XML
+  ([#171](https://github.com/parsec-html/parsec/issues/171)).
+  `parsec-xml`'s `xpath` feature makes its `Document` a tree
+  `parsec-xpath` reads, with no HTML parser in the build: names compared
+  exactly, prefixes from the query's namespaces, namespace declarations
+  left out of the attributes, `id()` from `xml:id` and the DTD's `ID`
+  attributes, and `lang()` from `xml:lang`. libxml2's XPath document
+  tests run against it in `cargo test`: 79 of 84 queries pass and none
+  fail; the 5 skipped use the namespace axis, which `parsec-xpath`
+  leaves empty.
 
 ## M15. One toolkit, in pieces
 

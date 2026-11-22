@@ -37,6 +37,8 @@ jobs:
       # XPath without the HTML parser, as a crate with its own tree uses it.
       - run: cargo clippy -p parsec-xpath --no-default-features --all-targets -- -D warnings
       - run: cargo test -p parsec-xpath --no-default-features
+      # XPath over parsec-xml's tree, a feature `--workspace` leaves off.
+      - run: cargo clippy -p parsec-xml --features xpath --all-targets -- -D warnings
       # A crate at a time: three of them name their library `parsec`, which
       # one `cargo doc --workspace` can't write side by side.
       - name: The API docs build without warnings
@@ -240,6 +242,10 @@ jobs:
       # the run's summary, even when a suite fails. (conformance/ in the
       # repository holds the baseline they're held to.)
       - run: cargo test --workspace
+        env:
+          CONFORMANCE_DIR: ${{ github.workspace }}/target/conformance
+      # parsec-xml's xpath feature, with libxml2's XPath document tests.
+      - run: cargo test -p parsec-xml --features xpath
         env:
           CONFORMANCE_DIR: ${{ github.workspace }}/target/conformance
       - name: Conformance summary

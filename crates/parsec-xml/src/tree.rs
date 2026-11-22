@@ -28,6 +28,17 @@ impl NodeId {
     pub fn index(self) -> usize {
         self.0 as usize
     }
+
+    /// The node at `index` in the arena: what [`NodeId::index`] gives
+    /// back, and what an XPath result names a node by. It's only a node of
+    /// the document whose `index` it came from.
+    ///
+    /// # Panics
+    ///
+    /// If `index` is over `u32::MAX`, which no document's ids reach.
+    pub fn from_index(index: usize) -> NodeId {
+        NodeId(u32::try_from(index).expect("a node index fits in a u32"))
+    }
 }
 
 /// A range of [`Document`]'s string buffer.
@@ -353,6 +364,12 @@ pub struct Document {
     pub(crate) doctype: Option<Doctype>,
     pub(crate) entities: Vec<EntityDecl>,
     pub(crate) notations: Vec<Notation>,
+    /// The attribute the internal subset declares as an ID for each
+    /// element, both by qualified name id.
+    pub(crate) id_attrs: HashMap<u32, u32>,
+    /// For XPath, built on first use: see `xpath_tree.rs`.
+    #[cfg(feature = "xpath")]
+    pub(crate) xpath_attrs: std::sync::OnceLock<crate::xpath_tree::Declared>,
     pub(crate) warnings: Vec<Diagnostic>,
     pub(crate) namespaces: bool,
 }
@@ -378,6 +395,9 @@ impl Document {
             doctype: None,
             entities: Vec::new(),
             notations: Vec::new(),
+            id_attrs: HashMap::new(),
+            #[cfg(feature = "xpath")]
+            xpath_attrs: std::sync::OnceLock::new(),
             warnings: Vec::new(),
             namespaces,
         }

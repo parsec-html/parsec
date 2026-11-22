@@ -49,6 +49,16 @@ minor release can break the API and a patch release won't.
   - The W3C XML Conformance Test Suite runs in `cargo test`
     ([#170](https://github.com/parsec-html/parsec/issues/170)): 1,915
     cases pass and none fail, and every skipped case says why.
+  - XPath 1.0 over the document with the `xpath` feature, off by
+    default: `parsec_xml::xpath` is `parsec-xpath` without its HTML
+    tree, and `Document` implements its `Tree`
+    ([#171](https://github.com/parsec-html/parsec/issues/171)). Names
+    compare exactly, `xmlns` and `xmlns:*` aren't attributes, `id()`
+    finds `xml:id` and attributes the internal subset declares `ID`,
+    and `lang()` reads `xml:lang`. `NodeId::from_index` turns a result's
+    node back into a `NodeId`. libxml2's XPath document tests run in
+    `cargo test`: 79 pass, none fail, and the 5 skipped use the
+    namespace axis, which is empty.
   - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
     on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
     ([#172](https://github.com/parsec-html/parsec/issues/172)).

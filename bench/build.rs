@@ -104,6 +104,8 @@ fn main() {
     for (name, var) in [
         ("roxmltree", "ROXMLTREE_VERSION"),
         ("quick-xml", "QUICK_XML_VERSION"),
+        ("oxc_parser", "OXC_VERSION"),
+        ("swc_ecma_parser", "SWC_VERSION"),
     ] {
         let version = lock
             .split("[[package]]")
