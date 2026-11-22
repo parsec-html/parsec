@@ -96,6 +96,12 @@ The fuzz target builds on nightly with
 cargo +nightly fuzz run parse
 ```
 
+The JavaScript lexer has one too, from `crates/parsec-js`:
+
+```
+cargo +nightly fuzz run lex
+```
+
 A bug fix comes with the test that would have caught it. A new feature
 comes with tests, and a page in the
 [wiki](https://github.com/parsec-html/parsec/wiki) if you'd use it from

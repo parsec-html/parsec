@@ -307,6 +307,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-base"
+version = "0.2.0"
+
+[[package]]
 name = "parsec-capi"
 version = "0.2.0"
 dependencies = [
@@ -351,6 +355,13 @@ dependencies = [
  "encoding_rs",
  "parsec-html-core",
  "serde_json",
+]
+
+[[package]]
+name = "parsec-js"
+version = "0.2.0"
+dependencies = [
+ "parsec-base",
 ]
 
 [[package]]
