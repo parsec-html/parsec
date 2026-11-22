@@ -102,6 +102,22 @@ The JavaScript lexer has one too, from `crates/parsec-js`:
 cargo +nightly fuzz run lex
 ```
 
+Each conformance suite writes its counts when `CONFORMANCE_DIR` is set,
+and `conformance/baseline.json` holds the last release's. CI's
+`conformance` job compares the two on every pull request, and a release
+can't ship with any suite passing fewer cases or failing more. To see the
+comparison before you push:
+
+```
+CONFORMANCE_DIR=target/conformance cargo test --workspace
+scripts/conformance-gate.sh conformance/baseline.json target/conformance
+```
+
+Don't edit the baseline to make your pull request pass: it changes only
+in a release pull request. If your change trades one case for a better
+one, say so in the pull request; the drop shows there in red for
+everyone to weigh.
+
 A bug fix comes with the test that would have caught it. A new feature
 comes with tests, and a page in the
 [wiki](https://github.com/parsec-html/parsec/wiki) if you'd use it from
