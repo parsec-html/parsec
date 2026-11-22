@@ -32,6 +32,8 @@ jobs:
             target: lex
           - crate: parsec-js
             target: parse
+          - crate: parsec-xml
+            target: xml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -39,7 +41,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: nightly
-      - run: cargo install cargo-fuzz --locked
+      - run: cargo install cargo-fuzz --version 0.13.2 --locked
       - name: Fuzz for five minutes
         working-directory: crates/${{ matrix.crate }}
         run: cargo fuzz run ${{ matrix.target }} -- -max_total_time=300 -max_len=4096
