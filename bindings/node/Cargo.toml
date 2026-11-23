@@ -21,12 +21,15 @@ napi-derive = "=3.7.1"
 parsec-html-core = { path = "../../crates/parsec" }
 parsec-html-encoding = { path = "../../crates/parsec-encoding" }
 parsec-xpath = { path = "../../crates/parsec-xpath" }
+parsec-js = { path = "../../crates/parsec-js", optional = true }
 parsec-xml = { path = "../../crates/parsec-xml", optional = true }
 
 [features]
-# parseXml, parseXmlBytes and the Xml classes, as in the WebAssembly
-# build; `--no-default-features` builds the HTML parser alone.
-default = ["xml"]
+# parseJs, pageState and Document.pageState; parseXml, parseXmlBytes and
+# the Xml classes. Both as in the WebAssembly build;
+# `--no-default-features` builds the HTML parser alone.
+default = ["js", "xml"]
+js = ["dep:parsec-js"]
 xml = ["dep:parsec-xml"]
 
 [build-dependencies]

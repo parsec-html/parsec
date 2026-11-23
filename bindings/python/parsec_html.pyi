@@ -2,7 +2,7 @@
 and an editable tree. The API follows selectolax's Lexbor backend."""
 
 from collections.abc import Iterable, Iterator
-from typing import Literal, Optional, TypeVar, Union, overload
+from typing import Any, Literal, Optional, TypeVar, Union, overload
 
 __version__: str
 
@@ -70,6 +70,10 @@ class HTMLParser:
     def body(self) -> Optional[Node]: ...
     @property
     def html(self) -> str: ...
+    def page_state(self) -> list[dict[str, Any]]:
+        """js.page_state() of each inline script a browser would run, in
+        document order, in one list; a script that doesn't parse is
+        passed over."""
     def text(
         self,
         deep: bool = True,
@@ -286,6 +290,39 @@ class StreamParser:
 def encoding_for_locale(locale: str) -> str:
     """The encoding a browser set to this language falls back to, for
     default_encoding: "ja" gives "Shift_JIS"."""
+
+class _JS:
+    """parsec_html.js: JavaScript parsed to ESTree, and the state pages
+    keep in scripts. `import parsec_html.js` works too."""
+
+    class JSSyntaxError(ValueError):
+        """JavaScript that doesn't parse, or nests deeper than max_depth."""
+
+        code: str
+        message: str
+        line: int
+        column: int
+        start: int
+        end: int
+        frame: str
+
+    @staticmethod
+    def parse(
+        source: str,
+        *,
+        module: bool = False,
+        max_depth: Optional[int] = None,
+        max_steps: Optional[int] = None,
+    ) -> dict[str, Any]:
+        """The ESTree of a script, or with module=True a module, as acorn
+        gives it; start and end index into source. Raises JSSyntaxError,
+        or TimeoutError past max_steps tokens. max_depth is at most 256."""
+    @staticmethod
+    def page_state(source: str) -> list[dict[str, Any]]:
+        """The page state in one script's text: {"name", "value"}, or
+        {"name", "error": {"code", "source"}} for a value that isn't data."""
+
+js: _JS
 
 class _XML:
     """parsec_html.xml: XML 1.0 with namespaces, non-validating, nothing

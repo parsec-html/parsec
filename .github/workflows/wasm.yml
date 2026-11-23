@@ -58,9 +58,10 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
       # The HTML parser alone, as `--no-default-features` builds it, for a
-      # page that doesn't need XML. The XML parser is about 110 KB of the
-      # package's .wasm; this fails if it, or anything else that size,
-      # finds its way into the build without it. Raise the ceiling on
+      # page that doesn't need JavaScript parsed or XML. The JavaScript
+      # parser is about 200 KB of the package's .wasm and the XML parser
+      # about 110 KB; this fails if either, or anything else that size,
+      # finds its way into the build without them. Raise the ceiling on
       # purpose, in the commit that needs it.
       - name: HTML-only size
         run: |

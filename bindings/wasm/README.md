@@ -135,6 +135,36 @@ alive. And WebAssembly memory only grows: what a free gives back is room
 for the next page, not memory for the system, so the most you ever had
 parsed at once stays reserved until the program ends.
 
+## JavaScript
+
+`parseJs(source, { module, maxDepth, maxSteps })` gives a script's
+ESTree as plain objects, the same tree acorn gives, with `start` and
+`end` as indexes into the string. JavaScript that doesn't parse throws a
+`SyntaxError` with `code`, `line`, `column`, `start`, `end` and a
+`frame` to print:
+
+```js
+import { parseJs, pageState } from "parsec-html";
+
+const tree = parseJs("export const a = [1, 2];", { module: true });
+try {
+  parseJs("let x = ;");
+} catch (e) {
+  console.log(e.code, e.line, e.column); // "unexpected-token" 1 9
+}
+```
+
+`maxDepth` (at most and by default 256) and `maxSteps` bound a script
+you don't trust: too deep throws a `SyntaxError` with the code
+`too-deep`, and past the steps, an Error that names `maxSteps`.
+
+`pageState(source)` reads the state a script keeps, without running
+it: `window.__NUXT__ = …`, a top-level `var ytInitialData = …`,
+`JSON.parse("…")`, Nuxt 2's function form and Next.js's `self.__next_f`
+pushes. `doc.pageState()` does it for every inline script on a parsed
+page. Each piece is `{ name, value }`, or `{ name, error: { code, source
+} }` when the value would need code to run.
+
 Not there yet: setting `innerHTML`, and creating nodes.
 
 ## XML
@@ -189,7 +219,7 @@ input. A billion laughs throws `entity-expansion-limit` straight away.
 
 ## Size
 
-The WebAssembly is 1,116,633 bytes, 526 KB gzipped, as `main` builds it
+The WebAssembly is 1,325,774 bytes, 597 KB gzipped, as `main` builds it
 (each CI run's summary has the sizes of its own build); XPath and spans
 are about 110 KB of that, parse errors 21 KB, and the decoders for bytes 201 KB (142 KB
 gzipped), most of it the tables of the Chinese, Japanese and Korean
@@ -197,9 +227,14 @@ encodings. It's built for speed per byte
 (`opt-level = "s"`, then `wasm-opt -Os`): building for size alone (`"z"`)
 saved 59 KB but parsed the 13 pages in `bench/` 40% slower.
 
-XML is 113 KB of the package's `.wasm` (44 KB gzipped). Built with
-`--no-default-features`, the `.wasm` is the HTML parser alone, and CI
-fails if that build grows past its ceiling.
+The JavaScript parser is 193 KB of the package's `.wasm` (79 KB gzipped)
+and XML is 113 KB (44 KB gzipped). Built with `--no-default-features`,
+the `.wasm` is the HTML parser alone, and CI fails if that build grows
+past its ceiling:
+
+```sh
+wasm-pack build --release --target web -- --no-default-features
+```
 
 ## Working on it
 

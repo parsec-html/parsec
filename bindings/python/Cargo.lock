@@ -248,9 +248,17 @@ version = "0.2.0"
 dependencies = [
  "parsec-html-core",
  "parsec-html-encoding",
+ "parsec-js",
  "parsec-xml",
  "parsec-xpath",
  "pyo3",
+]
+
+[[package]]
+name = "parsec-js"
+version = "0.2.0"
+dependencies = [
+ "parsec-base",
 ]
 
 [[package]]

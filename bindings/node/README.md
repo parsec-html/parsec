@@ -42,8 +42,9 @@ the WebAssembly.
 Every function, class, getter and option is the WebAssembly package's,
 with the same names and the same error messages: `parse`,
 `parseFragment`, `parseBytes`, `ByteParser`, `select` and `selectFirst`
-with `maxSteps`, `xpath`, spans and errors, and `parseXml` and
-`parseXmlBytes` for XML. The [WebAssembly
+with `maxSteps`, `xpath`, spans and errors, `parseXml` and
+`parseXmlBytes` for XML, and `parseJs`, `pageState` and
+`Document.pageState` for JavaScript. The [WebAssembly
 README](../wasm/README.md) documents them all. The few differences:
 
 - **`parseAsync(html, options)`** gives a promise of what `parse` gives,
@@ -90,5 +91,6 @@ node ../node/bench.mjs ../../bench/corpus     # after bench/fetch-pages.sh
 
 Use your platform's name and library (`libparsec_html_node.so`,
 `parsec_html_node.dll`) in place of macOS's. `src/lib.rs` mirrors
-`bindings/wasm/src/lib.rs`, and `src/xml.rs` mirrors
-`bindings/wasm/src/xml.rs`, so a change to the API goes in both.
+`bindings/wasm/src/lib.rs`, and `src/xml.rs` and `src/js.rs` mirror
+`bindings/wasm/src/xml.rs` and `bindings/wasm/src/js.rs`, so a change to
+the API goes in both.

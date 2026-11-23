@@ -189,6 +189,34 @@ minor release can break the API and a patch release won't.
   - WebAssembly: `select`, `selectFirst` and `matches` take
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
+- The JavaScript parser is in every binding: a script or a module to
+  ESTree in acorn's shape, and the state a page keeps in its scripts,
+  read without running anything. A syntax error carries its code, line,
+  column, offsets and a code frame; nesting past `max_depth` (at most
+  and by default 256) is an error, never a stack overflow
+  ([#174](https://github.com/parsec-html/parsec/issues/174),
+  [#175](https://github.com/parsec-html/parsec/issues/175),
+  [#176](https://github.com/parsec-html/parsec/issues/176)).
+  - C: `parsec_js_parse` gives ESTree JSON with byte offsets,
+    `parsec_js_page_state` a script's state as JSON, and
+    `parsec_js_document_state` the state of every script in a parsed
+    page. A syntax error is `PARSEC_ERR_JS` with a `parsec_js_error`,
+    and `max_steps` past its limit `PARSEC_ERR_TIMEOUT`.
+  - Python: `parsec_html.js.parse()` gives dicts and lists, with
+    `start` and `end` as `str` indexes, and raises `JSSyntaxError` (a
+    `ValueError`) or, past `max_steps=`, `TimeoutError`;
+    `parsec_html.js.page_state()` and `HTMLParser.page_state()` give the
+    state as lists of dicts.
+  - WebAssembly and the native Node build: `parseJs`, `pageState` and
+    `Document.pageState` give plain objects, and a syntax error is a
+    `SyntaxError` with `code`, `line`, `column`, `start`, `end` and
+    `frame`. They add 193 KB to the `.wasm` (79 KB gzipped); `--no-default-features` builds the HTML
+    parser alone, and CI fails if that build grows past its ceiling.
+  - `parsec-js` gains what the bindings needed: `EstreeOptions::offsets`
+    counts `start` and `end` in UTF-16 units, characters or bytes;
+    `data::script_type` says how a browser runs a `<script>` by its
+    `type`; and `Found::write_json` writes a piece of page state as
+    JSON. `LineIndex::char_offset` is new in `parsec-base`.
 
 ### Changed (breaking)
 

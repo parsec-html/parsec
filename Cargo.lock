@@ -316,6 +316,7 @@ version = "0.2.0"
 dependencies = [
  "parsec-html-core",
  "parsec-html-encoding",
+ "parsec-js",
  "parsec-xml",
  "parsec-xpath",
 ]

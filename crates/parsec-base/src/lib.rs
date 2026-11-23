@@ -239,6 +239,13 @@ impl<'a> LineIndex<'a> {
         self.before(offset).1
     }
 
+    /// `offset` as an offset in characters (Unicode scalar values) from
+    /// the start of the text: where it is in a Python `str` of the same
+    /// text.
+    pub fn char_offset(&self, offset: u32) -> u32 {
+        self.before(offset).0
+    }
+
     /// Characters and UTF-16 code units before `offset`.
     fn before(&self, offset: u32) -> (u32, u32) {
         let at = (offset as usize).min(self.src.len());

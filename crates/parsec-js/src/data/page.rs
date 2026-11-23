@@ -9,7 +9,7 @@ use parsec_base::{Diagnostic, Span};
 
 use super::{Json, Reader, Refused, json, refuse};
 use crate::ast::{AssignOp, Ast, LiteralKind, Node, NodeId};
-use crate::{parse_script, text};
+use crate::{SourceType, parse_script, text};
 
 /// A piece of page state: where a script put it, and its value, or why
 /// it isn't data.
@@ -23,6 +23,51 @@ pub struct Found {
     /// The value's expression in the source.
     pub span: Span,
     pub value: Result<Json, Refused>,
+}
+
+impl Found {
+    /// The piece as a JSON object, for a binding or a tool that hands
+    /// JSON on: `{"name": …, "value": …}`, or for a value that isn't data
+    /// `{"name": …, "error": {"code": …, "source": …}}`, where `code` is
+    /// the [`Refused`] reason and `source` the start of the text that
+    /// stopped it, at most 80 characters with `…` after a cut. `src` is
+    /// the script the piece was found in.
+    ///
+    /// ```
+    /// use parsec_js::data::page_state;
+    ///
+    /// let src = "window.a = {b: 1}; window.c = f();";
+    /// let found = page_state(src).unwrap();
+    /// let mut out = String::new();
+    /// found[0].write_json(src, &mut out);
+    /// found[1].write_json(src, &mut out);
+    /// assert_eq!(
+    ///     out,
+    ///     r#"{"name":"window.a","value":{"b":1}}{"name":"window.c","error":{"code":"not-a-literal","source":"f()"}}"#
+    /// );
+    /// ```
+    pub fn write_json(&self, src: &str, out: &mut String) {
+        out.push_str(r#"{"name":"#);
+        text::write_json_str(out, &self.name);
+        match &self.value {
+            Ok(value) => {
+                out.push_str(r#","value":"#);
+                out.push_str(&value.to_json_string());
+            }
+            Err(refused) => {
+                out.push_str(r#","error":{"code":"#);
+                text::write_json_str(out, refused.reason);
+                out.push_str(r#","source":"#);
+                let source = refused.span.text(src);
+                match source.char_indices().nth(80) {
+                    Some((cut, _)) => text::write_json_str(out, &format!("{}…", &source[..cut])),
+                    None => text::write_json_str(out, source),
+                }
+                out.push('}');
+            }
+        }
+        out.push('}');
+    }
 }
 
 /// Parses `src` as a script, the text of one `<script>` element, and
@@ -103,6 +148,54 @@ pub fn page_state_in(ast: &Ast, src: &str) -> Vec<Found> {
         }
     }
     found
+}
+
+/// How a browser runs a `<script>` with this `type` attribute and this
+/// `language` attribute, as the HTML Standard decides it: as a script, as
+/// a module, or, for `None`, not as JavaScript at all (a data block such
+/// as `application/json`, or a template).
+///
+/// ```
+/// use parsec_js::SourceType;
+/// use parsec_js::data::script_type;
+///
+/// assert_eq!(script_type(None, None), Some(SourceType::Script));
+/// assert_eq!(script_type(Some(" Text/JavaScript "), None), Some(SourceType::Script));
+/// assert_eq!(script_type(Some("module"), None), Some(SourceType::Module));
+/// assert_eq!(script_type(Some("application/json"), None), None);
+/// assert_eq!(script_type(None, Some("vbscript")), None);
+/// ```
+pub fn script_type(type_attr: Option<&str>, language: Option<&str>) -> Option<SourceType> {
+    const WS: &[char] = &['\t', '\n', '\x0C', '\r', ' '];
+    let essence = match (type_attr, language) {
+        (Some(""), _) | (None, None | Some("")) => return Some(SourceType::Script),
+        (Some(t), _) => t.trim_matches(WS).to_ascii_lowercase(),
+        (None, Some(l)) => format!("text/{}", l.to_ascii_lowercase()),
+    };
+    if essence == "module" {
+        return Some(SourceType::Module);
+    }
+    let essence = essence.split(';').next().unwrap_or("").trim_matches(WS);
+    let javascript = matches!(
+        essence,
+        "application/ecmascript"
+            | "application/javascript"
+            | "application/x-ecmascript"
+            | "application/x-javascript"
+            | "text/ecmascript"
+            | "text/javascript"
+            | "text/javascript1.0"
+            | "text/javascript1.1"
+            | "text/javascript1.2"
+            | "text/javascript1.3"
+            | "text/javascript1.4"
+            | "text/javascript1.5"
+            | "text/jscript"
+            | "text/livescript"
+            | "text/x-ecmascript"
+            | "text/x-javascript"
+    );
+    javascript.then_some(SourceType::Script)
 }
 
 /// The payload Next.js App Router streamed into the page, put back

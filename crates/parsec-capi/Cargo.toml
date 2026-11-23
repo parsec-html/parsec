@@ -20,5 +20,6 @@ doctest = false
 # XPath handle parsec_xpath.
 encoding = { package = "parsec-html-encoding", path = "../parsec-encoding" }
 html = { package = "parsec-html-core", path = "../parsec" }
+js = { package = "parsec-js", path = "../parsec-js" }
 xpath = { package = "parsec-xpath", path = "../parsec-xpath" }
 xml = { package = "parsec-xml", path = "../parsec-xml" }

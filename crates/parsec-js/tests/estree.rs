@@ -10,7 +10,7 @@
 
 use std::path::Path;
 
-use parsec_js::{EstreeOptions, Options, SourceType, parse};
+use parsec_js::{EstreeOptions, Offsets, Options, SourceType, parse};
 use serde_json::Value;
 
 /// Where `a` and `b` first differ, as a path of keys and indexes.
@@ -101,6 +101,7 @@ fn matches_acorn() {
         };
         let options = EstreeOptions {
             loc: name == "locations.js",
+            ..EstreeOptions::default()
         };
         let ours = parse_json(&ast.to_estree_with(&src, options));
         if let Some(d) = first_difference(&expected, &ours, "") {
@@ -108,4 +109,31 @@ fn matches_acorn() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn offsets_count_the_units_asked_for() {
+    // `x` is at byte 9, character 5 and UTF-16 unit 6: the emoji is four
+    // bytes, one character and two units, and `é` two bytes.
+    let src = "'é😀';x";
+    let ast = parse(src, &Options::default()).unwrap();
+    for (offsets, at) in [
+        (Offsets::Utf16, 6),
+        (Offsets::Chars, 5),
+        (Offsets::Bytes, 9),
+    ] {
+        let json = parse_json(&ast.to_estree_with(
+            src,
+            EstreeOptions {
+                offsets,
+                ..EstreeOptions::default()
+            },
+        ));
+        let x = &json["body"][1]["expression"];
+        assert_eq!(
+            (x["start"].as_u64(), x["end"].as_u64()),
+            (Some(at), Some(at + 1)),
+            "{offsets:?}"
+        );
+    }
 }

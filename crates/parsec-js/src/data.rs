@@ -41,7 +41,7 @@ use crate::ast::{Ast, LiteralKind, Node, NodeId, PropertyKind, UnaryOp};
 use crate::text;
 
 pub use json::json;
-pub use page::{Found, next_flight, page_state, page_state_in};
+pub use page::{Found, next_flight, page_state, page_state_in, script_type};
 
 /// A JSON value. An object keeps its keys in the order they first
 /// appear, each once.

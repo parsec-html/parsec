@@ -553,3 +553,18 @@ fn substitution_cannot_blow_up() {
     assert_eq!(found(&src)[0].1, Err("too-large"));
     assert!(start.elapsed() < Duration::from_secs(5));
 }
+
+#[test]
+fn a_long_refusal_is_cut_to_80_characters_in_json() {
+    let src = format!("window.a = f({});", "é".repeat(100));
+    let found = page_state(&src).unwrap();
+    let mut out = String::new();
+    found[0].write_json(&src, &mut out);
+    let expected = format!("f({}…", "é".repeat(78));
+    assert_eq!(
+        out,
+        format!(
+            r#"{{"name":"window.a","error":{{"code":"not-a-literal","source":"{expected}"}}}}"#
+        )
+    );
+}

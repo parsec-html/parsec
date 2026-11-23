@@ -18,14 +18,17 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 parsec-html-core = { path = "../../crates/parsec" }
 parsec-html-encoding = { path = "../../crates/parsec-encoding" }
+parsec-js = { path = "../../crates/parsec-js", optional = true }
 parsec-xpath = { path = "../../crates/parsec-xpath" }
 parsec-xml = { path = "../../crates/parsec-xml", optional = true }
 wasm-bindgen = "0.2.130"
 
 [features]
-# parseXml, parseXmlBytes and the Xml classes. On in the npm package;
-# `--no-default-features` builds the HTML parser alone.
-default = ["xml"]
+# parseJs, pageState and Document.pageState; parseXml, parseXmlBytes and
+# the Xml classes. On in the npm package; `--no-default-features` builds
+# the HTML parser alone.
+default = ["js", "xml"]
+js = ["dep:parsec-js"]
 xml = ["dep:parsec-xml"]
 
 [dev-dependencies]
