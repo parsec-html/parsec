@@ -30,7 +30,8 @@ roxmltree = "0.21"
 parsec-js = { path = "../crates/parsec-js" }
 # Pinned exactly: a new release of either is a new set of numbers.
 oxc_allocator = "=0.157.0"
-oxc_parser = "=0.157.0"
+# `benchmarking` makes its lexer public, for `js-lex`.
+oxc_parser = { version = "=0.157.0", features = ["benchmarking"] }
 oxc_span = "=0.157.0"
 swc_common = "=27.0.0"
 swc_ecma_ast = "=30.0.0"

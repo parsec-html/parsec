@@ -56,9 +56,9 @@ minor release can break the API and a patch release won't.
     compare exactly, `xmlns` and `xmlns:*` aren't attributes, `id()`
     finds `xml:id` and attributes the internal subset declares `ID`,
     and `lang()` reads `xml:lang`. `NodeId::from_index` turns a result's
-    node back into a `NodeId`. libxml2's XPath document tests run in
-    `cargo test`: 79 pass, none fail, and the 5 skipped use the
-    namespace axis, which is empty.
+    node back into a `NodeId`. The namespace axis has the namespaces in
+    scope at each element. libxml2's XPath document tests run in
+    `cargo test`: all 84 pass.
   - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
     on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
     ([#172](https://github.com/parsec-html/parsec/issues/172)).
@@ -106,6 +106,10 @@ minor release can break the API and a patch release won't.
     module.
   - test262 runs in `cargo test`, and CI's summary has its counts
     ([#148](https://github.com/parsec-html/parsec/issues/148)).
+  - `bench/` times the lexer against oxc's and swc's with
+    `parsec-html-bench js-lex`: 347 MB/s to oxc's 568 and swc's 328 over
+    the 11.6 MB JavaScript corpus, with all three reading the same tokens
+    ([#149](https://github.com/parsec-html/parsec/issues/149)).
   - `parsec-js` parses ECMAScript 2025 scripts and modules: `parse`
     gives an `Ast` with a span on every node and the comments beside
     it, or the first syntax error as a `Diagnostic`, and
@@ -120,6 +124,37 @@ minor release can break the API and a patch release won't.
     default, with a `too-deep` error, and its tokens at
     `Limits::max_steps`: a million-deep `((((` is an error, not a stack
     overflow ([#155](https://github.com/parsec-html/parsec/issues/155)).
+  - `parsec_js::data` reads the state pages keep in scripts, as JSON,
+    without running them. `literal` turns an expression of literals
+    into a `Json` value or refuses with a span and a reason;
+    `page_state` finds `window.X = …`, top-level `var`, `JSON.parse("…")`,
+    Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's
+    `self.__next_f` pushes; `json` parses JSON as strictly as
+    `JSON.parse` ([#162](https://github.com/parsec-html/parsec/issues/162),
+    [#163](https://github.com/parsec-html/parsec/issues/163)).
+  - `parsec_js::scope` works out what each name refers to.
+    `Scopes::analyze` builds a program's scopes and bindings, with `var`
+    and functions hoisted and Annex B's functions in sloppy blocks,
+    resolves every reference or lists it as free, flags references in
+    the TDZ, and marks the scopes a direct `eval` or a `with` makes
+    dynamic. A name declared twice where the spec forbids it is a
+    diagnostic, `duplicate-declaration` or `lexical-var-conflict`
+    ([#158](https://github.com/parsec-html/parsec/issues/158)).
+  - `parsec_js::regexp::validate` checks a regular expression's pattern
+    and flags by the pattern grammar and its early errors, in each mode
+    (no flag with Annex B's additions, `u`, `v`), and gives the error a
+    `RegExp` would throw, with a code like `regexp-range-order` or
+    `regexp-property`.
+  - `parsec_js::early_errors` gives the early errors the parser leaves
+    for a later pass: names declared twice, an export of a name the
+    module never declares (`export-undeclared`), and regular expression
+    patterns. With it, all 4,374 of test262's parse negatives fail
+    ([#159](https://github.com/parsec-html/parsec/issues/159)).
+  - `parsec_js::module::ModuleRecord` has a module's imports and
+    exports as the spec records them: requested modules with their
+    import attributes, ImportEntry records, and ExportEntry records in
+    local, indirect and star lists
+    ([#160](https://github.com/parsec-html/parsec/issues/160)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler
@@ -135,6 +170,15 @@ minor release can break the API and a patch release won't.
   - WebAssembly: `select`, `selectFirst` and `matches` take
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
+
+### Changed (breaking)
+
+- The Python wheels need Python 3.10 or newer: 3.9 reached end of life
+  in October 2025, and its CI jobs kept a pytest with a known
+  vulnerability ([#220](https://github.com/parsec-html/parsec/issues/220)).
+- `parsec_xpath::Item` has a third variant, `Item::Ns { owner, decl }`,
+  for a namespace node, so a `match` on it needs an arm for it.
+  `Doc::namespace_at(decl)` gives its prefix and URI.
 
 ### Changed
 
@@ -154,6 +198,15 @@ minor release can break the API and a patch release won't.
   attributes took quadratic time: 3.9 seconds where it now takes 4 ms.
   A page built to stall a crawler's XPath could have used it.
   `Document::attr_at(id, i)` reads one attribute in constant time.
+- XPath's `namespace::` axis was always empty. It now has the namespaces
+  in scope at an element, in libxml2's order: `xml` first, then the
+  outermost element's bindings. `xmlns=""` takes the default namespace
+  away and leaves no node for it. In XML, `parsec-xml`'s `Document`
+  reports its `xmlns` attributes; in HTML, every element has only the
+  `xml` namespace, as lxml gives it. The Python, Node.js and
+  WebAssembly bindings give a namespace node as its URI, a string, as
+  they give an attribute as its value. The C API gives it as its
+  element with `PARSEC_NS_ATTR` in place of an attribute index.
 
 ## 0.2.0
 

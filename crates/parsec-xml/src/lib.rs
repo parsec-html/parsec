@@ -45,7 +45,9 @@
 //! comes with it. Names compare exactly, a query's prefixes are bound by
 //! the namespaces it's run with, `xmlns` and `xmlns:*` aren't attributes,
 //! `id()` finds `xml:id` and attributes the internal subset declares an
-//! `ID`, and `lang()` reads `xml:lang`. The namespace axis is empty.
+//! `ID`, and `lang()` reads `xml:lang`. The namespace axis has the
+//! namespaces in scope at each element, from its `xmlns` attributes and
+//! its ancestors'.
 //!
 //! ```
 //! # #[cfg(feature = "xpath")] {

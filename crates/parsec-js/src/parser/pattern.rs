@@ -34,8 +34,8 @@ impl Parser<'_> {
                         ..
                     }
                 );
-                let props = self.ast.get(properties).to_vec();
-                for (i, &p) in props.iter().enumerate() {
+                for i in 0..properties.len() {
+                    let p = self.ast.get(properties)[i];
                     match self.node(p) {
                         Node::Property {
                             value,
@@ -49,7 +49,7 @@ impl Parser<'_> {
                             self.reinterpret(value, binding)?;
                         }
                         Node::Spread { argument } | Node::Rest { argument } => {
-                            if i + 1 != props.len() || comma_after_spread {
+                            if i + 1 != properties.len() || comma_after_spread {
                                 return self.err(
                                     "rest-not-last",
                                     self.span(p),
@@ -79,12 +79,12 @@ impl Parser<'_> {
                 elements,
                 comma_after_spread,
             } => {
-                let els = self.ast.get(elements).to_vec();
-                for (i, &e) in els.iter().enumerate() {
+                for i in 0..elements.len() {
+                    let e = self.ast.get(elements)[i];
                     match self.node(e) {
                         Node::Elision => {}
                         Node::Spread { argument } => {
-                            if i + 1 != els.len() || comma_after_spread {
+                            if i + 1 != elements.len() || comma_after_spread {
                                 return self.err(
                                     "rest-not-last",
                                     self.span(e),
@@ -100,7 +100,8 @@ impl Parser<'_> {
                 *self.ast.node_mut(id) = Node::ArrayPattern { elements };
             }
             Node::ArrayPattern { elements } => {
-                for e in self.ast.get(elements).to_vec() {
+                for i in 0..elements.len() {
+                    let e = self.ast.get(elements)[i];
                     match self.node(e) {
                         Node::Elision => {}
                         Node::Rest { argument } => self.rest_argument(argument, binding)?,
@@ -149,9 +150,8 @@ impl Parser<'_> {
             return Ok(());
         }
         let span = self.span(id);
-        let name = self.name(span);
-        if name == "eval" || name == "arguments" {
-            let name = name.into_owned();
+        if self.name_is(span, "eval") || self.name_is(span, "arguments") {
+            let name = self.name(span).into_owned();
             return self.err(
                 "strict-binding",
                 span,

@@ -145,6 +145,12 @@ pub(crate) struct Parser<'a> {
     ast: Ast,
     /// Children of lists being built, innermost at the end.
     scratch: Vec<NodeId>,
+    /// Buffers for the early errors on bound names, kept between uses so
+    /// checking a declaration allocates nothing.
+    names: Vec<Span>,
+    sorted_names: Vec<(Cow<'a, str>, Span)>,
+    /// The `if`s of `else if` chains being parsed, innermost at the end.
+    if_chain: Vec<(u32, NodeId, NodeId)>,
     error: Option<Diagnostic>,
     /// How many of the lexer's diagnostics have been looked at.
     seen: usize,
@@ -182,9 +188,12 @@ pub(crate) struct Parser<'a> {
 impl<'a> Parser<'a> {
     pub(crate) fn new(src: &'a str, options: &Options) -> Parser<'a> {
         let lexer = Lexer::with_limits(src, options.source_type, &options.limits);
-        // About one node per eight bytes of minified code; the vectors
-        // grow from there.
-        let ast = Ast::new(lexer.source().len() / 8);
+        // About one node per eight bytes of a large bundle, but small
+        // scripts run denser, one per four or five, and growing the
+        // vectors costs a short parse more than the room does: the first
+        // 64 KB are sized at one per four, with 16 more for the tiniest.
+        let len = lexer.source().len();
+        let ast = Ast::new(16 + len.min(1 << 16) / 4 + len.saturating_sub(1 << 16) / 8);
         let module = options.source_type == SourceType::Module;
         Parser {
             src: lexer.source(),
@@ -196,7 +205,10 @@ impl<'a> Parser<'a> {
             },
             prev_end: 0,
             ast,
-            scratch: Vec::new(),
+            scratch: Vec::with_capacity(64),
+            names: Vec::new(),
+            sorted_names: Vec::new(),
+            if_chain: Vec::new(),
             error: None,
             seen: 0,
             module,
@@ -302,9 +314,20 @@ impl<'a> Parser<'a> {
 
     /// The next token that isn't a comment, read with [`Goal::Div`].
     fn next_token(&mut self) -> R<Token> {
+        let t = self.lexer.next_token(Goal::Div);
+        self.check_lexer()?;
+        if t.is_trivia() {
+            return self.after_comments(t);
+        }
+        Ok(t)
+    }
+
+    /// Keeps `t`, a comment, and any more after it, and gives the token
+    /// that follows them. Out of line, so the path for a token with no
+    /// comment before it stays short.
+    #[inline(never)]
+    fn after_comments(&mut self, mut t: Token) -> R<Token> {
         loop {
-            let t = self.lexer.next_token(Goal::Div);
-            self.check_lexer()?;
             let kind = match t.kind {
                 Kind::LineComment => CommentKind::Line,
                 Kind::BlockComment => CommentKind::Block,
@@ -314,11 +337,24 @@ impl<'a> Parser<'a> {
                 _ => return Ok(t),
             };
             self.ast.comments.push(Comment { kind, span: t.span });
+            t = self.lexer.next_token(Goal::Div);
+            self.check_lexer()?;
         }
     }
 
     /// Stops at the first error the lexer has reported since last asked.
+    /// It runs once a token, so the check is inlined and the rest isn't.
+    #[inline(always)]
     fn check_lexer(&mut self) -> R<()> {
+        if self.lexer.diagnostics().len() > self.seen {
+            return self.lexer_reported();
+        }
+        Ok(())
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn lexer_reported(&mut self) -> R<()> {
         let diagnostics = self.lexer.diagnostics();
         if diagnostics.len() > self.seen {
             let new = &diagnostics[self.seen..];
@@ -463,6 +499,18 @@ impl<'a> Parser<'a> {
         text::ident_name(span.text(self.src))
     }
 
+    /// Whether the identifier at `span` is `name`, escapes decoded. Only a
+    /// longer spelling can hold an escape that decodes to `name`, so most
+    /// answers come from the lengths without decoding.
+    fn name_is(&self, span: Span, name: &str) -> bool {
+        let raw = span.text(self.src);
+        match raw.len().cmp(&name.len()) {
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => raw == name,
+            std::cmp::Ordering::Greater => raw.contains('\\') && text::ident_name(raw) == name,
+        }
+    }
+
     /// The token is an IdentifierName: an identifier or any keyword.
     fn at_ident_name(&self) -> bool {
         matches!(self.tok.kind, Kind::Ident | Kind::Keyword(_))
@@ -534,7 +582,7 @@ impl<'a> Parser<'a> {
     /// `arguments` can't be referred to in a class field's initializer or
     /// a static block.
     fn check_arguments(&mut self, span: Span) -> R<()> {
-        if self.ctx.no_arguments && self.name(span) == "arguments" {
+        if self.ctx.no_arguments && self.name_is(span, "arguments") {
             return self.err(
                 "arguments-in-class-init",
                 span,

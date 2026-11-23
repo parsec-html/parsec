@@ -782,12 +782,12 @@ impl Parser<'_> {
     /// Turns each of `params`, parsed as expressions, into a parameter.
     /// Whether they're all plain identifiers.
     fn params_from_cover(&mut self, params: List) -> R<bool> {
-        let ids = self.ast.get(params).to_vec();
         let mut simple = true;
-        for (i, &p) in ids.iter().enumerate() {
+        for i in 0..params.len() {
+            let p = self.ast.get(params)[i];
             match self.node(p) {
                 Node::Spread { argument } => {
-                    if i + 1 != ids.len() {
+                    if i + 1 != params.len() {
                         let span = self.span(p);
                         return self.err("rest-not-last", span, "a rest parameter has to be last");
                     }

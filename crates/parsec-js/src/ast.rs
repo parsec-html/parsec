@@ -576,8 +576,9 @@ pub enum Node {
 /// warnings the parse had.
 #[derive(Clone, Debug)]
 pub struct Ast {
-    pub(crate) nodes: Vec<Node>,
-    pub(crate) spans: Vec<Span>,
+    /// Each node with its span, in one vector: making a node is one
+    /// push, and reading both is one cache line.
+    pub(crate) nodes: Vec<(Node, Span)>,
     pub(crate) lists: Vec<NodeId>,
     pub(crate) comments: Vec<Comment>,
     pub(crate) root: Option<NodeId>,
@@ -587,13 +588,10 @@ pub struct Ast {
 impl Ast {
     pub(crate) fn new(capacity: usize) -> Ast {
         let mut nodes = Vec::with_capacity(capacity + 1);
-        let mut spans = Vec::with_capacity(capacity + 1);
         // Index 0 is never a node, so an `Option<NodeId>` is 4 bytes.
-        nodes.push(Node::Empty);
-        spans.push(Span::default());
+        nodes.push((Node::Empty, Span::default()));
         Ast {
             nodes,
-            spans,
             lists: Vec::with_capacity(capacity / 2),
             comments: Vec::new(),
             root: None,
@@ -603,8 +601,7 @@ impl Ast {
 
     pub(crate) fn push(&mut self, span: Span, node: Node) -> NodeId {
         let id = NodeId::new(self.nodes.len());
-        self.nodes.push(node);
-        self.spans.push(span);
+        self.nodes.push((node, span));
         id
     }
 
@@ -623,19 +620,19 @@ impl Ast {
     }
 
     pub fn node(&self, id: NodeId) -> &Node {
-        &self.nodes[id.index()]
+        &self.nodes[id.index()].0
     }
 
     pub(crate) fn node_mut(&mut self, id: NodeId) -> &mut Node {
-        &mut self.nodes[id.index()]
+        &mut self.nodes[id.index()].0
     }
 
     pub fn span(&self, id: NodeId) -> Span {
-        self.spans[id.index()]
+        self.nodes[id.index()].1
     }
 
     pub(crate) fn set_span(&mut self, id: NodeId, span: Span) {
-        self.spans[id.index()] = span;
+        self.nodes[id.index()].1 = span;
     }
 
     /// The nodes in `list`.

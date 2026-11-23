@@ -2,16 +2,15 @@
 // Copyright 2026 James Conway
 
 //! tc39/test262, pinned as a submodule in `tests/test262`, through the
-//! parser. Each file's frontmatter says whether it's a module, whether it
-//! runs strict, sloppy or both, and whether it should fail to parse.
+//! parser and `early_errors`. Each file's frontmatter says whether it's
+//! a module, whether it runs strict, sloppy or both, and whether it
+//! should fail to parse.
 //!
-//! - A file that should parse has to, in each mode it runs in: a pass, or
-//!   a failure.
-//! - A file that should fail to parse passes if the parser rejects it in
-//!   each mode. One it accepts is a failure, unless its error is an early
-//!   error from the list in `early_error`: those need scope analysis or
-//!   the regular expression grammar, which come later, and are skipped
-//!   and counted.
+//! - A file that should parse has to, in each mode it runs in, with no
+//!   early error: a pass, or a failure.
+//! - A file that should fail to parse has to be rejected, by the parser
+//!   or by `early_errors`, in each mode it runs in: a pass, or a failure.
+//!   None is skipped for the kind of error it has.
 //! - A module (`flags: [module]`) is parsed once, as a module. The
 //!   `_FIXTURE.js` files modules import aren't tests: some are meant not
 //!   to parse, or use syntax past ES2025, and only the tests importing
@@ -24,7 +23,17 @@ mod summary;
 
 use std::path::{Path, PathBuf};
 
-use parsec_js::{Options, SourceType, parse};
+use parsec_js::{Diagnostic, Options, SourceType, early_errors, parse};
+
+/// Parses `src` and checks its early errors: the parse's error, or the
+/// first of `early_errors`.
+fn check(src: &str, options: &Options) -> Result<(), Diagnostic> {
+    let ast = parse(src, options)?;
+    match early_errors(&ast, src).into_iter().next() {
+        Some(d) => Err(d),
+        None => Ok(()),
+    }
+}
 
 /// Features whose tests use syntax ECMAScript 2025 doesn't have.
 const NOT_IN_ES2025: &[&str] = &[
@@ -140,14 +149,14 @@ fn run(src: &str, m: &Meta, module: bool) -> Vec<Result<(), parsec_js::Diagnosti
             source_type: SourceType::Module,
             ..Options::default()
         };
-        return vec![parse(src, &options).map(|_| ())];
+        return vec![check(src, &options)];
     }
     let options = Options::default();
     let strict = || {
         let prefixed = format!("\"use strict\";\n{src}");
-        parse(&prefixed, &options).map(|_| ())
+        check(&prefixed, &options)
     };
-    let sloppy = || parse(src, &options).map(|_| ());
+    let sloppy = || check(src, &options);
     if flag("raw") || flag("noStrict") {
         vec![sloppy()]
     } else if flag("onlyStrict") {
@@ -169,12 +178,10 @@ fn test262() {
     files(&test, &mut paths);
 
     let mut passed = 0;
-    let (mut skipped_features, mut skipped_early, mut skipped_fixtures) = (0, 0, 0);
+    let (mut skipped_features, mut skipped_fixtures) = (0, 0);
     let mut failed = Vec::new();
-    let mut early = Vec::new();
     let (mut negatives, mut negatives_caught) = (0, 0);
     for path in &paths {
-        // With `/` on every OS, so `early_error` matches on Windows too.
         let name = path
             .strip_prefix(&root)
             .unwrap()
@@ -209,9 +216,6 @@ fn test262() {
             if results.iter().all(Result::is_err) {
                 negatives_caught += 1;
                 passed += 1;
-            } else if let Some(reason) = early_error(&name) {
-                skipped_early += 1;
-                early.push(format!("{name}: {reason}"));
             } else {
                 failed.push(format!("{name}: parsed, but should be a syntax error"));
             }
@@ -221,23 +225,19 @@ fn test262() {
             passed += 1;
         }
     }
-    let skipped = skipped_features + skipped_early + skipped_fixtures;
+    let skipped = skipped_features + skipped_fixtures;
     eprintln!(
         "test262 parsed: {passed} passed, {} failed, {skipped} skipped \
-         ({skipped_early} early errors for M11, {skipped_fixtures} module fixtures, \
-         {skipped_features} past ES2025 or not UTF-8); \
+         ({skipped_fixtures} module fixtures, {skipped_features} past ES2025 or not UTF-8); \
          {negatives_caught} of {negatives} parse negatives caught",
         failed.len()
     );
-    if std::env::var_os("TEST262_LIST_EARLY").is_some() {
-        eprintln!("{}", early.join("\n"));
-    }
     summary::write(&summary::Counts {
         suite: "test262-parse",
         passed,
         failed: failed.len(),
         skipped,
-        skipped_because: "early errors that need scope analysis or the regular expression grammar (M11), module fixtures, features past ES2025, and files that aren't UTF-8",
+        skipped_because: "module fixtures, features past ES2025, and files that aren't UTF-8",
         data: &root,
     });
     assert!(
@@ -246,40 +246,4 @@ fn test262() {
         failed.len(),
         failed.join("\n")
     );
-}
-
-/// Why a parse negative the parser accepts is an early error it doesn't
-/// check yet, or `None` if it should have been caught.
-fn early_error(name: &str) -> Option<&'static str> {
-    const REGEXP: &[&str] = &["language/literals/regexp/", "built-ins/RegExp/"];
-    // Each of these declares a name twice in one scope, a lexical name
-    // where a var or parameter of the same name is, or exports a name the
-    // module doesn't declare.
-    const SCOPE: &[&str] = &[
-        "redeclaration",
-        "-redecl",
-        "formals-body-duplicate",
-        "duplicate-binding",
-        "-lex-dup",
-        "-lex-var",
-        "bound-names-in-stmt",
-        "early-catch-function",
-        "early-catch-lex",
-        "dup-bound-names",
-        "early-dup-",
-        "early-lex-and-var",
-        "early-export-global",
-        "early-export-unresolvable",
-        "declaration-binding-exists",
-        "parse-err-hoist-lex-",
-    ];
-    if REGEXP.iter().any(|p| name.contains(p)) {
-        return Some("a regular expression's pattern, which isn't checked yet");
-    }
-    if SCOPE.iter().any(|p| name.contains(p)) {
-        return Some(
-            "a name declared twice, or exported and never declared, which needs scope analysis",
-        );
-    }
-    None
 }

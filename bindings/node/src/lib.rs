@@ -440,7 +440,8 @@ fn html_child(doc: &parsec::Document, name: &str) -> Option<NodeId> {
 }
 
 /// What `xpath()` gives: an array for a node-set (attributes as their
-/// values), or a string, a number or a boolean.
+/// values, namespace nodes as their URIs), or a string, a number or a
+/// boolean.
 type XPathResult = Either4<Vec<Either<Node, String>>, String, f64, bool>;
 
 #[napi]
@@ -678,8 +679,9 @@ impl Node {
         let compiled = XPath::new(&expr).map_err(error)?;
         let index = self.doc.index();
         let doc = self.doc.borrow();
+        let view = Doc::html(&doc, &index);
         let value = compiled
-            .evaluate(Doc::html(&doc, &index), self.id, &[], &[], &NoExtensions)
+            .evaluate(view, self.id, &[], &[], &NoExtensions)
             .map_err(error)?;
         Ok(match value {
             Value::Nodes(items) => Either4::A(
@@ -693,6 +695,7 @@ impl Node {
                         Item::Attr { owner, index, .. } => {
                             Either::B(attr_value(&doc, owner, index).to_string())
                         }
+                        Item::Ns { decl, .. } => Either::B(view.namespace_at(decl).1.to_string()),
                     })
                     .collect(),
             ),

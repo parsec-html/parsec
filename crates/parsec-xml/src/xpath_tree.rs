@@ -7,10 +7,11 @@ use parsec_xpath::{Attr, NodeId as Id, NodeType, TagKey, Tree};
 
 use crate::tree::{AttrData, Data, Document, NS_XMLNS, NodeId};
 
-/// The elements that declare namespaces, and where their other attributes
-/// are, so XPath reads an attribute by place in constant time on them too.
-/// Few elements declare namespaces, so this is small: built once, on the
-/// first query that reads an attribute, in one pass over the attributes.
+/// The elements that declare namespaces, where their declarations are and
+/// where their other attributes are, so XPath reads an attribute or a
+/// declaration by place in constant time on them too. Few elements declare
+/// namespaces, so this is small: built once, on the first query that reads
+/// an attribute or a declaration, in one pass over the attributes.
 #[derive(Debug, Default)]
 pub(crate) struct Declared {
     /// Node ids, ascending.
@@ -20,6 +21,9 @@ pub(crate) struct Declared {
     starts: Vec<u32>,
     /// Indexes into `Document::attrs`.
     positions: Vec<u32>,
+    /// The same for the declarations: `decl_starts` into `decls`.
+    decl_starts: Vec<u32>,
+    decls: Vec<u32>,
     /// The elements with an `xml:lang`, ascending, and its index into
     /// `Document::attrs`: `lang()` reads it from an attribute's owner, so
     /// a scan of the owner's attributes would make `@*[lang('en')]`
@@ -48,10 +52,17 @@ impl Declared {
             }
             d.elements.push(n as u32);
             d.starts.push(d.positions.len() as u32);
-            d.positions
-                .extend(range.filter(|&i| doc.attrs[i as usize].ns != NS_XMLNS));
+            d.positions.extend(
+                range
+                    .clone()
+                    .filter(|&i| doc.attrs[i as usize].ns != NS_XMLNS),
+            );
+            d.decl_starts.push(d.decls.len() as u32);
+            d.decls
+                .extend(range.filter(|&i| doc.attrs[i as usize].ns == NS_XMLNS));
         }
         d.starts.push(d.positions.len() as u32);
+        d.decl_starts.push(d.decls.len() as u32);
         d
     }
 }
@@ -101,6 +112,22 @@ impl Document {
         }
     }
 
+    /// Where in `self.attrs` the element's `xmlns` and `xmlns:*`
+    /// attributes are, in the order written.
+    fn declarations(&self, n: Id) -> &[u32] {
+        if !self.namespaces || self.attr_range(n).is_empty() {
+            return &[];
+        }
+        let declared = self.declared();
+        match declared.elements.binary_search(&n) {
+            Ok(k) => {
+                let (a, b) = (declared.decl_starts[k], declared.decl_starts[k + 1]);
+                &declared.decls[a as usize..b as usize]
+            }
+            Err(_) => &[],
+        }
+    }
+
     fn xpath_attr(&self, n: Id, i: u32) -> Option<&AttrData> {
         let at = match self.xpath_attrs(n) {
             Attrs::Run(r) => r.start.checked_add(i as usize).filter(|&at| at < r.end)?,
@@ -120,9 +147,10 @@ impl Document {
 }
 
 /// Names compare exactly, prefixes resolve to the namespaces the document
-/// declared, and namespace declarations aren't attributes. With namespaces
-/// off ([`crate::Options::namespaces`]), every name is its own local name
-/// in no namespace and `xmlns` attributes are attributes like any other.
+/// declared, and namespace declarations are namespace nodes, not
+/// attributes. With namespaces off ([`crate::Options::namespaces`]), every
+/// name is its own local name in no namespace and `xmlns` attributes are
+/// attributes like any other.
 /// The doctype isn't in the tree XPath reads, as XPath's data model has
 /// no node for it. An [`EntityRef`](crate::NodeKind::EntityRef) is a node
 /// XPath has no kind for, so no node test matches it.
@@ -197,6 +225,21 @@ impl Tree for Document {
             namespace_uri: self.names.uri_str(a.ns),
             value: self.str(a.value),
         })
+    }
+
+    fn namespace_declaration_count(&self, n: Id) -> u32 {
+        self.declarations(n).len() as u32
+    }
+
+    /// `xmlns=""` comes back with an empty URI, which takes the default
+    /// namespace away; parsec-xpath leaves no namespace node for it.
+    fn namespace_declaration(&self, n: Id, i: u32) -> Option<(&str, &str)> {
+        let a = &self.attrs[*self.declarations(n).get(i as usize)? as usize];
+        let prefix = match self.names.qname_str(a.name) {
+            "xmlns" => "",
+            _ => self.names.local(a.name),
+        };
+        Some((prefix, self.str(a.value)))
     }
 
     fn data(&self, n: Id) -> &str {

@@ -143,6 +143,10 @@ macro_rules! words {
         }
 
         impl $name {
+            /// Every one, in order.
+            #[allow(dead_code)] // Only Keyword's is used, to build its hash table.
+            pub(crate) const ALL: &'static [$name] = &[$($name::$variant,)*];
+
             /// Its spelling.
             pub const fn as_str(self) -> &'static str {
                 match self {
@@ -235,11 +239,41 @@ impl Keyword {
         (self as u8) <= (Keyword::Yield as u8)
     }
 
+    /// The keyword spelled `b`, found with one table lookup and one
+    /// comparison: the lexer asks this of every identifier it reads.
+    pub(crate) fn from_bytes(b: &[u8]) -> Option<Keyword> {
+        if !(2..=10).contains(&b.len()) {
+            return None;
+        }
+        let k = KEYWORDS[keyword_hash(b)]?;
+        (k.as_str().as_bytes() == b).then_some(k)
+    }
+
     /// Whether strict code reserves it beyond the ReservedWords.
     pub const fn is_strict_reserved(self) -> bool {
         (self as u8) > (Keyword::Yield as u8) && (self as u8) <= (Keyword::Public as u8)
     }
 }
+
+/// A hash of a word of two bytes or more that no two keywords share,
+/// which building [`KEYWORDS`] checks.
+const fn keyword_hash(b: &[u8]) -> usize {
+    (b[0] as usize + b[1] as usize * 6 + b[b.len() - 1] as usize * 21 + b.len()) & 255
+}
+
+/// Each keyword at its hash.
+static KEYWORDS: [Option<Keyword>; 256] = {
+    let mut table = [None; 256];
+    let mut i = 0;
+    while i < Keyword::ALL.len() {
+        let k = Keyword::ALL[i];
+        let h = keyword_hash(k.as_str().as_bytes());
+        assert!(table[h].is_none(), "two keywords share a hash");
+        table[h] = Some(k);
+        i += 1;
+    }
+    table
+};
 
 words! {
     /// A Punctuator, DivPunctuator or RightBracePunctuator.
@@ -301,5 +335,35 @@ words! {
         PipePipeEq = "||=",
         QuestionQuestionEq = "??=",
         Arrow = "=>",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keywords_by_hash() {
+        for &k in Keyword::ALL {
+            assert_eq!(Keyword::from_bytes(k.as_str().as_bytes()), Some(k));
+        }
+        for word in [
+            "",
+            "a",
+            "x",
+            "lets",
+            "yiel",
+            "constructor",
+            "Await",
+            "awaiT",
+            "of_",
+            "ofs",
+        ] {
+            assert_eq!(
+                Keyword::from_bytes(word.as_bytes()),
+                Keyword::from_str(word),
+                "{word}"
+            );
+        }
     }
 }

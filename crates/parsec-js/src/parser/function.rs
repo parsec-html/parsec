@@ -172,16 +172,14 @@ impl Parser<'_> {
         was_strict: bool,
         name: Option<Token>,
     ) -> R<()> {
-        let params = self.ast.get(params).to_vec();
+        let mut names = std::mem::take(&mut self.names);
+        names.clear();
+        for &p in self.ast.get(params) {
+            self.bound_names(p, &mut names);
+        }
         if self.ctx.strict && !was_strict {
-            let mut names = Vec::new();
-            for &p in &params {
-                self.bound_names(p, &mut names);
-            }
-            if let Some(t) = name {
-                names.push(t.span);
-            }
-            for span in names {
+            let function_name = name.map(|t| t.span);
+            for &span in names.iter().chain(function_name.iter()) {
                 let n = self.name(span);
                 let reserved = n == "eval"
                     || n == "arguments"
@@ -198,25 +196,38 @@ impl Parser<'_> {
             }
         }
         if self.ctx.strict || !simple || unique {
-            self.check_duplicates(&params)?;
+            return self.check_duplicate_names(names);
         }
+        self.names = names;
         Ok(())
     }
 
     /// No name is bound twice by `patterns`.
     pub(super) fn check_duplicates(&mut self, patterns: &[NodeId]) -> R<()> {
-        let mut spans = Vec::new();
+        let mut names = std::mem::take(&mut self.names);
+        names.clear();
         for &p in patterns {
-            self.bound_names(p, &mut spans);
+            self.bound_names(p, &mut names);
         }
-        if spans.len() < 2 {
-            return Ok(());
+        self.check_duplicate_names(names)
+    }
+
+    /// No name is in `spans` twice. It hands the buffer back for reuse.
+    pub(super) fn check_duplicate_names(&mut self, spans: Vec<Span>) -> R<()> {
+        let mut duplicate = None;
+        if spans.len() >= 2 {
+            let mut names = std::mem::take(&mut self.sorted_names);
+            names.clear();
+            names.extend(spans.iter().map(|&s| (self.name(s), s)));
+            names.sort_unstable();
+            if let Some(w) = names.windows(2).find(|w| w[0].0 == w[1].0) {
+                duplicate = Some((w[1].0.to_string(), w[1].1));
+            }
+            names.clear();
+            self.sorted_names = names;
         }
-        let mut names: Vec<(std::borrow::Cow<str>, Span)> =
-            spans.iter().map(|&s| (self.name(s), s)).collect();
-        names.sort();
-        if let Some(w) = names.windows(2).find(|w| w[0].0 == w[1].0) {
-            let (name, span) = (w[1].0.to_string(), w[1].1);
+        self.names = spans;
+        if let Some((name, span)) = duplicate {
             return self.err(
                 "duplicate-binding",
                 span,
@@ -341,9 +352,12 @@ impl Parser<'_> {
     pub(super) fn key_is(&self, key: NodeId, name: &str) -> bool {
         let span = self.span(key);
         match self.node(key) {
-            Node::Identifier => self.name(span) == name,
+            Node::Identifier => self.name_is(span, name),
             Node::Literal(LiteralKind::String) => {
                 let body = Span::new(span.start + 1, span.end - 1).text(self.src);
+                if !body.contains('\\') {
+                    return body == name;
+                }
                 text::string_value(body)
                     .iter()
                     .copied()

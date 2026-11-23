@@ -104,7 +104,7 @@ What you get over selectolax:
 pip install parsec-html
 ```
 
-There are wheels for CPython 3.9 and newer, free-threaded too, on Linux
+There are wheels for CPython 3.10 and newer, free-threaded too, on Linux
 (glibc and musl), macOS and Windows, x86-64 and ARM. Anywhere else, pip
 builds the sdist, which needs Rust 1.88 or newer. The newest code on
 `main` installs the same way from git:

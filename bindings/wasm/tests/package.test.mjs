@@ -151,6 +151,8 @@ test("xpath", () => {
   assert.deepEqual(doc.xpath("//@id | //@class"), ["l", "a"]);
   assert.equal(doc.xpath("//li/text()")[1].nodeType, 3);
   assert.equal(doc.xpath("count(//li)"), 2);
+  // A namespace node is its URI; an HTML element has only xml's.
+  assert.deepEqual(doc.xpath("//ul/namespace::*"), ["http://www.w3.org/XML/1998/namespace"]);
   assert.equal(doc.xpath("name(//*[@class])"), "li");
   assert.equal(doc.xpath("boolean(//ul)"), true);
   assert.equal(items[1].xpath("string(preceding-sibling::li)"), "one");

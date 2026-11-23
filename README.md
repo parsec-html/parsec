@@ -431,8 +431,12 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
-| JavaScript syntax tree | no | not released yet; on `main` in `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and 3,824 of the 4,374 that shouldn't fail, in `cargo test` |
-| XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; XPath 1.0 over it with the `xpath` feature, passing libxml2's document tests but the namespace axis; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
+| JavaScript syntax tree | no | not released yet; on `main` in `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and all 4,374 that shouldn't fail do, through the parser and `parsec_js::early_errors`, in `cargo test` |
+| JavaScript scopes | no | not released yet; on `main` as `parsec_js::scope`: every reference resolved to its binding or listed as free, with hoisting, Annex B's functions in blocks, the temporal dead zone, and the scopes a direct `eval` or a `with` makes dynamic; a name declared twice is an early error, which catches all 190 of test262's redeclaration tests |
+| JavaScript regular expressions checked | no | not released yet; on `main` as `parsec_js::regexp`: a pattern checked by its own grammar and early errors, without the `u` flag (with Annex B's additions), with `u`, and with `v`'s set operations and properties of strings; named groups, duplicate names in separate alternatives, modifiers and every `\p{…}` name in Unicode 17.0; all 358 of test262's pattern tests that should fail do |
+| JavaScript module records | no | not released yet; on `main` as `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
+| State from a page's scripts | no | not released yet; on `main` as `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
+| XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; XPath 1.0 over it with the `xpath` feature, passing all 84 of libxml2's document tests; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; XML through `parsec_xml_parse` |
 | Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.xml` for XML |
 | WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseXml` and `parseXmlBytes` for XML, in the native Node build too |
@@ -503,7 +507,7 @@ assert_eq!(parsed.encoding.name(), "Shift_JIS");
 assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 ```
 
-**Python** 3.9 or newer, free-threaded too; then `import parsec_html`:
+**Python** 3.10 or newer, free-threaded too; then `import parsec_html`:
 
 ```sh
 pip install parsec-html

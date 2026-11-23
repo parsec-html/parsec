@@ -653,6 +653,13 @@ static void xpath(void) {
     CHECK(is(value, &value_len, "list"));
     parsec_xpath_result_free(r);
 
+    /* A namespace node is its element and PARSEC_NS_ATTR. */
+    r = eval(doc, parsec_root(), "//ul/namespace::*");
+    CHECK(parsec_xpath_result_count(r) == 1);
+    CHECK(parsec_xpath_result_item(r, 0, &node, &attr) == PARSEC_OK && attr == PARSEC_NS_ATTR);
+    CHECK(owned_is(parsec_text(doc, node, &len), &len, "onetwothree"));
+    parsec_xpath_result_free(r);
+
     r = eval(doc, parsec_root(), "count(//li)");
     CHECK(parsec_xpath_result_type(r) == PARSEC_XPATH_NUMBER);
     CHECK(parsec_xpath_result_number(r) == 3.0);

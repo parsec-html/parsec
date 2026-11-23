@@ -84,7 +84,10 @@ newer commit.
 
 ## Checking your change
 
-These are what CI runs, so running them first saves a round trip:
+These are what CI runs, so running them first saves a round trip. The
+wiki's [Testing](https://github.com/parsec-html/parsec/wiki/Testing) page
+has how the spec suites, the stress tests and the real web fit together,
+and the gates a release has to pass:
 
 ```
 cargo fmt --all
@@ -101,11 +104,15 @@ The fuzz target builds on nightly with
 cargo +nightly fuzz run parse
 ```
 
-The JavaScript lexer and parser have one each, from `crates/parsec-js`:
+The JavaScript lexer and parser have one each, regular expression
+patterns a third and reading page state a fourth, from
+`crates/parsec-js`:
 
 ```
 cargo +nightly fuzz run lex
 cargo +nightly fuzz run parse
+cargo +nightly fuzz run regexp
+cargo +nightly fuzz run data
 ```
 
 So does the XML parser, from `crates/parsec-xml`:

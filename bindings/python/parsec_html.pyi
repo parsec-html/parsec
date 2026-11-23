@@ -9,7 +9,8 @@ __version__: str
 _T = TypeVar("_T")
 
 # What xpath() gives, as lxml gives it: a list for a node-set (elements and
-# comments as nodes, text and attribute values as strings), or a scalar.
+# comments as nodes, text, attribute values and namespace URIs as strings),
+# or a scalar.
 XPathResult = Union[list[Union["Node", str]], str, float, bool]
 XPathVariable = Union[str, bytes, float, int, bool]
 

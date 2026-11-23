@@ -196,6 +196,18 @@ impl<'a> Lexer<'a> {
             b'`' => return self.template(start, false),
             b'}' if goal.template_tail() => return self.template(start, true),
             b'#' => return self.private_name(start),
+            // The punctuators that are one character whatever follows,
+            // most of them, without the lookahead the others need.
+            b'{' => self.punct(1, Punct::LBrace),
+            b'}' => self.punct(1, Punct::RBrace),
+            b'(' => self.punct(1, Punct::LParen),
+            b')' => self.punct(1, Punct::RParen),
+            b'[' => self.punct(1, Punct::LBracket),
+            b']' => self.punct(1, Punct::RBracket),
+            b';' => self.punct(1, Punct::Semicolon),
+            b',' => self.punct(1, Punct::Comma),
+            b':' => self.punct(1, Punct::Colon),
+            b'~' => self.punct(1, Punct::Tilde),
             0x80.. => {
                 let ch = self.char_at(start);
                 if is_id_start(ch) {
@@ -401,6 +413,22 @@ impl<'a> Lexer<'a> {
 
     fn ident(&mut self, start: usize) -> Token {
         let b = self.src.as_bytes();
+        // Most identifiers are plain ASCII: read those in a tight loop,
+        // and leave escapes and other characters to the loop below.
+        if matches!(b[start], b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_') {
+            let mut end = start + 1;
+            while b
+                .get(end)
+                .is_some_and(|&c| c < 0x80 && ID_CONTINUE_ASCII[c as usize])
+            {
+                end += 1;
+            }
+            if !matches!(b.get(end), Some(b'\\' | 0x80..)) {
+                self.pos = end;
+                let kind = Keyword::from_bytes(&b[start..end]).map_or(Kind::Ident, Kind::Keyword);
+                return self.token(kind, start, Flags::empty());
+            }
+        }
         let mut flags = Flags::empty();
         self.pos = start;
         let mut first = true;
@@ -459,9 +487,7 @@ impl<'a> Lexer<'a> {
             first = false;
         }
         let kind = match flags.contains(Flags::ESCAPED) {
-            false => {
-                Keyword::from_str(&self.src[start..self.pos]).map_or(Kind::Ident, Kind::Keyword)
-            }
+            false => Keyword::from_bytes(&b[start..self.pos]).map_or(Kind::Ident, Kind::Keyword),
             true => Kind::Ident,
         };
         self.token(kind, start, flags)
@@ -665,6 +691,9 @@ impl<'a> Lexer<'a> {
         let mut flags = Flags::empty();
         self.pos = start + 1;
         loop {
+            // Skip what can't end the string or start an escape at once:
+            // long strings in inline scripts are mostly that.
+            self.pos += string_run(&b[self.pos..], quote);
             match b.get(self.pos) {
                 None | Some(b'\n' | b'\r') => {
                     self.error(
@@ -922,23 +951,14 @@ impl<'a> Lexer<'a> {
 
     // Punctuators (12.8).
 
-    /// The longest punctuator at `start`, other than `/`, `/=` and `}`
-    /// with a template goal, which the caller has handled.
+    /// The longest punctuator at `start` of those that can be longer
+    /// than one character; the caller has handled the rest, and `/`,
+    /// `/=` and `}` with a template goal.
     fn punctuator(&mut self, start: usize) -> Option<Punct> {
         let b = &self.src.as_bytes()[start..];
         let at = |i: usize| b.get(i).copied().unwrap_or(0);
         use Punct::*;
         let (len, p) = match (b[0], at(1), at(2), at(3)) {
-            (b'{', ..) => (1, LBrace),
-            (b'}', ..) => (1, RBrace),
-            (b'(', ..) => (1, LParen),
-            (b')', ..) => (1, RParen),
-            (b'[', ..) => (1, LBracket),
-            (b']', ..) => (1, RBracket),
-            (b';', ..) => (1, Semicolon),
-            (b',', ..) => (1, Comma),
-            (b':', ..) => (1, Colon),
-            (b'~', ..) => (1, Tilde),
             (b'.', b'.', b'.', _) => (3, Ellipsis),
             (b'.', ..) => (1, Dot),
             (b'<', b'<', b'=', _) => (3, ShlEq),
@@ -990,6 +1010,32 @@ impl<'a> Lexer<'a> {
         self.pos += len;
         Some(p)
     }
+}
+
+/// How many bytes from the start of `b` are none of `quote`, `\\`, LF
+/// and CR: what a string literal holds before it ends, or might end or
+/// escape. Eight bytes at a time, by the bit trick that finds a zero
+/// byte in a word (a byte equal to `t` is a zero byte of `word ^ t`).
+fn string_run(b: &[u8], quote: u8) -> usize {
+    const ONES: u64 = u64::from_ne_bytes([0x01; 8]);
+    const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);
+    // Its lowest set bit is the high bit of the first zero byte; bits
+    // above that may be wrong, and aren't looked at.
+    let zero_bytes = |v: u64| v.wrapping_sub(ONES) & !v & HIGHS;
+    let stops = [quote, b'\\', b'\n', b'\r'].map(|t| ONES * u64::from(t));
+    let mut i = 0;
+    while let Some(&chunk) = b.get(i..).and_then(|r| r.first_chunk::<8>()) {
+        let w = u64::from_le_bytes(chunk);
+        let found = stops.iter().fold(0, |m, &t| m | zero_bytes(w ^ t));
+        if found != 0 {
+            return i + (found.trailing_zeros() / 8) as usize;
+        }
+        i += 8;
+    }
+    i + b[i..]
+        .iter()
+        .position(|&c| c == quote || matches!(c, b'\\' | b'\n' | b'\r'))
+        .unwrap_or(b.len() - i)
 }
 
 /// U+2028 or U+2029 at the start of `b`.
@@ -1057,6 +1103,32 @@ pub(crate) fn is_id_continue(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn string_runs() {
+        let naive = |b: &[u8], q: u8| {
+            b.iter()
+                .position(|&c| c == q || matches!(c, b'\\' | b'\n' | b'\r'))
+                .unwrap_or(b.len())
+        };
+        // Every stop byte at every offset of inputs around the word size,
+        // with near misses (0x80, the bytes one off) around it.
+        for len in 0..20 {
+            for at in 0..=len {
+                for stop in *b"\"'\\\n\r" {
+                    let mut b: Vec<u8> = (0..len)
+                        .map(|i| [b'a', 0x80, b'#', b'[', 0xFF][i % 5])
+                        .collect();
+                    if at < len {
+                        b[at] = stop;
+                    }
+                    for q in *b"\"'" {
+                        assert_eq!(string_run(&b, q), naive(&b, q), "{b:?} {q}");
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn unicode_tables() {

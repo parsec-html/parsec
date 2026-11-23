@@ -363,7 +363,7 @@ impl Parser<'_> {
 
     /// `if`, with an `else if` chain read in a loop, not by recursion.
     fn if_statement(&mut self) -> R<NodeId> {
-        let mut chain: Vec<(u32, NodeId, NodeId)> = Vec::new();
+        let mark = self.if_chain.len();
         let alternate = loop {
             let start = self.tok.span.start;
             self.expect_kw(Keyword::If)?;
@@ -371,7 +371,7 @@ impl Parser<'_> {
             let test = self.expression(false)?;
             self.expect(Punct::RParen)?;
             let consequent = self.if_body()?;
-            chain.push((start, test, consequent));
+            self.if_chain.push((start, test, consequent));
             if !self.at_kw(Keyword::Else) {
                 break None;
             }
@@ -382,7 +382,8 @@ impl Parser<'_> {
         };
         let mut alternate = alternate;
         let mut node = None;
-        for (start, test, consequent) in chain.into_iter().rev() {
+        while self.if_chain.len() > mark {
+            let (start, test, consequent) = self.if_chain.pop().expect("longer than mark");
             let id = self.finish(
                 start,
                 Node::If {
@@ -454,14 +455,14 @@ impl Parser<'_> {
             }
         }
         if kind != VarKind::Var {
-            let ids: Vec<NodeId> = self.scratch[mark..]
-                .iter()
-                .map(|&d| match self.node(d) {
-                    Node::VariableDeclarator { id, .. } => id,
-                    _ => d,
-                })
-                .collect();
-            self.check_duplicates(&ids)?;
+            let mut names = std::mem::take(&mut self.names);
+            names.clear();
+            for &d in &self.scratch[mark..] {
+                if let Node::VariableDeclarator { id, .. } = self.node(d) {
+                    self.bound_names(id, &mut names);
+                }
+            }
+            self.check_duplicate_names(names)?;
         }
         let declarations = self.take_list(mark);
         Ok(self.finish(start, Node::VariableDeclaration { kind, declarations }))
@@ -486,16 +487,17 @@ impl Parser<'_> {
 
     /// `let` can't be a name a `let` or `const` declares.
     fn check_not_let(&mut self, id: NodeId) -> R<()> {
-        let mut names = Vec::new();
+        let mut names = std::mem::take(&mut self.names);
+        names.clear();
         self.bound_names(id, &mut names);
-        for span in names {
-            if self.name(span) == "let" {
-                return self.err(
-                    "let-binding",
-                    span,
-                    "`let` can't be a name a `let` or `const` declares",
-                );
-            }
+        let found = names.iter().copied().find(|&s| self.name_is(s, "let"));
+        self.names = names;
+        if let Some(span) = found {
+            return self.err(
+                "let-binding",
+                span,
+                "`let` can't be a name a `let` or `const` declares",
+            );
         }
         Ok(())
     }

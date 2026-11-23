@@ -229,6 +229,10 @@ against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
   files that should parse tokenize. Of the 4,676 that shouldn't, the
   lexer catches the 267 whose error is in the tokens; the parser will
   check the rest.
+- Done: the lexer bench, `parsec-html-bench js-lex`, against oxc's and
+  swc's lexers on the JavaScript corpus: 347 MB/s to oxc's 568 and swc's
+  328, every token at the same span in all three
+  ([#149](https://github.com/parsec-html/parsec/issues/149)).
 
 ## M10. JavaScript syntax tree
 
@@ -294,6 +298,45 @@ What a name refers to, which programs the spec rejects before they run,
 and what each module imports and exports
 ([#157](https://github.com/parsec-html/parsec/issues/157)).
 
+- Done: scope analysis
+  ([#158](https://github.com/parsec-html/parsec/issues/158)).
+  `Scopes::analyze` builds the global or module scope, function, block,
+  class, `catch`, static block and class field scopes, and resolves
+  every reference to its binding or lists it as free: `var` and
+  functions hoisted, with Annex B's functions in sloppy blocks, `let`,
+  `const` and `class` in their block with the TDZ flagged, `arguments`
+  in each function that isn't an arrow, and scopes a direct `eval` or a
+  `with` reaches marked dynamic. A name declared twice where the spec
+  forbids it is a diagnostic, which catches all 190 of test262's
+  redeclaration tests and none of the 48,408 files that should parse.
+  `parsec-html-bench js-scope` times it on the bench corpus, 239 MB/s on
+  typescript.js, and lists every free name.
+- Done: regular expression patterns checked by their own grammar
+  ([#159](https://github.com/parsec-html/parsec/issues/159), part).
+  `regexp::validate` reads a pattern as a `RegExp` would and gives the
+  error one would throw, with a stable code: without `u`, with Annex
+  B's additions; with `u`; and with `v`'s nested classes, `&&`, `--`,
+  `\q{…}` and properties of strings. Named groups (duplicates allowed
+  only in separate alternatives), modifiers like `(?i:…)`, and every
+  `\p{…}` name and value in Unicode 17.0 are checked. All 358 of
+  test262's pattern negatives fail, and every pattern in the files that
+  should parse validates. A `regexp` fuzz target joins the nightly run.
+- Done: the spec's early errors
+  ([#159](https://github.com/parsec-html/parsec/issues/159)). The parser
+  checks most as it goes; `early_errors` gives the rest for a tree it
+  accepted: names declared twice, exports of names a module never
+  declares, and regular expression patterns. The `early_errors` docs
+  table every rule with its code and where it's checked. test262's
+  harness no longer skips any parse negative for the kind of error it
+  has: all 4,374 fail, and all 48,408 files that should parse do.
+- Done: import and export records
+  ([#160](https://github.com/parsec-html/parsec/issues/160)).
+  `ModuleRecord::new` gives a module's requested modules, each once with
+  its import attributes, its ImportEntry records, and its ExportEntry
+  records sorted into local, indirect and star exports as ParseModule
+  sorts them, an imported name exported again included. `cargo test`
+  checks them against the spec's two tables of import and export forms.
+
 ## M12. Data from scripts
 
 The reason JavaScript matters for scraping. Pages ship their data inside
@@ -302,6 +345,27 @@ a variable. Parsec will read those straight from the source as JSON,
 without executing a line, where scrapers today run a browser or a regex
 that breaks on the first nested brace. Netweir is the first user
 ([#161](https://github.com/parsec-html/parsec/issues/161)).
+
+- Done: literals to JSON
+  ([#162](https://github.com/parsec-html/parsec/issues/162)).
+  `literal` reads objects, arrays, strings, numbers, booleans, `null`,
+  templates without substitutions, `-` and `+` on numbers, and the
+  `!0`, `!1` and `void 0` minifiers write, and refuses anything else
+  with the span that stopped it and a reason. `json` parses JSON as
+  strictly as `JSON.parse`, for `__NEXT_DATA__`.
+
+- Done: the page-state shapes
+  ([#163](https://github.com/parsec-html/parsec/issues/163)).
+  `page_state` finds assignments to `window`, `self` and `globalThis`,
+  top-level `var`, `let` and `const`, `JSON.parse("…")`, Nuxt 2's
+  function form with its arguments put in place of its parameters, and
+  Next.js App Router's `self.__next_f` pushes, which `next_flight` joins.
+  Each shape has a test on a real page in
+  `crates/parsec-js/tests/pages`, and a `data` fuzz target joins the
+  nightly run.
+
+- Next: Netweir reads page state through `parsec-js`
+  ([#164](https://github.com/parsec-html/parsec/issues/164)).
 
 ## M13. JavaScript diagnostics and incremental parsing
 
@@ -348,9 +412,8 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
   exactly, prefixes from the query's namespaces, namespace declarations
   left out of the attributes, `id()` from `xml:id` and the DTD's `ID`
   attributes, and `lang()` from `xml:lang`. libxml2's XPath document
-  tests run against it in `cargo test`: 79 of 84 queries pass and none
-  fail; the 5 skipped use the namespace axis, which `parsec-xpath`
-  leaves empty.
+  tests run against it in `cargo test`: all 84 queries pass, the 5 on
+  the namespace axis among them.
 
 ## M15. One toolkit, in pieces
 

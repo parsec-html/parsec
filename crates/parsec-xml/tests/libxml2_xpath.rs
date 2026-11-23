@@ -21,12 +21,6 @@ fn data_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bench/libxml2")
 }
 
-/// Why a query can't pass here, for the ones that can't.
-fn skip(expr: &str) -> Option<&'static str> {
-    expr.contains("namespace::")
-        .then_some("the namespace axis, which parsec-xpath leaves empty")
-}
-
 /// libxml2's xmlCtxtDumpString: 40 bytes at most, white space as spaces,
 /// bytes over 0x7F in hex, and `...` after anything 40 bytes or longer.
 fn dump_string(out: &mut String, s: &str) {
@@ -83,14 +77,12 @@ fn dump_node(out: &mut String, doc: &Document, node: NodeId) {
                 .attributes(node)
                 .filter(|a| a.is_namespace_declaration())
             {
-                spaces(out, 2);
-                if a.name.qname == "xmlns" {
-                    out.push_str("default namespace href=");
+                let prefix = if a.name.qname == "xmlns" {
+                    ""
                 } else {
-                    write!(out, "namespace {} href=", a.name.local).unwrap();
-                }
-                dump_string(out, a.value);
-                out.push('\n');
+                    a.name.local
+                };
+                dump_namespace(out, prefix, a.value, 2);
             }
             for a in doc
                 .attributes(node)
@@ -120,8 +112,20 @@ fn dump_node(out: &mut String, doc: &Document, node: NodeId) {
     }
 }
 
+/// A namespace as xmlCtxtDumpNamespace prints it.
+fn dump_namespace(out: &mut String, prefix: &str, uri: &str, depth: usize) {
+    spaces(out, depth);
+    if prefix.is_empty() {
+        out.push_str("default namespace href=");
+    } else {
+        write!(out, "namespace {prefix} href=").unwrap();
+    }
+    dump_string(out, uri);
+    out.push('\n');
+}
+
 /// What xmlXPathDebugDumpObject prints, for comparison with libxml2's.
-fn dump(doc: &Document, value: &Value<'_>) -> String {
+fn dump(doc: &Document, view: Doc<'_>, value: &Value<'_>) -> String {
     let mut out = String::new();
     match value {
         Value::Nodes(items) => {
@@ -138,6 +142,10 @@ fn dump(doc: &Document, value: &Value<'_>) -> String {
                             .nth(index as usize)
                             .expect("an attribute the query found");
                         dump_attr(&mut out, a.name.local, a.value, 1);
+                    }
+                    Item::Ns { decl, .. } => {
+                        let (prefix, uri) = view.namespace_at(decl);
+                        dump_namespace(&mut out, prefix, uri, 1);
                     }
                 }
             }
@@ -204,7 +212,7 @@ fn libxml2_xpath_documents() {
         t.sort();
         t
     };
-    let (mut passed, mut skipped, mut failed) = (0, 0, Vec::new());
+    let (mut passed, mut failed) = (0, Vec::new());
     // libxml2 reads them with DTD defaults and entities expanded, as
     // parsec-xml always does.
     let options = Options::default();
@@ -218,14 +226,11 @@ fn libxml2_xpath_documents() {
         for test in tests.iter().filter(|t| t.starts_with(name.as_str())) {
             let cases = expected(&data.join("result/XPath/tests").join(test));
             for (expr, want) in cases {
-                if skip(&expr).is_some() {
-                    skipped += 1;
-                    continue;
-                }
+                let view = Doc::new(&doc, &index);
                 let got = match XPath::new(&expr)
-                    .and_then(|x| x.evaluate(Doc::new(&doc, &index), root, &[], &[], &NoExtensions))
+                    .and_then(|x| x.evaluate(view, root, &[], &[], &NoExtensions))
                 {
-                    Ok(v) => dump(&doc, &v),
+                    Ok(v) => dump(&doc, view, &v),
                     Err(_) => "Object is empty (NULL)\n".to_string(),
                 };
                 if got == want {
@@ -242,14 +247,13 @@ fn libxml2_xpath_documents() {
         suite: "libxml2-xpath-documents",
         passed,
         failed: failed.len(),
-        skipped,
-        skipped_because: skip("namespace::").unwrap(),
+        skipped: 0,
+        skipped_because: "",
         data: &data,
     });
     eprintln!(
-        "libxml2 XPath documents: {passed} passed, {} failed, {skipped} skipped ({})",
-        failed.len(),
-        skip("namespace::").unwrap()
+        "libxml2 XPath documents: {passed} passed, {} failed",
+        failed.len()
     );
     assert!(failed.is_empty(), "{}", failed.join("\n"));
 }

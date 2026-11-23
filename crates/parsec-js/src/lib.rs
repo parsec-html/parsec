@@ -22,6 +22,22 @@
 //! assert!(ast.to_estree(src).contains(r#""type":"ArrowFunctionExpression""#));
 //! ```
 //!
+//! [`scope`] works out which declaration each name refers to: the
+//! scopes, their bindings, every reference resolved or left free, and
+//! the names declared twice where the spec forbids it.
+//!
+//! [`regexp`] checks a regular expression's pattern by its own grammar,
+//! the error a `RegExp` built from it would throw.
+//!
+//! [`early_errors`] gives the early errors the parser leaves for a later
+//! pass: those two, and an export of a name a module never declares.
+//!
+//! [`module`] has a module's import and export records, the spec's
+//! ImportEntry and ExportEntry, for building a module graph.
+//!
+//! [`data`] reads the state pages keep in scripts, `window.__NUXT__ = …`
+//! and its kin, as JSON, without running anything.
+//!
 //! Recursion is bounded by [`Limits::max_depth`] ([`DEFAULT_MAX_DEPTH`]
 //! without one) and work by [`Limits::max_steps`], so hostile input gets
 //! an error, never a stack overflow.
@@ -55,14 +71,20 @@
 //! ```
 
 pub mod ast;
+pub mod data;
+pub mod early;
 mod estree;
 mod lexer;
+pub mod module;
 mod parser;
+pub mod regexp;
+pub mod scope;
 pub mod text;
 mod token;
 mod unicode;
 
 pub use ast::{Ast, Comment, CommentKind, List, Node, NodeId};
+pub use early::{early_errors, early_errors_in};
 pub use estree::EstreeOptions;
 pub use lexer::{Goal, Lexer, SourceType};
 pub use parsec_base::{Diagnostic, Limits, LineIndex, Severity, Span};
