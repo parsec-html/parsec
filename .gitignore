@@ -16,6 +16,9 @@
 /bindings/wasm/html-only
 __pycache__/
 /bindings/wasm/target
+/bindings/node/target
+/bindings/node/out
+/crates/parsec-xml/tests/xmlconf
 /crates/parsec-xml/fuzz/target
 /crates/parsec-xml/fuzz/corpus
 /crates/parsec-xml/fuzz/artifacts

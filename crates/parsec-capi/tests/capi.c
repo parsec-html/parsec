@@ -2,9 +2,9 @@
  * Copyright 2026 James Conway
  *
  * The C API from C: parse, select, read, edit, serialize, bytes in any
- * encoding, JavaScript, and every error path a binding could hit. Built
- * with HTML5LIB_ENCODING defined as the html5lib-tests encoding/ folder,
- * it runs those cases too, and with JS_PAGES defined as
+ * encoding, JavaScript, XML, and every error path a binding could hit.
+ * Built with HTML5LIB_ENCODING defined as the html5lib-tests encoding/
+ * folder, it runs those cases too, and with JS_PAGES defined as
  * crates/parsec-js/tests/pages, page state from those pages. Built and run by tests/c.rs, by CI on Linux, macOS and Windows
  * through CMake, and on Linux under AddressSanitizer, LeakSanitizer and
  * UndefinedBehaviorSanitizer. Exits 0 when every check passes; the first
@@ -654,6 +654,13 @@ static void xpath(void) {
     CHECK(is(value, &value_len, "list"));
     parsec_xpath_result_free(r);
 
+    /* A namespace node is its element and PARSEC_NS_ATTR. */
+    r = eval(doc, parsec_root(), "//ul/namespace::*");
+    CHECK(parsec_xpath_result_count(r) == 1);
+    CHECK(parsec_xpath_result_item(r, 0, &node, &attr) == PARSEC_OK && attr == PARSEC_NS_ATTR);
+    CHECK(owned_is(parsec_text(doc, node, &len), &len, "onetwothree"));
+    parsec_xpath_result_free(r);
+
     r = eval(doc, parsec_root(), "count(//li)");
     CHECK(parsec_xpath_result_type(r) == PARSEC_XPATH_NUMBER);
     CHECK(parsec_xpath_result_number(r) == 3.0);
@@ -825,6 +832,188 @@ static void bytes_and_encodings(void) {
 }
 
 /* A whole file, NUL-terminated, or NULL. */
+/* A borrowed string from an XML document, through its length pointer. */
+#define XML_IS(call, want) (len = 99, is((call), &len, (want)))
+
+static parsec_xml_document *xml_parse(const char *src, size_t n) {
+    parsec_xml_document *doc = NULL;
+    parsec_xml_error *err = NULL;
+    CHECK(parsec_xml_parse(src, n, NULL, &doc, &err) == PARSEC_OK);
+    CHECK(doc != NULL && err == NULL);
+    return doc;
+}
+
+static void xml(void) {
+    const char *src =
+        "<feed xmlns=\"http://www.w3.org/2005/Atom\" "
+        "xmlns:x=\"http://www.w3.org/1999/xlink\">"
+        "<entry x:href=\"/one\" n=\"1\">Ships &amp; ports</entry>"
+        "<?pi data?><!--c--><x:link><![CDATA[<raw>]]></x:link></feed>";
+    parsec_xml_document *doc = xml_parse(src, strlen(src));
+    size_t len = 0;
+
+    /* Walking it, and names with and without prefixes. */
+    CHECK(parsec_xml_node_type(doc, parsec_root()) == PARSEC_NODE_DOCUMENT);
+    parsec_node feed = parsec_xml_document_element(doc);
+    CHECK(feed == parsec_xml_first_child(doc, parsec_root()));
+    CHECK(parsec_xml_parent(doc, feed) == parsec_root());
+    CHECK(parsec_xml_node_type(doc, feed) == PARSEC_NODE_ELEMENT);
+    CHECK(XML_IS(parsec_xml_node_name(doc, feed, &len), "feed"));
+    CHECK(XML_IS(parsec_xml_local_name(doc, feed, &len), "feed"));
+    CHECK(XML_IS(parsec_xml_prefix(doc, feed, &len), ""));
+    CHECK(XML_IS(parsec_xml_namespace_uri(doc, feed, &len), "http://www.w3.org/2005/Atom"));
+    parsec_node entry = parsec_xml_first_child(doc, feed);
+    parsec_node pi = parsec_xml_next_sibling(doc, entry);
+    parsec_node comment = parsec_xml_next_sibling(doc, pi);
+    parsec_node link = parsec_xml_last_child(doc, feed);
+    CHECK(parsec_xml_prev_sibling(doc, link) == comment);
+    CHECK(parsec_xml_next_sibling(doc, link) == PARSEC_NO_NODE);
+    CHECK(parsec_xml_node_type(doc, pi) == PARSEC_NODE_PROCESSING_INSTRUCTION);
+    CHECK(XML_IS(parsec_xml_node_name(doc, pi, &len), "pi"));
+    CHECK(XML_IS(parsec_xml_node_value(doc, pi, &len), "data"));
+    CHECK(parsec_xml_node_type(doc, comment) == PARSEC_NODE_COMMENT);
+    CHECK(XML_IS(parsec_xml_node_name(doc, link, &len), "x:link"));
+    CHECK(XML_IS(parsec_xml_local_name(doc, link, &len), "link"));
+    CHECK(XML_IS(parsec_xml_prefix(doc, link, &len), "x"));
+    CHECK(XML_IS(parsec_xml_namespace_uri(doc, link, &len), "http://www.w3.org/1999/xlink"));
+    parsec_node cdata = parsec_xml_first_child(doc, link);
+    CHECK(parsec_xml_node_type(doc, cdata) == PARSEC_NODE_CDATA);
+    CHECK(XML_IS(parsec_xml_node_value(doc, cdata, &len), "<raw>"));
+    CHECK(parsec_xml_node_name(doc, cdata, &len) == NULL && len == 0);
+    CHECK(owned_is(parsec_xml_text(doc, entry, &len), &len, "Ships & ports"));
+
+    /* Attributes: the namespace declarations are attributes too. */
+    CHECK(parsec_xml_attr_count(doc, feed) == 2);
+    CHECK(parsec_xml_attr_count(doc, entry) == 2);
+    CHECK(parsec_xml_attr_count(doc, pi) == 0);
+    parsec_xml_attr a;
+    CHECK(parsec_xml_attr_at(doc, entry, 0, &a) == PARSEC_OK);
+    CHECK(is(a.name, &a.name_len, "x:href"));
+    CHECK(is(a.local_name, &a.local_name_len, "href"));
+    CHECK(is(a.prefix, &a.prefix_len, "x"));
+    CHECK(is(a.namespace_uri, &a.namespace_uri_len, "http://www.w3.org/1999/xlink"));
+    CHECK(is(a.value, &a.value_len, "/one"));
+    CHECK(a.specified);
+    CHECK(memcmp(src + a.start, "x:href=\"/one\"", a.end - a.start) == 0);
+    CHECK(parsec_xml_attr_at(doc, entry, 1, &a) == PARSEC_OK);
+    CHECK(is(a.prefix, &a.prefix_len, "") && is(a.namespace_uri, &a.namespace_uri_len, ""));
+    CHECK(parsec_xml_attr_at(doc, feed, 1, &a) == PARSEC_OK);
+    CHECK(is(a.namespace_uri, &a.namespace_uri_len, "http://www.w3.org/2000/xmlns/"));
+    CHECK(parsec_xml_attr_at(doc, entry, 2, &a) == PARSEC_ERR_INVALID);
+    CHECK(parsec_xml_attr_at(doc, entry, 0, NULL) == PARSEC_ERR_NULL);
+    CHECK(parsec_xml_attr_at(doc, 9999, 0, &a) == PARSEC_ERR_NO_SUCH_NODE);
+    CHECK(XML_IS(parsec_xml_attr_get(doc, entry, "x:href", 6, &len), "/one"));
+    CHECK(parsec_xml_attr_get(doc, entry, "href", 4, &len) == NULL);
+    const char *xlink = "http://www.w3.org/1999/xlink";
+    CHECK(XML_IS(parsec_xml_attr_get_ns(doc, entry, xlink, strlen(xlink), "href", 4, &len),
+                 "/one"));
+    CHECK(XML_IS(parsec_xml_attr_get_ns(doc, entry, NULL, 0, "n", 1, &len), "1"));
+
+    /* Serialized, it's what was parsed; an element alone brings its
+     * namespace declarations. */
+    CHECK(owned_is(parsec_xml_serialize(doc, parsec_root(), &len), &len, src));
+    CHECK(owned_is(parsec_xml_serialize(doc, link, &len), &len,
+                   "<x:link xmlns=\"http://www.w3.org/2005/Atom\" "
+                   "xmlns:x=\"http://www.w3.org/1999/xlink\"><![CDATA[<raw>]]></x:link>"));
+    size_t start = 0, end = 0;
+    CHECK(parsec_xml_node_span(doc, entry, &start, &end));
+    CHECK(end - start == strlen("<entry x:href=\"/one\" n=\"1\">Ships &amp; ports</entry>"));
+    CHECK(memcmp(src + start, "<entry ", 7) == 0);
+    size_t line = 0, column = 0;
+    CHECK(parsec_xml_line_col(doc, start, &line, &column) == PARSEC_OK);
+    CHECK(line == 1 && column == start + 1);
+    CHECK(strcmp(parsec_xml_document_encoding(doc), "UTF-8") == 0);
+    CHECK(parsec_xml_warnings_count(doc) == 0);
+
+    /* Bad nodes and NULLs. */
+    CHECK(parsec_xml_first_child(doc, 9999) == PARSEC_NO_NODE);
+    CHECK(parsec_xml_node_type(doc, 9999) == 0);
+    CHECK(parsec_xml_node_type(NULL, 0) == 0);
+    CHECK(parsec_xml_serialize(doc, 9999, &len) == NULL);
+    CHECK(parsec_xml_node_span(doc, parsec_xml_node_count(doc), &start, &end) == false);
+    CHECK(parsec_xml_document_element(NULL) == PARSEC_NO_NODE);
+    CHECK(parsec_xml_line_col(NULL, 0, &line, &column) == PARSEC_ERR_NULL);
+    parsec_xml_document_free(doc);
+    parsec_xml_document_free(NULL);
+    parsec_xml_error_free(NULL);
+
+    /* Not well-formed: an error with its code and place. */
+    parsec_xml_document *bad = (parsec_xml_document *)&len;
+    parsec_xml_error *err = NULL;
+    const char *broken = "<a>\n  <b></a>";
+    CHECK(parsec_xml_parse(broken, strlen(broken), NULL, &bad, &err) == PARSEC_ERR_XML);
+    CHECK(bad == NULL && err != NULL);
+    CHECK(is(err->code, &err->code_len, "mismatched-end-tag"));
+    CHECK(err->line == 2 && err->column == 6);
+    CHECK(strcmp(err->message, "`</a>` closes `<b>`") == 0);
+    CHECK(err->message_len == strlen(err->message));
+    parsec_xml_error_free(err);
+    /* err may be NULL. */
+    CHECK(parsec_xml_parse(broken, strlen(broken), NULL, &bad, NULL) == PARSEC_ERR_XML);
+    CHECK(parsec_xml_parse(NULL, 3, NULL, &bad, NULL) == PARSEC_ERR_NULL);
+    CHECK(parsec_xml_parse("<a/>", 4, NULL, NULL, NULL) == PARSEC_ERR_NULL);
+    parsec_xml_options opts = {0};
+    opts.flags = 2;
+    CHECK(parsec_xml_parse("<a/>", 4, &opts, &bad, NULL) == PARSEC_ERR_INVALID);
+
+    /* A billion laughs stops at the expansion limit, at once. */
+    const char *lol =
+        "<!DOCTYPE l [<!ENTITY a \"lollollollollollollollollollol\">"
+        "<!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;\">"
+        "<!ENTITY c \"&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;\">"
+        "<!ENTITY d \"&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;\">"
+        "<!ENTITY e \"&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;\">"
+        "<!ENTITY f \"&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;\">"
+        "<!ENTITY g \"&f;&f;&f;&f;&f;&f;&f;&f;&f;&f;\">"
+        "<!ENTITY h \"&g;&g;&g;&g;&g;&g;&g;&g;&g;&g;\">"
+        "<!ENTITY i \"&h;&h;&h;&h;&h;&h;&h;&h;&h;&h;\">]><l>&i;</l>";
+    CHECK(parsec_xml_parse(lol, strlen(lol), NULL, &bad, &err) == PARSEC_ERR_XML);
+    CHECK(is(err->code, &err->code_len, "entity-expansion-limit"));
+    parsec_xml_error_free(err);
+    /* The limits are the caller's: deep nesting, and namespaces off. */
+    opts.flags = 0;
+    opts.max_depth = 2;
+    CHECK(parsec_xml_parse("<a><b><c/></b></a>", 18, &opts, &bad, &err) == PARSEC_ERR_XML);
+    CHECK(is(err->code, &err->code_len, "too-deep"));
+    parsec_xml_error_free(err);
+    opts.max_depth = 0;
+    opts.flags = PARSEC_XML_NO_NAMESPACES;
+    doc = NULL;
+    CHECK(parsec_xml_parse("<p:a/>", 6, &opts, &doc, NULL) == PARSEC_OK);
+    parsec_node pa = parsec_xml_document_element(doc);
+    CHECK(XML_IS(parsec_xml_local_name(doc, pa, &len), "p:a"));
+    CHECK(XML_IS(parsec_xml_namespace_uri(doc, pa, &len), ""));
+    parsec_xml_document_free(doc);
+
+    /* Bytes in the encoding the declaration names, with offsets into
+     * those bytes; an external DTD is left unread, and says so. */
+    const char latin1[] =
+        "<?xml version='1.0' encoding='ISO-8859-1'?>\n"
+        "<!DOCTYPE p SYSTEM \"p.dtd\"><p>caf\xe9</p>";
+    doc = xml_parse(latin1, sizeof latin1 - 1);
+    CHECK(strcmp(parsec_xml_document_encoding(doc), "windows-1252") == 0);
+    parsec_node p = parsec_xml_document_element(doc);
+    CHECK(owned_is(parsec_xml_text(doc, p, &len), &len, "caf\xc3\xa9"));
+    CHECK(parsec_xml_node_span(doc, p, &start, &end));
+    CHECK(end == sizeof latin1 - 1 && memcmp(latin1 + start, "<p>", 3) == 0);
+    CHECK(parsec_xml_line_col(doc, start, &line, &column) == PARSEC_OK);
+    CHECK(line == 2 && column == 28);
+    CHECK(parsec_xml_node_type(doc, parsec_xml_prev_sibling(doc, p)) == PARSEC_NODE_DOCTYPE);
+    CHECK(XML_IS(parsec_xml_node_name(doc, parsec_xml_prev_sibling(doc, p), &len), "p"));
+    CHECK(parsec_xml_warnings_count(doc) == 1);
+    parsec_syntax_error w;
+    CHECK(parsec_xml_warnings_get(doc, 0, &w) == PARSEC_OK);
+    CHECK(is(w.code, &w.code_len, "external-dtd-not-loaded"));
+    CHECK(w.line == 2);
+    CHECK(parsec_xml_warnings_get(doc, 1, &w) == PARSEC_ERR_INVALID);
+    parsec_xml_document_free(doc);
+    /* Bytes that aren't the encoding are an error. */
+    CHECK(parsec_xml_parse("<p>\xff</p>", 8, NULL, &bad, &err) == PARSEC_ERR_XML);
+    CHECK(is(err->code, &err->code_len, "invalid-byte-sequence"));
+    parsec_xml_error_free(err);
+    CHECK(strcmp(parsec_status_message(PARSEC_ERR_XML), "unknown status") != 0);
+}
+
 static char *slurp(const char *dir, const char *name, size_t *len) {
     char path[4096];
     snprintf(path, sizeof path, "%s/%s", dir, name);
@@ -1016,6 +1205,7 @@ int main(void) {
     removed_and_detached();
     fragments_and_options();
     errors_and_null();
+    xml();
     positions();
     positions_in_bytes_that_arent_utf8();
     select_callbacks_cant_edit();

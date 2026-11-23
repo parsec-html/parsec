@@ -29,13 +29,48 @@
 //!   [`Options::max_entity_depth`] and to no more text in all than
 //!   [`Options::entity_allowance`] plus [`Options::entity_ratio`] bytes per
 //!   byte of input, so a billion laughs or a quadratic blowup stops with
-//!   an error.
+//!   an error. An attribute default counts each time an element gets it,
+//!   so a big default on many elements stops the same way.
 //! - Elements nest no deeper than [`Limits::max_depth`]: 2,048 unless you
 //!   say otherwise. The parser keeps open elements on a stack of its own,
 //!   so even a million levels with no limit cost time in proportion and
 //!   no recursion.
 //! - Anything that isn't well-formed is an [`Error`], fatal as the spec
 //!   says, with a code, a span, and the line and column.
+//!
+//! ## XPath
+//!
+//! With the `xpath` feature (`parsec-xml = { version = "0.2", features =
+//! ["xpath"] }`), a [`Document`] is a tree `xpath` can query, and
+//! `parsec_xml::xpath` is `parsec-xpath` re-exported. No HTML parser
+//! comes with it. Names compare exactly, a query's prefixes are bound by
+//! the namespaces it's run with, `xmlns` and `xmlns:*` aren't attributes,
+//! `id()` finds `xml:id` and attributes the internal subset declares an
+//! `ID`, and `lang()` reads `xml:lang`. The namespace axis has the
+//! namespaces in scope at each element, from its `xmlns` attributes and
+//! its ancestors'.
+//!
+//! ```
+//! # #[cfg(feature = "xpath")] {
+//! use parsec_xml::xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
+//!
+//! let doc = parsec_xml::parse(r#"<feed xmlns="http://www.w3.org/2005/Atom">
+//!   <entry><title>Ships</title></entry><entry><title>Ports</title></entry>
+//! </feed>"#).unwrap();
+//! // Build the index once per document; every query reads it.
+//! let index = Index::build(&doc, &[0]);
+//! let atom = [("a".to_string(), "http://www.w3.org/2005/Atom".to_string())];
+//! let query = XPath::new("//a:entry[2]/a:title").unwrap();
+//! let Ok(Value::Nodes(hits)) =
+//!     query.evaluate(Doc::new(&doc, &index), 0, &[], &atom, &NoExtensions)
+//! else {
+//!     panic!("a node-set")
+//! };
+//! let Item::Node(title) = hits[0] else { panic!("a node") };
+//! let title = parsec_xml::NodeId::from_index(title as usize);
+//! assert_eq!(doc.text(title), "Ports");
+//! # }
+//! ```
 
 mod bytes;
 mod chars;
@@ -43,6 +78,8 @@ mod dtd;
 mod parse;
 mod serialize;
 mod tree;
+#[cfg(feature = "xpath")]
+mod xpath_tree;
 
 use std::fmt;
 
@@ -50,6 +87,9 @@ pub use bytes::{Parsed, parse_bytes};
 pub use encoding_rs::Encoding;
 pub use parse::ENTITY_DEPTH_CEILING;
 pub use parsec_base::{Diagnostic, Limits, LineCol, LineIndex, Severity, Span};
+#[cfg(feature = "xpath")]
+#[doc(inline)]
+pub use parsec_xpath as xpath;
 pub use tree::{
     Attribute, Doctype, Document, EntityDecl, Name, NodeId, NodeKind, Notation, XML_NS, XMLNS_NS,
     XmlDecl,
@@ -74,11 +114,13 @@ pub struct Options {
     /// How deep entity references may nest in the entities they refer
     /// to: 16 by default, and never past [`ENTITY_DEPTH_CEILING`].
     pub max_entity_depth: u32,
-    /// Entity expansion may add this many bytes to any document, 1 MiB by
+    /// Entity expansion, and the attribute defaults the DTD applies to
+    /// each element, may add this many bytes to any document, 1 MiB by
     /// default...
     pub entity_allowance: u64,
     /// ...plus this many for each byte of the document itself, 8 by
-    /// default. Every expansion counts, of the same entity too.
+    /// default. Every expansion counts, of the same entity too, and so
+    /// does every element a default is applied to.
     pub entity_ratio: u64,
 }
 

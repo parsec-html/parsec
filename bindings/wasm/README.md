@@ -20,7 +20,10 @@ import init, { parse } from "parsec-html";
 await init();
 ```
 
-Node doesn't need that step: it gets a build that loads itself.
+Node doesn't need that step: it gets a build that loads itself. On
+Linux, macOS and Windows that's a native build with the same API, which
+parses about 1.5 times as fast and adds `parseAsync`, parsing on a
+worker thread; see [bindings/node](../node/README.md).
 
 ## What's in it
 
@@ -61,7 +64,7 @@ doc.select(selector, { maxSteps: 10_000_000 });
 
 XPath is 1.0. `doc.xpath("//li")` gives an array of nodes, with
 attributes as their values (`doc.xpath("//a/@href")` is an array of
-strings), and `count()`, `string()` or `boolean()` give a number, a
+strings) and namespace nodes as their URIs, and `count()`, `string()` or `boolean()` give a number, a
 string or a boolean.
 
 ```js
@@ -164,6 +167,56 @@ page. Each piece is `{ name, value }`, or `{ name, error: { code, source
 
 Not there yet: setting `innerHTML`, and creating nodes.
 
+## XML
+
+`parseXml(text, options)` and `parseXmlBytes(bytes, options)` parse XML
+1.0 with namespaces into an `XmlDocument`. Bytes are decoded from a byte
+order mark, else the encoding the XML declaration names, else UTF-8, and
+bytes that aren't that encoding are an error rather than U+FFFD.
+
+```js
+import { parseXml } from "parsec-html";
+
+const doc = parseXml(atom);
+const feed = doc.documentElement;
+feed.namespaceURI;                                        // "http://www.w3.org/2005/Atom"
+for (const entry of feed.children) {
+  entry.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+}
+doc.xml;                                                  // the document, written back out
+```
+
+A node has the DOM's names: `nodeType` (5 is a reference to an entity
+Parsec didn't read), `nodeName` as written (`atom:link`), `localName`,
+`prefix`, `namespaceURI`, `nodeValue`, `textContent`, `parentNode`,
+`firstChild`, `lastChild`, `nextSibling`, `previousSibling`,
+`childNodes`, `children`, `getAttribute`, `getAttributeNS`,
+`hasAttribute`, `getAttributeNames` and `isSameNode`. `attributes` is
+an array of `XmlAttribute`s with `name`, `localName`, `prefix`,
+`namespaceURI`, `value`, `specified` and `span`; `xml` writes a node
+back out, and an element written alone brings the namespace
+declarations it needs. On the document: `root` (the document node),
+`documentElement`, `characterSet`, `xml`, and `warnings`, which lists
+what the parser didn't read, such as an external DTD. Spans count as
+they do for HTML.
+
+Nothing is fetched, ever. XML that isn't well-formed throws a
+`SyntaxError` with `code`, `line` and `column`:
+
+```js
+try {
+  parseXml("<a>\n  <b></a>");
+} catch (e) {
+  `${e.line}:${e.column}: ${e.code}`;                     // "2:6: mismatched-end-tag"
+}
+```
+
+So does XML past its limits, which you can tighten: `maxDepth` (2,048
+unless you give one), `maxEntityDepth` (16), and entity expansion of
+`entityAllowance` bytes (1 MiB) plus `entityRatio` (8) per byte of
+input. A billion laughs throws `entity-expansion-limit` straight away.
+`{ namespaces: false }` reads names as they are, colons and all.
+
 ## Size
 
 The WebAssembly is 1,325,774 bytes, 597 KB gzipped, as `main` builds it
@@ -174,8 +227,10 @@ encodings. It's built for speed per byte
 (`opt-level = "s"`, then `wasm-opt -Os`): building for size alone (`"z"`)
 saved 59 KB but parsed the 13 pages in `bench/` 40% slower.
 
-The JavaScript parser is 193 KB of the `.wasm` (79 KB gzipped). If you
-only need HTML, build without it:
+The JavaScript parser is 193 KB of the package's `.wasm` (79 KB gzipped)
+and XML is 113 KB (44 KB gzipped). Built with `--no-default-features`,
+the `.wasm` is the HTML parser alone, and CI fails if that build grows
+past its ceiling:
 
 ```sh
 wasm-pack build --release --target web -- --no-default-features
@@ -189,7 +244,7 @@ wasm-pack test --node
 wasm-pack test --headless --firefox --test browser
 ./build.sh                      # the package, in pkg/
 mkdir -p node_modules && ln -s ../pkg node_modules/parsec-html
-node --test tests/package.test.mjs
+node --test tests/package.test.mjs tests/xml.test.mjs
 ```
 
 The [WASM page](https://github.com/parsec-html/parsec/wiki/WASM) on the

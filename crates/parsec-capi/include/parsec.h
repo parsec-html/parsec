@@ -49,6 +49,12 @@
  *   change from there fails with PARSEC_ERR_BUSY (a create function
  *   returns PARSEC_NO_NODE), and parsec_document_free from there frees
  *   the document once parsec_select returns.
+ * - XML has handles and functions of its own: a parsec_xml_document from
+ *   parsec_xml_parse, read with the parsec_xml_ functions by the rules
+ *   above. Its input is bytes decoded as XML says (a byte order mark,
+ *   else the encoding the XML declaration names, else UTF-8), strictly:
+ *   bytes that aren't that encoding are an error, not U+FFFD. It can't
+ *   be changed, so any number of threads may read it at once.
  */
 
 #ifndef PARSEC_H
@@ -79,6 +85,12 @@
 // that's a node rather than an attribute.
 #define PARSEC_NO_ATTR UINT32_MAX
 
+// What `parsec_xpath_result_item` gives as the attribute index of a
+// namespace node, from `namespace::`. An HTML document's elements have
+// one, the `xml` namespace, whose URI is
+// `http://www.w3.org/XML/1998/namespace`.
+#define PARSEC_NS_ATTR (UINT32_MAX - 1)
+
 #define PARSEC_NODE_ELEMENT 1
 
 #define PARSEC_NODE_TEXT 3
@@ -98,6 +110,15 @@
 // Parse a module, with `import` and `export`, rather than a script.
 #define PARSEC_JS_MODULE 1
 
+// What `parsec_xml_node_type` gives for a reference to an entity Parsec
+// didn't read (one declared external): the DOM's
+// `ENTITY_REFERENCE_NODE`.
+#define PARSEC_NODE_ENTITY_REFERENCE 5
+
+// Parse without Namespaces in XML: a name is any XML name, colons and
+// all, in no namespace.
+#define PARSEC_XML_NO_NAMESPACES 1
+
 // A parse of bytes as they arrive. Made by `parsec_byte_parser_new`,
 // freed by `parsec_byte_parser_free`.
 typedef struct parsec_byte_parser parsec_byte_parser;
@@ -110,6 +131,11 @@ typedef struct parsec_document parsec_document;
 // `parsec_selector_free`; compile once and run it on as many documents as
 // you like.
 typedef struct parsec_selector parsec_selector;
+
+// A parsed XML document. Made by `parsec_xml_parse`, freed by
+// `parsec_xml_document_free`. It can't be changed, so any number of
+// threads may read it at once.
+typedef struct parsec_xml_document parsec_xml_document;
 
 // A compiled XPath 1.0 expression. Made by `parsec_xpath_compile`, freed
 // by `parsec_xpath_free`; like a selector, it can be shared.
@@ -190,6 +216,73 @@ typedef struct {
   char *frame;
   size_t frame_len;
 } parsec_js_error;
+
+// How `parsec_xml_parse` parses. NULL in its place is all zeros, and a
+// 0 field is its default.
+typedef struct {
+  // 0, or `PARSEC_XML_NO_NAMESPACES`.
+  uint32_t flags;
+  // How deep elements may nest; 0 is 2,048. Deeper fails with
+  // `PARSEC_ERR_XML` and the code `too-deep`.
+  uint32_t max_depth;
+  // How deep entity references may nest in the entities they refer
+  // to; 0 is 16, and more than 64 is 64.
+  uint32_t max_entity_depth;
+  // Entity expansion may add this many bytes to any document; 0 is
+  // 1 MiB...
+  uint64_t entity_allowance;
+  // ...plus this many for each byte of the input; 0 is 8. Past either,
+  // the parse fails with `PARSEC_ERR_XML` and the code
+  // `entity-expansion-limit`, so a billion laughs is an error, not a
+  // hang.
+  uint64_t entity_ratio;
+} parsec_xml_options;
+
+// Why XML didn't parse, and where. Made by `parsec_xml_parse`, freed by
+// `parsec_xml_error_free`, which frees its message too.
+typedef struct {
+  // Its stable name, `code_len` bytes with no NUL after them, static:
+  // `mismatched-end-tag`, `too-deep`, `entity-expansion-limit` and the
+  // rest, as the wiki's XML page lists them.
+  const char *code;
+  size_t code_len;
+  // A sentence saying what's wrong, NUL-terminated.
+  char *message;
+  size_t message_len;
+  // From 1.
+  size_t line;
+  // From 1, in characters.
+  size_t column;
+} parsec_xml_error;
+
+// An attribute, as `parsec_xml_attr_at` gives it. Every string is
+// borrowed from the document, as `parsec_node_name` says, and is empty,
+// not NULL, when the attribute has no prefix or no namespace.
+typedef struct {
+  // The name as written: `xlink:href`.
+  const char *name;
+  size_t name_len;
+  // `href`.
+  const char *local_name;
+  size_t local_name_len;
+  // `xlink`.
+  const char *prefix;
+  size_t prefix_len;
+  // The namespace the prefix is bound to:
+  // `http://www.w3.org/1999/xlink`.
+  const char *namespace_uri;
+  size_t namespace_uri_len;
+  // The value, normalized as XML says: references replaced, and white
+  // space characters made spaces.
+  const char *value;
+  size_t value_len;
+  // Where it was written, as byte offsets into the input from its name
+  // to its closing quote; the start tag's, for a default from the DTD.
+  size_t start;
+  size_t end;
+  // False for a default the DTD supplied.
+  bool specified;
+} parsec_xml_attr;
 
 // No node: what navigation returns at the end of a list, and what you pass
 // to `parsec_insert_before` to insert last.
@@ -273,6 +366,11 @@ typedef struct {
 #define PARSEC_NS_SVG 2
 
 #define PARSEC_NS_MATHML 3
+
+// The XML isn't well-formed, nests deeper than its `max_depth`, or
+// expands entities past its limits: the `parsec_xml_error` says which,
+// and where.
+#define PARSEC_ERR_XML 17
 
 #ifdef __cplusplus
 extern "C" {
@@ -700,7 +798,8 @@ size_t parsec_xpath_result_count(const parsec_xpath_result *result);
 // The node-set's `index`th item, in document order. A node comes back as
 // `*node` with `*attr` set to `PARSEC_NO_ATTR`; an attribute as its
 // element in `*node` and its place among the element's attributes in
-// `*attr`, for `parsec_attr_at`. Either out pointer may be NULL.
+// `*attr`, for `parsec_attr_at`; a namespace node as its element and
+// `PARSEC_NS_ATTR`. Either out pointer may be NULL.
 // `PARSEC_ERR_INVALID` if `index` is past the last item or the result
 // isn't a node-set.
 parsec_status parsec_xpath_result_item(const parsec_xpath_result *result,
@@ -763,6 +862,165 @@ parsec_status parsec_js_document_state(const parsec_document *doc, char **out, s
 // Frees a `parsec_js_error` and its strings. NULL is fine and does
 // nothing.
 void parsec_js_error_free(parsec_js_error *err);
+
+// Parses `len` bytes as an XML document into `*out`, to free with
+// `parsec_xml_document_free`. The bytes are decoded as XML says: from
+// the byte order mark, else the first bytes' pattern and the encoding
+// the XML declaration names (`<?xml version="1.0"
+// encoding="ISO-8859-1"?>`), else UTF-8; bytes that aren't that
+// encoding are an error, not U+FFFD. `opts` may be NULL. Nothing is
+// ever fetched: the external subset and external entities are left
+// unread, and the document's warnings say so.
+//
+// Fails with `PARSEC_ERR_XML` for XML that isn't well-formed or runs
+// past a limit in `opts`, and `PARSEC_ERR_TOO_LARGE` over 4 GiB; each
+// puts a `parsec_xml_error` in `*err`, if `err` isn't NULL, to free with
+// `parsec_xml_error_free`. An unknown flag fails with
+// `PARSEC_ERR_INVALID`. On any error `*out` is NULL, and `*err` is NULL
+// unless set as above.
+parsec_status parsec_xml_parse(const char *src,
+                               size_t len,
+                               const parsec_xml_options *opts,
+                               parsec_xml_document **out,
+                               parsec_xml_error **err);
+
+// Frees a `parsec_xml_error` and its message. NULL is fine and does
+// nothing.
+void parsec_xml_error_free(parsec_xml_error *err);
+
+// Frees a document. NULL is fine and does nothing. Every node number,
+// and every string borrowed from it, is invalid afterwards.
+void parsec_xml_document_free(parsec_xml_document *doc);
+
+// The Encoding Standard's name for what the bytes were decoded from,
+// such as "UTF-8" or "windows-1252", NUL-terminated and valid as long as
+// the document; NULL for a NULL handle.
+const char *parsec_xml_document_encoding(const parsec_xml_document *doc);
+
+// How many nodes the document holds: every node number below this is
+// valid. The document itself is node 0, as `parsec_root` says.
+size_t parsec_xml_node_count(const parsec_xml_document *doc);
+
+// The document element, the one element at the top.
+parsec_node parsec_xml_document_element(const parsec_xml_document *doc);
+
+// The node's parent, or `PARSEC_NO_NODE` for the document.
+parsec_node parsec_xml_parent(const parsec_xml_document *doc, parsec_node node);
+
+// The node's first child, or `PARSEC_NO_NODE`.
+parsec_node parsec_xml_first_child(const parsec_xml_document *doc, parsec_node node);
+
+// The node's last child, or `PARSEC_NO_NODE`.
+parsec_node parsec_xml_last_child(const parsec_xml_document *doc, parsec_node node);
+
+// The next node with the same parent, or `PARSEC_NO_NODE`.
+parsec_node parsec_xml_next_sibling(const parsec_xml_document *doc, parsec_node node);
+
+// The previous node with the same parent, or `PARSEC_NO_NODE`.
+parsec_node parsec_xml_prev_sibling(const parsec_xml_document *doc, parsec_node node);
+
+// What the node is, as a `PARSEC_NODE_*` number (`PARSEC_NODE_CDATA`
+// for a CDATA section, `PARSEC_NODE_ENTITY_REFERENCE` for an entity
+// Parsec didn't read); 0 if `node` isn't in the document.
+uint32_t parsec_xml_node_type(const parsec_xml_document *doc, parsec_node node);
+
+// The node's name: an element's as written, prefix and all
+// (`atom:link`), the doctype's, a processing instruction's target, or
+// the entity an entity reference names. NULL for any other node.
+// Borrowed, as every string from a document is: `*len` bytes of UTF-8
+// with no NUL after them, valid until the document is freed.
+const char *parsec_xml_node_name(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// An element's local name, `link` for `atom:link`, borrowed; NULL for
+// any other node.
+const char *parsec_xml_local_name(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// An element's prefix, `atom` for `atom:link`, borrowed; empty for none,
+// NULL for any other node.
+const char *parsec_xml_prefix(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// The namespace URI an element's prefix (or the default namespace) is
+// bound to, borrowed; empty for none, NULL for any other node.
+const char *parsec_xml_namespace_uri(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// A text, CDATA or comment node's text, or a processing instruction's
+// data, borrowed; NULL for any other node. For an element's text,
+// `parsec_xml_text`.
+const char *parsec_xml_node_value(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// How many attributes an element has, namespace declarations and the
+// DTD's defaults included; 0 for any other node.
+size_t parsec_xml_attr_count(const parsec_xml_document *doc, parsec_node node);
+
+// An element's `index`th attribute into `*out`: in the order of its
+// start tag, then the defaults the DTD supplied. `PARSEC_ERR_INVALID` if
+// `index` is past the last, or the node isn't an element.
+parsec_status parsec_xml_attr_at(const parsec_xml_document *doc,
+                                 parsec_node node,
+                                 size_t index,
+                                 parsec_xml_attr *out);
+
+// The value of the element's attribute named `name` as written, prefix
+// and all (`xlink:href`), borrowed; NULL if there's no such attribute,
+// or the node isn't an element.
+const char *parsec_xml_attr_get(const parsec_xml_document *doc,
+                                parsec_node node,
+                                const char *name,
+                                size_t name_len,
+                                size_t *value_len);
+
+// The value of the element's attribute in namespace `ns` (empty, or
+// NULL with a length of 0, for none) with local name `local`, whatever
+// its prefix, borrowed; NULL if there's no such attribute.
+const char *parsec_xml_attr_get_ns(const parsec_xml_document *doc,
+                                   parsec_node node,
+                                   const char *ns,
+                                   size_t ns_len,
+                                   const char *local,
+                                   size_t local_len,
+                                   size_t *value_len);
+
+// The node and everything under it as XML; the whole document, its XML
+// declaration and `<!DOCTYPE>` included, for the root. An element on
+// its own takes along the namespace declarations it's in the scope of,
+// so it means the same. The string is yours: NUL-terminated, its length
+// without the NUL in `*len` (if `len` isn't NULL), freed with
+// `parsec_string_free`. NULL if `node` isn't in the document.
+char *parsec_xml_serialize(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// The text of the node and everything under it, character data and
+// CDATA in order, as XPath's `string()` reads it. Yours to free, as
+// `parsec_xml_serialize` says.
+char *parsec_xml_text(const parsec_xml_document *doc, parsec_node node, size_t *len);
+
+// Where `node` was written, as byte offsets into the input from
+// `*start` up to `*end`: an element from its start tag's `<` to its end
+// tag's `>`. A node an entity reference produced has the reference's
+// place. False, leaving both alone, for a NULL handle or a bad node.
+bool parsec_xml_node_span(const parsec_xml_document *doc,
+                          parsec_node node,
+                          size_t *start,
+                          size_t *end);
+
+// The line and column of a byte offset into the input, as
+// `parsec_line_col` gives them for HTML. It reads the input up to
+// `offset` each time.
+parsec_status parsec_xml_line_col(const parsec_xml_document *doc,
+                                  size_t offset,
+                                  size_t *line,
+                                  size_t *column);
+
+// How many warnings the parse gave: what it didn't read and says so, as
+// the XML spec asks of a processor that doesn't validate (the external
+// subset, an external entity). None of them is an error.
+size_t parsec_xml_warnings_count(const parsec_xml_document *doc);
+
+// The `index`th warning, in source order, into `*out`: its code (such
+// as `external-dtd-not-loaded`), and where it is in the input.
+// `PARSEC_ERR_INVALID` if `index` is past the last.
+parsec_status parsec_xml_warnings_get(const parsec_xml_document *doc,
+                                      size_t index,
+                                      parsec_syntax_error *out);
 
 #ifdef __cplusplus
 }  // extern "C"

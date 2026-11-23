@@ -30,19 +30,29 @@
 //! Then CSS: tokenizing and parsing real stylesheets, Parsec against
 //! Lexbor's CSS module and Servo's cssparser. Name `css` to run only that.
 //!
+//! `xml` times XML parsing instead (not part of a full run): Parsec
+//! against libxml2's C, roxmltree and quick-xml, on the documents from
+//! `bench/fetch-xml.sh`. See src/xml.rs.
+//!
 //! `boss` runs the final boss instead (not part of a full run): a seeded
 //! batch of broken fragments, real pages, encoding quirks and giants, as
 //! bytes, each parser in its own process, timed per page with its peak
 //! memory. See src/boss.rs.
+//!
+//! `realworld` runs Netweir's real-world corpus the same way, page by
+//! page (not part of a full run). See src/realworld.rs.
 
 mod boss;
 mod css;
 mod encoding;
 mod js;
 mod lexbor;
+mod libxml2;
 mod pages;
+mod realworld;
 mod selectors;
 mod urls;
+mod xml;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
@@ -249,6 +259,10 @@ fn main() {
         boss::run(&args);
         return;
     }
+    if args.first().is_some_and(|a| a.starts_with("realworld")) {
+        realworld::run(&args);
+        return;
+    }
     if args.iter().any(|a| a == "encoding") {
         header();
         encoding::run(&real_pages());
@@ -262,6 +276,11 @@ fn main() {
     if args.iter().any(|a| a == "css") {
         header();
         css::run(&real_pages());
+        return;
+    }
+    if args.iter().any(|a| a == "xml") {
+        header();
+        xml::run();
         return;
     }
     if let [flag, dir] = args.as_slice()
@@ -278,6 +297,11 @@ fn main() {
     if args.iter().any(|a| a == "js-scope") {
         header();
         js::scopes(&real_pages());
+        return;
+    }
+    if args.iter().any(|a| a == "js-lex") {
+        header();
+        js::lex_run(&real_pages());
         return;
     }
     if args.iter().any(|a| a == "js") {

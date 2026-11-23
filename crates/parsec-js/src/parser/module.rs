@@ -108,7 +108,8 @@ impl Parser<'_> {
         }
         self.bump()?;
         self.expect(Punct::LBrace)?;
-        let mut keys = Vec::new();
+        // A map, not a list: a crafted module can give thousands of keys.
+        let mut keys = std::collections::HashMap::new();
         while !self.at(Punct::RBrace) {
             let start = self.tok.span.start;
             let key = match self.tok.kind {
@@ -117,7 +118,7 @@ impl Parser<'_> {
             };
             let name = self.export_name(key);
             let span = self.span(key);
-            if let Some(&(_, first)) = keys.iter().find(|(n, _)| *n == name) {
+            if let Some(&first) = keys.get(&name) {
                 return self.fail(
                     Diagnostic::error(
                         "duplicate-attribute",
@@ -127,7 +128,7 @@ impl Parser<'_> {
                     .with_label(first, "given here first"),
                 );
             }
-            keys.push((name, span));
+            keys.insert(name, span);
             self.expect(Punct::Colon)?;
             let value = self.string_literal()?;
             let a = self.finish(start, Node::ImportAttribute { key, value });

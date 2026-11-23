@@ -126,7 +126,7 @@ const BLOCK: usize = 1024;
 /// the line and a count of at most a thousand bytes for the column.
 #[derive(Clone, Debug)]
 pub struct LineIndex<'a> {
-    src: &'a str,
+    src: Cow<'a, str>,
     /// The byte offset each line starts at; the first is 0.
     starts: Vec<u32>,
     /// Characters, and UTF-16 code units, before each `BLOCK`-byte block.
@@ -137,16 +137,27 @@ pub struct LineIndex<'a> {
 impl<'a> LineIndex<'a> {
     /// Lines ending at LF, CR or CRLF, as HTML, CSS and XML count them.
     pub fn new(src: &'a str) -> LineIndex<'a> {
-        LineIndex::build(src, false)
+        LineIndex::build(Cow::Borrowed(src), false)
+    }
+
+    /// As [`LineIndex::new`], keeping the text, for an index that outlives
+    /// the text it was made from, as a binding's document does.
+    ///
+    /// ```
+    /// let lines = parsec_base::LineIndex::owned("a\nbé".to_string());
+    /// assert_eq!(lines.line_col(5).column, 3);
+    /// ```
+    pub fn owned(src: String) -> LineIndex<'static> {
+        LineIndex::build(Cow::Owned(src), false)
     }
 
     /// Lines ending at LF, CR, CRLF, U+2028 or U+2029: ECMAScript's
     /// LineTerminatorSequence.
     pub fn ecmascript(src: &'a str) -> LineIndex<'a> {
-        LineIndex::build(src, true)
+        LineIndex::build(Cow::Borrowed(src), true)
     }
 
-    fn build(src: &'a str, separators: bool) -> LineIndex<'a> {
+    fn build(src: Cow<'a, str>, separators: bool) -> LineIndex<'a> {
         assert!(
             src.len() <= Span::MAX_INPUT,
             "LineIndex takes at most 4 GiB"

@@ -70,4 +70,10 @@ header = """
  *   change from there fails with PARSEC_ERR_BUSY (a create function
  *   returns PARSEC_NO_NODE), and parsec_document_free from there frees
  *   the document once parsec_select returns.
+ * - XML has handles and functions of its own: a parsec_xml_document from
+ *   parsec_xml_parse, read with the parsec_xml_ functions by the rules
+ *   above. Its input is bytes decoded as XML says (a byte order mark,
+ *   else the encoding the XML declaration names, else UTF-8), strictly:
+ *   bytes that aren't that encoding are an error, not U+FFFD. It can't
+ *   be changed, so any number of threads may read it at once.
  */"""

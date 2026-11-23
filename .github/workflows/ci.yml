@@ -37,6 +37,8 @@ jobs:
       # XPath without the HTML parser, as a crate with its own tree uses it.
       - run: cargo clippy -p parsec-xpath --no-default-features --all-targets -- -D warnings
       - run: cargo test -p parsec-xpath --no-default-features
+      # XPath over parsec-xml's tree, a feature `--workspace` leaves off.
+      - run: cargo clippy -p parsec-xml --features xpath --all-targets -- -D warnings
       # A crate at a time: three of them name their library `parsec`, which
       # one `cargo doc --workspace` can't write side by side.
       - name: The API docs build without warnings
@@ -60,6 +62,41 @@ jobs:
   # The benchmark against Lexbor is its own workspace, so the test job on
   # three OSes doesn't build Lexbor's C. Here it's linted, built, and run on
   # pages it makes itself; the real pages aren't in the repository.
+  # The project's history credits people, not tools: no commit on main may
+  # carry an AI co-author or a "generated with" line. Checks the pull
+  # request's commits and description, and in the merge queue the commit
+  # that will land.
+  attribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: No AI co-author or generated-with lines
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          pattern='co-authored-by:.*(claude|anthropic|openai|chatgpt|copilot|gemini)|generated with \[?claude|noreply@anthropic\.com'
+          if [ "$EVENT" != pull_request ] && [ "$EVENT" != merge_group ]; then
+            exit 0
+          fi
+          bad=0
+          if git log --format='%H%n%B' "$BASE..$HEAD" | grep -Eiq "$pattern"; then
+            echo "::error::a commit message credits an AI tool:"
+            git log --format='%h %s%n%b' "$BASE..$HEAD" | grep -Ei -B2 "$pattern" || true
+            bad=1
+          fi
+          if printf '%s' "$BODY" | grep -Eiq "$pattern"; then
+            echo "::error::the pull request description credits an AI tool; a squash merge would copy it into main"
+            bad=1
+          fi
+          exit "$bad"
+
   bench:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -156,7 +193,7 @@ jobs:
       - name: The crates package the same twice, and with submodules
         run: |
           scripts/package-twice.sh HEAD > "$RUNNER_TEMP/twice"
-          cargo package --quiet --workspace --exclude parsec-capi --locked
+          cargo package --quiet --workspace --exclude parsec-capi --exclude parsec-reduce --locked
           (cd target/package && sha256sum -- *.crate) > "$RUNNER_TEMP/here"
           cat "$RUNNER_TEMP/twice"
           diff "$RUNNER_TEMP/twice" "$RUNNER_TEMP/here"
@@ -195,11 +232,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
           toolchain: stable
+      # The W3C XML conformance suite isn't in the repository: the script
+      # downloads the pinned release and checks its SHA-256.
+      - name: Fetch xmlconf
+        shell: bash
+        run: crates/parsec-xml/scripts/fetch-xmlconf.sh
       # The conformance runners write each suite's counts to
       # $CONFORMANCE_DIR/<suite>.json; Linux's go up as an artifact and into
       # the run's summary, even when a suite fails. (conformance/ in the
       # repository holds the baseline they're held to.)
       - run: cargo test --workspace
+        env:
+          CONFORMANCE_DIR: ${{ github.workspace }}/target/conformance
+      # parsec-xml's xpath feature, with libxml2's XPath document tests.
+      - run: cargo test -p parsec-xml --features xpath
         env:
           CONFORMANCE_DIR: ${{ github.workspace }}/target/conformance
       - name: Conformance summary
