@@ -429,13 +429,7 @@ impl<'a> Lexer<'a> {
         // Most identifiers are plain ASCII: read those in a tight loop,
         // and leave escapes and other characters to the loop below.
         if matches!(b[start], b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_') {
-            let mut end = start + 1;
-            while b
-                .get(end)
-                .is_some_and(|&c| c < 0x80 && ID_CONTINUE_ASCII[c as usize])
-            {
-                end += 1;
-            }
+            let end = start + 1 + ident_run(&b[start + 1..]);
             if !matches!(b.get(end), Some(b'\\' | 0x80..)) {
                 self.pos = end;
                 let kind = Keyword::from_bytes(&b[start..end]).map_or(Kind::Ident, Kind::Keyword);
@@ -1051,6 +1045,46 @@ fn string_run(b: &[u8], quote: u8) -> usize {
         .unwrap_or(b.len() - i)
 }
 
+/// How many bytes from the start of `b` are ASCII IdentifierPart
+/// characters: letters, digits, `$` and `_`. Eight bytes at a time, so
+/// the loop doesn't branch on every byte and the end of a short name
+/// isn't a guess the processor gets wrong.
+fn ident_run(b: &[u8]) -> usize {
+    const L: u64 = u64::from_ne_bytes([0x01; 8]);
+    const LOW7: u64 = L * 0x7F;
+    const HIGHS: u64 = L * 0x80;
+    // Lowercase for letters, and `$` and `_` in every byte.
+    const CASE: u64 = L * 0x20;
+    const DOLLARS: u64 = L * b'$' as u64;
+    const UNDERSCORES: u64 = L * b'_' as u64;
+    // The high bit of each byte of `x` that's above `lo` and below `hi`,
+    // exactly, for bytes below 0x80 (Sean Anderson's bit hacks).
+    let between = |x: u64, lo: u64, hi: u64| {
+        let low = x & LOW7;
+        (L * (127 + hi)).wrapping_sub(low) & !x & (low + L * (127 - lo)) & HIGHS
+    };
+    // The high bit of each zero byte of `v`, exactly: no borrow crosses
+    // bytes, as it does in the trick `string_run` uses.
+    let zero = |v: u64| !(((v & LOW7) + LOW7) | v | LOW7);
+    let mut i = 0;
+    while let Some(&chunk) = b.get(i..).and_then(|r| r.first_chunk::<8>()) {
+        let w = u64::from_le_bytes(chunk);
+        let part = between(w | CASE, 0x60, 0x7B)
+            | between(w, 0x2F, 0x3A)
+            | zero(w ^ DOLLARS)
+            | zero(w ^ UNDERSCORES);
+        let stop = !part & HIGHS;
+        if stop != 0 {
+            return i + (stop.trailing_zeros() / 8) as usize;
+        }
+        i += 8;
+    }
+    i + b[i..]
+        .iter()
+        .position(|&c| c >= 0x80 || !ID_CONTINUE_ASCII[c as usize])
+        .unwrap_or(b.len() - i)
+}
+
 /// U+2028 or U+2029 at the start of `b`.
 fn is_separator(b: &[u8]) -> bool {
     b.len() >= 3 && b[0] == 0xE2 && b[1] == 0x80 && (b[2] == 0xA8 || b[2] == 0xA9)
@@ -1137,6 +1171,33 @@ mod tests {
                     }
                     for q in *b"\"'" {
                         assert_eq!(string_run(&b, q), naive(&b, q), "{b:?} {q}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ident_runs() {
+        let naive = |b: &[u8]| {
+            b.iter()
+                .position(|&c| c >= 0x80 || !ID_CONTINUE_ASCII[c as usize])
+                .unwrap_or(b.len())
+        };
+        // Every byte value at every offset of names around the word size,
+        // after every byte that may come before it.
+        for len in 0..20 {
+            for at in 0..=len {
+                for stop in 0..=255u8 {
+                    for before in [b'a', b'z', b'0', b'9', b'$', b'_', b'%', 0xFF] {
+                        let mut b = vec![b'k'; len];
+                        if at < len {
+                            b[at] = stop;
+                            if at > 0 {
+                                b[at - 1] = before;
+                            }
+                        }
+                        assert_eq!(ident_run(&b), naive(&b), "{b:?}");
                     }
                 }
             }
