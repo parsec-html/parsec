@@ -572,20 +572,24 @@ impl HtmlParser {
                 .unwrap_or_else(PoisonError::into_inner)
                 .get_or_insert_with(|| Arc::new(Index::build(&*doc, &roots(&doc))))
                 .clone();
-            let value =
-                compiled.evaluate(Doc::html(&doc, &index), scope, vars, &[], &NoExtensions)?;
+            let view = Doc::html(&doc, &index);
+            let value = compiled.evaluate(view, scope, vars, &[], &NoExtensions)?;
             Ok(match value {
                 Value::Nodes(items) => Found::Nodes(
                     items
                         .into_iter()
                         .map(|item| match item {
-                            // As lxml gives them: text and attributes as strings.
+                            // As lxml gives them: text and attributes as strings,
+                            // and a namespace node as its URI.
                             Item::Node(n) => match doc.kind(n) {
                                 Kind::Text(t) | Kind::Cdata(t) => Hit::Str(t.to_string()),
                                 _ => Hit::Node(n),
                             },
                             Item::Attr { owner, index, .. } => {
                                 Hit::Str(attr_value(&doc, owner, index).to_string())
+                            }
+                            Item::Ns { decl, .. } => {
+                                Hit::Str(view.namespace_at(decl).1.to_string())
                             }
                         })
                         .collect(),

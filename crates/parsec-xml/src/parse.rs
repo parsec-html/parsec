@@ -192,6 +192,8 @@ pub(crate) struct AttDef {
     pub name: u32,
     /// Declared as anything but `CDATA`, so its value's spaces collapse.
     pub tokenized: bool,
+    /// Declared as an `ID`.
+    pub id: bool,
     pub default: Option<String>,
     /// The default, once it's in the document's buffer.
     pub cached: Option<Str>,
@@ -295,7 +297,7 @@ impl<'s, 'o> Parser<'s, 'o> {
         Parser {
             src,
             opts,
-            doc: Document::new(opts.namespaces),
+            doc: Document::new(opts.namespaces, src.len()),
             dtd: Dtd::default(),
             stack: Vec::new(),
             scope: Scope::new(),

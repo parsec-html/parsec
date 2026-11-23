@@ -20,7 +20,10 @@ import init, { parse } from "parsec-html";
 await init();
 ```
 
-Node doesn't need that step: it gets a build that loads itself.
+Node doesn't need that step: it gets a build that loads itself. On
+Linux, macOS and Windows that's a native build with the same API, which
+parses about 1.5 times as fast and adds `parseAsync`, parsing on a
+worker thread; see [bindings/node](../node/README.md).
 
 ## What's in it
 
@@ -61,7 +64,7 @@ doc.select(selector, { maxSteps: 10_000_000 });
 
 XPath is 1.0. `doc.xpath("//li")` gives an array of nodes, with
 attributes as their values (`doc.xpath("//a/@href")` is an array of
-strings), and `count()`, `string()` or `boolean()` give a number, a
+strings) and namespace nodes as their URIs, and `count()`, `string()` or `boolean()` give a number, a
 string or a boolean.
 
 ```js

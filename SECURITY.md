@@ -32,12 +32,13 @@ bug rather than a security problem. Please open an ordinary issue for it.
 
 | Version | Fixes |
 |---|---|
-| 0.1.x | yes |
+| 0.2.x | yes |
+| 0.1.x | no: 0.2.0 has its fixes, [GHSA-6672-j8r3-hg5v](https://github.com/parsec-html/parsec/security/advisories/GHSA-6672-j8r3-hg5v) among them |
 | 0.0.0 | no: it's an empty placeholder on crates.io |
 
 Fixes go into the newest minor release, as a patch release, on every
 registry at once. Until Parsec reaches 1.0, older minor releases don't
-get backports, so when 0.2 comes out, 0.1 stops getting them.
+get backports, so when 0.3 comes out, 0.2 stops getting them.
 
 ## Verifying a release
 
