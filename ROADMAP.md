@@ -14,8 +14,9 @@ recovery.
 Here's the order we're working in. Each milestone has an issue list on
 GitHub and a place on the [Road to the parsing
 platform](https://github.com/orgs/parsec-html/projects/2) board, and
-nothing moves from "planned" to "done" in the README until it ships with
-its tests.
+nothing moves from "planned" to "done" in the README until it's on
+`main` with its tests; "done, not released yet" says it's waiting for
+the next release.
 
 ## When
 
@@ -26,13 +27,14 @@ the order can change when users show us something more urgent.
 |---|---|---|
 | M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
 | M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` on `main` |
-| M9. JavaScript tokens | December 2026 | under way: the lexer, test262 and fuzzing on `main` |
-| M10. JavaScript syntax tree | early 2027, with 0.3.0 | under way: scripts on `main` |
-| M11. JavaScript scope and modules | spring 2027 | planned |
-| M12. Data from scripts | spring 2027 | planned |
-| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite, the bench and XPath on `main` |
-| M16. Every language, every way in | alongside each parser | under way: the native Node build on `main` |
-| M13. JavaScript diagnostics and incremental parsing | late 2027 | planned |
+| M9. JavaScript tokens | December 2026 | done: on `main` |
+| M10. JavaScript syntax tree | early 2027, with 0.3.0 | done: on `main` |
+| M11. JavaScript scope and modules | spring 2027 | done: on `main` |
+| M12. Data from scripts | spring 2027 | under way: `parsec_js::data` on `main`; Netweir reads it after a release |
+| M14. XML | summer 2027 | done: on `main` |
+| M16. Every language, every way in | alongside each parser | under way: the native Node build and XML in every binding on `main` |
+| M13. JavaScript diagnostics and incremental parsing | late 2027 | done: on `main` |
+| M17. Release gates and the real web | November 2026 | done: on `main` |
 
 Nothing marked "on `main`" is in a release yet.
 
