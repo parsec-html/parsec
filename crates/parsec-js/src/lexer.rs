@@ -459,14 +459,25 @@ impl<'a> Lexer<'a> {
         let b = self.src.as_bytes();
         // Most identifiers are plain ASCII: read those in a tight loop,
         // and leave escapes and other characters to the loop below.
-        if matches!(b[start], b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_') {
-            let end = start + 1 + ident_run(&b[start + 1..]);
-            if !matches!(b.get(end), Some(b'\\' | 0x80..)) {
-                self.pos = end;
-                let kind = Keyword::from_bytes(&b[start..end]).map_or(Kind::Ident, Kind::Keyword);
+        // No indexing that could panic either: that's a call to save
+        // registers for.
+        let rest = b.get(start..).unwrap_or_default();
+        if let Some((b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_', tail)) = rest.split_first() {
+            let len = 1 + ident_run(tail);
+            if !matches!(rest.get(len), Some(b'\\' | 0x80..)) {
+                self.pos = start + len;
+                let kind = Keyword::from_prefix(rest, len).map_or(Kind::Ident, Kind::Keyword);
                 return self.token(kind, start, Flags::empty());
             }
         }
+        self.ident_slow(start)
+    }
+
+    /// An identifier with an escape or a character above ASCII in it.
+    /// Out of line, so plain ones save no registers for it.
+    #[inline(never)]
+    fn ident_slow(&mut self, start: usize) -> Token {
+        let b = self.src.as_bytes();
         let mut flags = Flags::empty();
         self.pos = start;
         let mut first = true;
@@ -1111,10 +1122,11 @@ fn ident_run(b: &[u8]) -> usize {
         }
         i += 8;
     }
-    i + b[i..]
+    let rest = b.get(i..).unwrap_or_default();
+    i + rest
         .iter()
         .position(|&c| c >= 0x80 || !ID_CONTINUE_ASCII[c as usize])
-        .unwrap_or(b.len() - i)
+        .unwrap_or(rest.len())
 }
 
 /// U+2028 or U+2029 at the start of `b`.
