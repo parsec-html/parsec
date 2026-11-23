@@ -674,3 +674,226 @@ impl Ast {
         id
     }
 }
+
+/// A place in a node that refers to other nodes.
+pub(crate) enum Ref<'a> {
+    Node(&'a mut NodeId),
+    List(&'a mut List),
+}
+
+/// Calls `f` on each child id and child list `node` holds.
+pub(crate) fn refs(node: &mut Node, f: &mut dyn FnMut(Ref<'_>)) {
+    fn n(f: &mut dyn FnMut(Ref<'_>), id: &mut NodeId) {
+        f(Ref::Node(id));
+    }
+    fn o(f: &mut dyn FnMut(Ref<'_>), id: &mut Option<NodeId>) {
+        if let Some(id) = id {
+            f(Ref::Node(id));
+        }
+    }
+    fn l(f: &mut dyn FnMut(Ref<'_>), list: &mut List) {
+        f(Ref::List(list));
+    }
+    match node {
+        Node::Empty
+        | Node::Debugger
+        | Node::Identifier
+        | Node::PrivateIdentifier
+        | Node::Literal(_)
+        | Node::This
+        | Node::Super
+        | Node::Elision
+        | Node::TemplateElement { .. } => {}
+        Node::Program { body, .. }
+        | Node::Block { body }
+        | Node::ClassBody { body }
+        | Node::StaticBlock { body } => l(f, body),
+        Node::VariableDeclaration { declarations, .. } => l(f, declarations),
+        Node::Array { elements, .. } | Node::ArrayPattern { elements } => l(f, elements),
+        Node::Object { properties, .. } | Node::ObjectPattern { properties } => l(f, properties),
+        Node::Sequence { expressions } => l(f, expressions),
+        Node::Template {
+            quasis,
+            expressions,
+        } => {
+            l(f, quasis);
+            l(f, expressions);
+        }
+        Node::Switch {
+            discriminant,
+            cases,
+        } => {
+            n(f, discriminant);
+            l(f, cases);
+        }
+        Node::SwitchCase { test, consequent } => {
+            o(f, test);
+            l(f, consequent);
+        }
+        Node::Call {
+            callee, arguments, ..
+        }
+        | Node::New { callee, arguments } => {
+            n(f, callee);
+            l(f, arguments);
+        }
+        Node::Function(func) => {
+            o(f, &mut func.id);
+            l(f, &mut func.params);
+            n(f, &mut func.body);
+        }
+        Node::Class(c) => {
+            o(f, &mut c.id);
+            o(f, &mut c.super_class);
+            n(f, &mut c.body);
+        }
+        Node::ImportDeclaration {
+            specifiers,
+            source,
+            attributes,
+        } => {
+            l(f, specifiers);
+            n(f, source);
+            l(f, attributes);
+        }
+        Node::ExportNamed {
+            declaration,
+            specifiers,
+            source,
+            attributes,
+        } => {
+            o(f, declaration);
+            l(f, specifiers);
+            o(f, source);
+            l(f, attributes);
+        }
+        Node::ExportAll {
+            exported,
+            source,
+            attributes,
+        } => {
+            o(f, exported);
+            n(f, source);
+            l(f, attributes);
+        }
+        Node::Expression { expression, .. }
+        | Node::Chain { expression }
+        | Node::Paren { expression } => n(f, expression),
+        Node::Throw { argument }
+        | Node::Unary { argument, .. }
+        | Node::Update { argument, .. }
+        | Node::Await { argument }
+        | Node::Spread { argument }
+        | Node::Rest { argument } => n(f, argument),
+        Node::Return { argument } | Node::Yield { argument, .. } => o(f, argument),
+        Node::Break { label } | Node::Continue { label } => o(f, label),
+        Node::ImportDefaultSpecifier { local } | Node::ImportNamespaceSpecifier { local } => {
+            n(f, local)
+        }
+        Node::ExportDefault { declaration } => n(f, declaration),
+        Node::With { object: a, body: b }
+        | Node::Labeled { label: a, body: b }
+        | Node::While { test: a, body: b }
+        | Node::DoWhile { body: a, test: b }
+        | Node::Method {
+            key: a, value: b, ..
+        }
+        | Node::Property {
+            key: a, value: b, ..
+        }
+        | Node::TaggedTemplate { tag: a, quasi: b }
+        | Node::Binary {
+            left: a, right: b, ..
+        }
+        | Node::Logical {
+            left: a, right: b, ..
+        }
+        | Node::Assign {
+            left: a, right: b, ..
+        }
+        | Node::Member {
+            object: a,
+            property: b,
+            ..
+        }
+        | Node::MetaProperty {
+            meta: a,
+            property: b,
+        }
+        | Node::ImportSpecifier {
+            imported: a,
+            local: b,
+        }
+        | Node::ImportAttribute { key: a, value: b }
+        | Node::ExportSpecifier {
+            local: a,
+            exported: b,
+        }
+        | Node::AssignmentPattern { left: a, right: b } => {
+            n(f, a);
+            n(f, b);
+        }
+        Node::VariableDeclarator { id, init } => {
+            n(f, id);
+            o(f, init);
+        }
+        Node::Field { key, value, .. } => {
+            n(f, key);
+            o(f, value);
+        }
+        Node::Import { source, options } => {
+            n(f, source);
+            o(f, options);
+        }
+        Node::CatchClause { param, body } => {
+            o(f, param);
+            n(f, body);
+        }
+        Node::If {
+            test,
+            consequent,
+            alternate,
+        } => {
+            n(f, test);
+            n(f, consequent);
+            o(f, alternate);
+        }
+        Node::Try {
+            block,
+            handler,
+            finalizer,
+        } => {
+            n(f, block);
+            o(f, handler);
+            o(f, finalizer);
+        }
+        Node::Conditional {
+            test,
+            consequent,
+            alternate,
+        } => {
+            n(f, test);
+            n(f, consequent);
+            n(f, alternate);
+        }
+        Node::For {
+            init,
+            test,
+            update,
+            body,
+        } => {
+            o(f, init);
+            o(f, test);
+            o(f, update);
+            n(f, body);
+        }
+        Node::ForIn { left, right, body }
+        | Node::ForOf {
+            left, right, body, ..
+        } => {
+            n(f, left);
+            n(f, right);
+            n(f, body);
+        }
+    }
+}

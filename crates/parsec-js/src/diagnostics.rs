@@ -137,6 +137,14 @@
 //! | `export-undeclared` | a module exports a name it doesn't declare | [16.2.1.1] |
 //! | `regexp-…` | a regular expression's pattern or flags that don't compile; the [`regexp`](crate::regexp) module has each | [13.2.7.1], [22.2.1.1] |
 //!
+//! # From [`Ast::reparse`](crate::Ast::reparse)
+//!
+//! Besides the new source's syntax errors:
+//!
+//! | Code | What's wrong | Spec |
+//! |---|---|---|
+//! | `edit-out-of-range` | the edit's range is past the end of the source, backwards, or splits a character | |
+//!
 //! [12.4]: https://tc39.es/ecma262/2025/#sec-comments
 //! [12.6]: https://tc39.es/ecma262/2025/#sec-tokens
 //! [12.7]: https://tc39.es/ecma262/2025/#sec-names-and-keywords
@@ -213,6 +221,7 @@ mod tests {
             include_str!("parser/stmt.rs"),
             include_str!("early.rs"),
             include_str!("scope.rs"),
+            include_str!("reparse.rs"),
         ];
         let docs = include_str!("diagnostics.rs");
         let table: Vec<&str> = docs

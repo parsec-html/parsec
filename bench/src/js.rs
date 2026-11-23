@@ -635,3 +635,75 @@ fn median(mut f: impl FnMut()) -> f64 {
     times.sort_by(f64::total_cmp);
     times[times.len() / 2]
 }
+
+/// Times `Ast::reparse` against a full parse on typescript.js, after
+/// single-character edits: a letter in a name changed to another, or a
+/// space put in, at seeded places. Each edit goes to the tree the last
+/// one left, as typing would.
+pub fn reparse() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus");
+    let name = "typescript-5.9.3.js";
+    let mut src = std::fs::read_to_string(dir.join(name))
+        .unwrap_or_else(|_| panic!("{name} is missing: run bench/fetch-pages.sh"));
+    let options = parsec_js::Options::default();
+    let mut ast = parsec_js::parse(&src, &options).unwrap();
+    let mut seed = 0x2545_F491_4F6C_DD1Du64;
+    let mut next = move |n: usize| {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed % n as u64) as usize
+    };
+    let (mut pieces, mut fulls, mut whole, mut sizes) = (Vec::new(), Vec::new(), 0, Vec::new());
+    while pieces.len() < 400 {
+        let at = next(src.len());
+        let byte = src.as_bytes()[at];
+        let text = if byte.is_ascii_lowercase() {
+            ["a", "e", "s", "t"][next(4)]
+        } else if byte == b' ' {
+            "  "
+        } else {
+            continue;
+        };
+        let edit = parsec_js::Edit {
+            range: parsec_js::Span::new(at as u32, at as u32 + 1),
+            text,
+        };
+        let t = Instant::now();
+        let done = ast.reparse(&src, &edit, &options);
+        let piece = t.elapsed().as_secs_f64();
+        let Ok(done) = done else {
+            continue;
+        };
+        let t = Instant::now();
+        drop(black_box(parsec_js::parse(&done.source, &options)));
+        fulls.push(t.elapsed().as_secs_f64());
+        pieces.push(piece);
+        match done.reparsed {
+            Some(s) => sizes.push(s.len() as f64),
+            None => whole += 1,
+        }
+        src = done.source;
+    }
+    let median = |v: &mut Vec<f64>| {
+        v.sort_by(f64::total_cmp);
+        v[v.len() / 2]
+    };
+    let n = pieces.len();
+    let (p, f) = (median(&mut pieces), median(&mut fulls));
+    println!(
+        "\nJavaScript reparse, {name} ({:.1} MB), {n} single-character edits in a row",
+        src.len() as f64 / 1e6
+    );
+    println!("  Ast::reparse  {:>8.3} ms median", p * 1e3);
+    println!("  parse         {:>8.3} ms median", f * 1e3);
+    println!(
+        "  {:.0}x as fast; {whole} edits parsed whole, the rest a median {} bytes again",
+        f / p,
+        if sizes.is_empty() {
+            0.0
+        } else {
+            median(&mut sizes)
+        }
+    );
+}
