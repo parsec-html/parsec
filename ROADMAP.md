@@ -14,8 +14,9 @@ recovery.
 Here's the order we're working in. Each milestone has an issue list on
 GitHub and a place on the [Road to the parsing
 platform](https://github.com/orgs/parsec-html/projects/2) board, and
-nothing moves from "planned" to "done" in the README until it ships with
-its tests.
+nothing moves from "planned" to "done" in the README until it's on
+`main` with its tests; "done, not released yet" says it's waiting for
+the next release.
 
 ## When
 
@@ -32,7 +33,8 @@ the order can change when users show us something more urgent.
 | M12. Data from scripts | spring 2027 | under way: `parsec_js::data` on `main`; Netweir reads it after a release |
 | M14. XML | summer 2027 | done: on `main` |
 | M16. Every language, every way in | alongside each parser | under way: the native Node build and XML in every binding on `main` |
-| M13. JavaScript diagnostics and incremental parsing | late 2027 | under way: diagnostics on `main` |
+| M13. JavaScript diagnostics and incremental parsing | late 2027 | done: on `main` |
+| M17. Release gates and the real web | November 2026 | done: on `main` |
 
 Nothing marked "on `main`" is in a release yet.
 

@@ -476,12 +476,13 @@ page.
 | M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | under way |
 | M14 | [XML](https://github.com/parsec-html/parsec/milestone/16?closed=1) | done, not released yet |
 | M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | under way |
-| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15) | under way |
+| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15?closed=1) | done, not released yet |
+| M17 | [Release gates and the real web](https://github.com/parsec-html/parsec/milestone/22?closed=1) | done, not released yet |
 
-"Under way" means part of it is merged on `main` with its tests, but
-none of it is in a release: today that's `parsec-base`, the JavaScript
-lexer and script parser, `parsec-xml`, and the native Node build.
-0.3.0 is the first release with `parsec-js`.
+"Done, not released yet" means all of it is merged on `main` with its
+tests, waiting for the next release. "Under way" means part of it is
+merged and part isn't: today that's `parsec-base`, `parsec_js::data`
+and the bindings. 0.3.0 is the first release with `parsec-js`.
 
 ## Using it
 
