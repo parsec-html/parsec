@@ -470,13 +470,13 @@ page.
 | M7 | [CSS, through the cascade](https://github.com/parsec-html/parsec/milestone/8?closed=1) | done |
 | M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
 | M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | under way |
-| M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11) | under way |
-| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12) | under way |
-| M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13) | planned |
-| M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | planned |
-| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16) | under way |
+| M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11?closed=1) | done, not released yet |
+| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12?closed=1) | done, not released yet |
+| M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13?closed=1) | done, not released yet |
+| M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | under way |
+| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16?closed=1) | done, not released yet |
 | M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | under way |
-| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15) | planned |
+| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15) | under way |
 
 "Under way" means part of it is merged on `main` with its tests, but
 none of it is in a release: today that's `parsec-base`, the JavaScript
