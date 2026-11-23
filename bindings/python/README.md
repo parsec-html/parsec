@@ -104,7 +104,7 @@ What you get over selectolax:
 pip install parsec-html
 ```
 
-There are wheels for CPython 3.9 and newer, free-threaded too, on Linux
+There are wheels for CPython 3.10 and newer, free-threaded too, on Linux
 (glibc and musl), macOS and Windows, x86-64 and ARM. Anywhere else, pip
 builds the sdist, which needs Rust 1.88 or newer. The newest code on
 `main` installs the same way from git:
@@ -155,6 +155,44 @@ Not there yet: `clone()`, `raw_html`, `raw_value`, `html_pretty`,
 `select()` and its filters, `scripts_contain`, `script_srcs_contain`,
 `template_fragments`, `text_lexbor`, `mem_id`, `tag_id` and the
 `:lexbor-contains()` pseudo-class.
+
+## XML
+
+`parsec_html.xml.parse()` reads XML 1.0 with namespaces, from a `str`
+or from `bytes` in the encoding they declare. It doesn't validate, and
+it never fetches anything: an external DTD is left unread, and
+`doc.warnings` says so.
+
+```python
+from parsec_html import xml
+
+doc = xml.parse(open("feed.atom", "rb").read())
+feed = doc.root                          # the document element
+feed.namespace                           # 'http://www.w3.org/2005/Atom'
+for entry in feed.children:
+    if entry.kind == "element":
+        print(entry.local_name, entry.attribute("href", "http://www.w3.org/1999/xlink"))
+doc.xml                                  # the document, written back out
+```
+
+A node has the HTML parser's names where they mean the same thing:
+`tag` (the name as written, `atom:link`), `parent`, `next`, `prev`,
+`first_child`, `last_child`, `attributes`, `text()`, `source_range` and
+`position`. What namespaces add is `local_name`, `prefix`, `namespace`,
+`attribute(local_name, namespace)` and `attribute_list`, whose
+`XMLAttribute`s carry the same four parts and the value. `kind` says
+what the node is, `value` is a text, CDATA or comment node's text, and
+`xml` writes a node back out, with the namespace declarations an
+element alone needs.
+
+XML that isn't well-formed raises `XMLSyntaxError`, a `ValueError`
+with `code`, `message`, `line` and `column`. So does XML past its
+limits, which you can tighten: `max_depth=` (2,048 unless you give
+one), `max_entity_depth=` (16), and entity expansion of
+`entity_allowance=` bytes (1 MiB) plus `entity_ratio=` (8) per byte of
+input, which stops a billion laughs at once. `namespaces=False` reads
+names as they are, colons and all. A document can't be changed, and
+any number of threads can read one at once.
 
 ## Speed
 

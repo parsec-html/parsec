@@ -22,17 +22,19 @@ its tests.
 Targets, not promises: a milestone ships when it's done and tested, and
 the order can change when users show us something more urgent.
 
-| Milestone | Target |
-|---|---|
-| M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 |
-| M15. One toolkit, in pieces | December 2026 |
-| M9. JavaScript tokens | December 2026 |
-| M10. JavaScript syntax tree | early 2027, with 0.3.0 |
-| M11. JavaScript scope and modules | spring 2027 |
-| M12. Data from scripts | spring 2027 |
-| M14. XML | summer 2027 |
-| M16. Every language, every way in | alongside each parser |
-| M13. JavaScript diagnostics and incremental parsing | late 2027 |
+| Milestone | Target | Today |
+|---|---|---|
+| M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
+| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` on `main` |
+| M9. JavaScript tokens | December 2026 | under way: the lexer, test262 and fuzzing on `main` |
+| M10. JavaScript syntax tree | early 2027, with 0.3.0 | under way: scripts on `main` |
+| M11. JavaScript scope and modules | spring 2027 | planned |
+| M12. Data from scripts | spring 2027 | planned |
+| M14. XML | summer 2027 | under way: `parsec-xml`, the W3C suite, the bench and XPath on `main` |
+| M16. Every language, every way in | alongside each parser | under way: the native Node build on `main` |
+| M13. JavaScript diagnostics and incremental parsing | late 2027 | planned |
+
+Nothing marked "on `main`" is in a release yet.
 
 ## M0. Foundations
 
@@ -227,6 +229,10 @@ against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
   files that should parse tokenize. Of the 4,676 that shouldn't, the
   lexer catches the 267 whose error is in the tokens; the parser will
   check the rest.
+- Done: the lexer bench, `parsec-html-bench js-lex`, against oxc's and
+  swc's lexers on the JavaScript corpus: 347 MB/s to oxc's 568 and swc's
+  328, every token at the same span in all three
+  ([#149](https://github.com/parsec-html/parsec/issues/149)).
 
 ## M10. JavaScript syntax tree
 
@@ -398,11 +404,29 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
   elements cost no recursion. Bytes in, with the encoding from the byte
   order mark or the declaration; a serializer that writes every prefix
   and declaration back as it was; and a fuzz target in the nightly run.
-- Still to come: the W3C conformance suite in CI
-  ([#170](https://github.com/parsec-html/parsec/issues/170)), XPath over
-  XML ([#171](https://github.com/parsec-html/parsec/issues/171)), and the
-  bench against libxml2
-  ([#172](https://github.com/parsec-html/parsec/issues/172)).
+- Done: the W3C XML Conformance Test Suite in `cargo test`, with its
+  counts in every CI run's summary
+  ([#170](https://github.com/parsec-html/parsec/issues/170)). Of its
+  2,585 cases, 1,915 run and pass, 227 of them matching their canonical
+  output byte for byte, and none fail. The 670 skipped are XML 1.1 and
+  Namespaces 1.1 (274), editions before the Fifth (310), errors the spec
+  lets a processor report or not (27), and documents whose fault is in
+  an external entity, which Parsec never reads (59).
+- Done: the bench against libxml2, roxmltree and quick-xml, in `bench/`
+  ([#172](https://github.com/parsec-html/parsec/issues/172)). libxml2
+  comes in as a submodule at v2.15.4. On 102 MB of real XML (sitemaps,
+  RSS and Atom feeds, SVGs, the XML spec and a Wikipedia dump slice),
+  Parsec parses 1,314 MB/s to libxml2's 495 and roxmltree's 327, ahead
+  of both on every document, and holds no more memory than libxml2 on any.
+- Done: XPath over XML
+  ([#171](https://github.com/parsec-html/parsec/issues/171)).
+  `parsec-xml`'s `xpath` feature makes its `Document` a tree
+  `parsec-xpath` reads, with no HTML parser in the build: names compared
+  exactly, prefixes from the query's namespaces, namespace declarations
+  left out of the attributes, `id()` from `xml:id` and the DTD's `ID`
+  attributes, and `lang()` from `xml:lang`. libxml2's XPath document
+  tests run against it in `cargo test`: all 84 queries pass, the 5 on
+  the namespace axis among them.
 
 ## M15. One toolkit, in pieces
 
@@ -416,6 +440,16 @@ should, and the architecture written down on the wiki
 JavaScript and XML through the C API, Python and WebAssembly, the way
 HTML is today, and a native Node.js package beside the WebAssembly one
 ([#173](https://github.com/parsec-html/parsec/issues/173)).
+
+- Done: the native Node.js build
+  ([#177](https://github.com/parsec-html/parsec/issues/177)). The npm
+  package loads it on Linux (glibc and musl), macOS and Windows, x86-64
+  and ARM64, with the WebAssembly's API and `parseAsync`, and falls back
+  to the WebAssembly anywhere else. It ships in the next release.
+- Still to come: JavaScript and XML in the C API, Python and
+  WebAssembly ([#174](https://github.com/parsec-html/parsec/issues/174),
+  [#175](https://github.com/parsec-html/parsec/issues/175),
+  [#176](https://github.com/parsec-html/parsec/issues/176)).
 
 ## Releases
 

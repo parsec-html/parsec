@@ -8,6 +8,22 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
+- A native build for Node.js, which the npm package `parsec-html` now
+  loads in Node wherever there's one for the platform: Linux on x86-64
+  and ARM64, with glibc or musl, macOS on both, and Windows on both
+  ([#177](https://github.com/parsec-html/parsec/issues/177)). It has the
+  WebAssembly's API, names, options and error messages, and parses the
+  13 benchmark pages 1.5 times as fast. Each platform's build is an
+  optional dependency, `@parsec-web/binding-<platform>`; anywhere else,
+  and in browsers, the package is the WebAssembly it was.
+  - `parseAsync(html, options)` parses on Node's thread pool and gives a
+    promise of the document. With the WebAssembly build it parses before
+    it returns.
+  - `backend` says which build loaded, and `PARSEC_BACKEND=wasm` or
+    `native` chooses one.
+  - A panic in the native build is an `Error` (a rejected promise from
+    `parseAsync`), as it is in the WebAssembly and Python builds, never
+    the end of the process.
 - `parsec-xml`, an XML parser of Parsec's own: XML 1.0 (Fifth Edition)
   and Namespaces in XML 1.0, not validating
   ([#169](https://github.com/parsec-html/parsec/issues/169)).
@@ -30,6 +46,50 @@ minor release can break the API and a patch release won't.
     its span, and the line and column.
   - `to_xml` and `write_xml` write a document or a subtree back out,
     prefixes and namespace declarations as they were.
+  - The W3C XML Conformance Test Suite runs in `cargo test`
+    ([#170](https://github.com/parsec-html/parsec/issues/170)): 1,915
+    cases pass and none fail, and every skipped case says why.
+  - XPath 1.0 over the document with the `xpath` feature, off by
+    default: `parsec_xml::xpath` is `parsec-xpath` without its HTML
+    tree, and `Document` implements its `Tree`
+    ([#171](https://github.com/parsec-html/parsec/issues/171)). Names
+    compare exactly, `xmlns` and `xmlns:*` aren't attributes, `id()`
+    finds `xml:id` and attributes the internal subset declares `ID`,
+    and `lang()` reads `xml:lang`. `NodeId::from_index` turns a result's
+    node back into a `NodeId`. The namespace axis has the namespaces in
+    scope at each element. libxml2's XPath document tests run in
+    `cargo test`: all 84 pass.
+  - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
+    on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
+    ([#172](https://github.com/parsec-html/parsec/issues/172)).
+- The XML parser is in every binding: a document from text or bytes in
+  the encoding it declares, walked node by node with each name's prefix,
+  local part and namespace, attributes with theirs, text, spans, and
+  serialization back to XML. A document that isn't well-formed, or that
+  runs past `max_depth` or the entity limits, is an error with its code,
+  line and column, so a billion laughs fails at once
+  ([#174](https://github.com/parsec-html/parsec/issues/174),
+  [#175](https://github.com/parsec-html/parsec/issues/175),
+  [#176](https://github.com/parsec-html/parsec/issues/176)).
+  - C: `parsec_xml_parse` gives a `parsec_xml_document`, read with
+    `parsec_xml_*` functions that mirror the HTML ones (parent, children
+    and siblings, names, `parsec_xml_attr_at`, `parsec_xml_attr_get_ns`,
+    `parsec_xml_text`, `parsec_xml_serialize`, spans, line and column,
+    and warnings), freed by `parsec_xml_document_free`. An error is
+    `PARSEC_ERR_XML` with a `parsec_xml_error`.
+  - Python: `parsec_html.xml.parse()` takes `str` or `bytes` and gives
+    an `XMLDocument` of `XMLNode`s with the HTML parser's names (`tag`,
+    `parent`, `next`, `attributes`, `text()`, `source_range`) plus
+    `local_name`, `prefix`, `namespace` and `attribute_list`. An error
+    raises `XMLSyntaxError`, a `ValueError`.
+  - WebAssembly and the native Node build: `parseXml` and
+    `parseXmlBytes` give an `XmlDocument` of `XmlNode`s with the DOM's
+    names (`namespaceURI`, `getAttributeNS`, `childNodes`), and throw a
+    `SyntaxError` with `code`, `line` and `column`. It adds 113 KB to the
+    `.wasm` (44 KB gzipped); `--no-default-features` builds the HTML
+    parser alone, and CI fails if that build grows past its ceiling.
+  - `parsec-xml` gains `Document::node`, a node by its number, checked;
+    `parsec-base` gains `LineIndex::owned`, an index that keeps its text.
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).
@@ -46,6 +106,10 @@ minor release can break the API and a patch release won't.
     module.
   - test262 runs in `cargo test`, and CI's summary has its counts
     ([#148](https://github.com/parsec-html/parsec/issues/148)).
+  - `bench/` times the lexer against oxc's and swc's with
+    `parsec-html-bench js-lex`: 347 MB/s to oxc's 568 and swc's 328 over
+    the 11.6 MB JavaScript corpus, with all three reading the same tokens
+    ([#149](https://github.com/parsec-html/parsec/issues/149)).
   - `parsec-js` parses ECMAScript 2025 scripts and modules: `parse`
     gives an `Ast` with a span on every node and the comments beside
     it, or the first syntax error as a `Diagnostic`, and
@@ -126,6 +190,15 @@ minor release can break the API and a patch release won't.
     `{ maxSteps }`, and throw an Error naming `maxSteps`. There's no
     time limit there, since wasm32 has no clock.
 
+### Changed (breaking)
+
+- The Python wheels need Python 3.10 or newer: 3.9 reached end of life
+  in October 2025, and its CI jobs kept a pytest with a known
+  vulnerability ([#220](https://github.com/parsec-html/parsec/issues/220)).
+- `parsec_xpath::Item` has a third variant, `Item::Ns { owner, decl }`,
+  for a namespace node, so a `match` on it needs an arm for it.
+  `Doc::namespace_at(decl)` gives its prefix and URI.
+
 ### Changed
 
 - `parsec-xpath` reads trees through a `Tree` trait, so XPath can run
@@ -144,6 +217,15 @@ minor release can break the API and a patch release won't.
   attributes took quadratic time: 3.9 seconds where it now takes 4 ms.
   A page built to stall a crawler's XPath could have used it.
   `Document::attr_at(id, i)` reads one attribute in constant time.
+- XPath's `namespace::` axis was always empty. It now has the namespaces
+  in scope at an element, in libxml2's order: `xml` first, then the
+  outermost element's bindings. `xmlns=""` takes the default namespace
+  away and leaves no node for it. In XML, `parsec-xml`'s `Document`
+  reports its `xmlns` attributes; in HTML, every element has only the
+  `xml` namespace, as lxml gives it. The Python, Node.js and
+  WebAssembly bindings give a namespace node as its URI, a string, as
+  they give an attribute as its value. The C API gives it as its
+  element with `PARSEC_NS_ATTR` in place of an attribute index.
 
 ## 0.2.0
 

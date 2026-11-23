@@ -7,6 +7,9 @@
 [submodule "bench/ada"]
 	path = bench/ada
 	url = https://github.com/ada-url/ada
+[submodule "bench/libxml2"]
+	path = bench/libxml2
+	url = https://github.com/GNOME/libxml2
 [submodule "crates/parsec-js/tests/test262"]
 	path = crates/parsec-js/tests/test262
 	url = https://github.com/tc39/test262

@@ -339,6 +339,8 @@ def test_xpath_results_are_shaped_as_lxml_gives_them():
     assert [n.tag for n in p.xpath("//div | //p")] == ["div", "p"]
     assert p.xpath("//b/text()") == ["two"]
     assert p.xpath("//div/@class") == ["x y"]
+    # A namespace node is its URI; an HTML element has only xml's.
+    assert p.xpath("//div/namespace::*") == ["http://www.w3.org/XML/1998/namespace"]
     assert p.xpath("count(//*)") == 7.0
     assert p.xpath("string(//title)") == "T"
     assert p.xpath("boolean(//p)") is True

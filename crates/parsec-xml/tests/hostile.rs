@@ -68,14 +68,41 @@ fn a_quadratic_blowup_stops() {
     let src = format!("<!DOCTYPE a [<!ENTITY big \"{big}\">]><a b=\"{refs}\"/>");
     assert_eq!(parse(&src).unwrap_err().code(), "entity-expansion-limit");
     assert!(t.elapsed() < Duration::from_secs(2), "{:?}", t.elapsed());
-    // A big default value on many elements is shared, not copied.
+    // A big default value on many elements: stored once, but each element
+    // hands it out, so it counts against the budget each time.
     let src = format!(
         "<!DOCTYPE a [<!ATTLIST b d CDATA \"{big}\">]><a>{}</a>",
         "<b/>".repeat(100_000)
     );
+    let t = Instant::now();
+    assert_eq!(parse(&src).unwrap_err().code(), "entity-expansion-limit");
+    assert!(t.elapsed() < Duration::from_secs(2), "{:?}", t.elapsed());
+}
+
+#[test]
+fn ordinary_defaults_on_many_elements_are_fine() {
+    // A DTD's usual defaults, a short value on every element, stay well
+    // inside the budget however many elements there are.
+    let src = format!(
+        "<!DOCTYPE a [<!ATTLIST b class CDATA \"item\" lang CDATA \"en\">]><a>{}</a>",
+        "<b/>".repeat(200_000)
+    );
     let doc = parse(&src).unwrap();
-    // The document, the doctype, `a` and the `b`s.
-    assert_eq!(doc.len(), 100_003);
+    let b = doc.first_child(doc.root_element()).unwrap();
+    assert_eq!(doc.attribute_named(b, "class"), Some("item"));
+    // Up to the allowance with no ratio, then over it.
+    let tight = Options {
+        entity_allowance: 9,
+        entity_ratio: 0,
+        ..Options::default()
+    };
+    let two = "<!DOCTYPE a [<!ATTLIST b d CDATA \"1234\">]><a><b/><b/></a>";
+    assert!(parse_with(two, &tight).is_ok());
+    let three = "<!DOCTYPE a [<!ATTLIST b d CDATA \"1234\">]><a><b/><b/><b/></a>";
+    assert_eq!(
+        parse_with(three, &tight).unwrap_err().code(),
+        "entity-expansion-limit"
+    );
 }
 
 #[test]

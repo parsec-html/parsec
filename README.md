@@ -13,8 +13,9 @@ XML, one crate at a time, so you build on exactly the parsers you need.
 The HTML parser reads pages the way a browser does, finds what you're after with
 CSS selectors, and lets you change the tree and write it back out. Beside
 it sit CSS with the cascade, XPath, and the WHATWG Encoding and URL
-standards. JavaScript is next, then XML, each with its own tree, so
-nobody who only wants HTML compiles a JavaScript parser.
+standards. JavaScript and XML are next, each with its own tree, so
+nobody who only wants HTML compiles a JavaScript parser. Both parse on
+`main` already; neither is in a release yet.
 
 If you use Lexbor today, directly or through selectolax, PHP's `Dom\HTMLDocument`,
 nokolexbor or lazy_html, the HTML parser was built for you. Lexbor is fast and
@@ -388,6 +389,19 @@ every pull request, failing on a crash or a hang. The wiki's
 [Benchmarks](https://github.com/parsec-html/parsec/wiki/Benchmarks#the-final-boss)
 page has every quirk, the seed and the raw output.
 
+### The real web
+
+The final boss is built to hurt. The real web is just big: 1,731
+production pages, 559 MB of home pages and inner pages in 8 encodings
+and over 60 languages, fetched on 21 November 2026. Parsec parses them
+at 933 MB a second to Lexbor's 523 and html5ever's 160, 1.78 times
+Lexbor overall, with all three building the same number of elements on
+every page and none crashing. The wiki's
+[Real-world benchmarks](https://github.com/parsec-html/parsec/wiki/Real-world-benchmarks)
+page has the method, the breakdowns by size and encoding, where Parsec
+loses, and how to refetch the same pages; only their addresses and
+hashes are published.
+
 ## What's coming
 
 The [roadmap](https://github.com/parsec-html/parsec/blob/main/ROADMAP.md) has the order. In short, Parsec is set to cover
@@ -417,17 +431,18 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
-| JavaScript syntax tree | no | yes, `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and all 4,374 that shouldn't fail do, through the parser and `parsec_js::early_errors`, in `cargo test`; on real bundles, 1.26 times as fast as swc, 0.57 times as fast as oxc ([#190](https://github.com/parsec-html/parsec/issues/190)), with less memory than either |
-| JavaScript scopes | no | yes, `parsec_js::scope`: every reference resolved to its binding or listed as free, with hoisting, Annex B's functions in blocks, the temporal dead zone, and the scopes a direct `eval` or a `with` makes dynamic; a name declared twice is an early error, which catches all 190 of test262's redeclaration tests |
-| JavaScript regular expressions checked | no | yes, `parsec_js::regexp`: a pattern checked by its own grammar and early errors, without the `u` flag (with Annex B's additions), with `u`, and with `v`'s set operations and properties of strings; named groups, duplicate names in separate alternatives, modifiers and every `\p{…}` name in Unicode 17.0; all 358 of test262's pattern tests that should fail do |
-| JavaScript diagnostics | no | yes, `parsec_js::diagnostics`: every error has a stable code, listed with its spec section, and labels on the places it involves; `Diagnostic::render` prints a code frame, and `parse_recovering` reports every error in one parse |
-| JavaScript incremental parsing | no | yes, `Ast::reparse`: after an edit, only the function body or statement around it is parsed again, and the tree is the one a full parse gives, which `cargo test` checks on random edits |
-| JavaScript module records | no | yes, `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
-| State from a page's scripts | no | yes, `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
-| XML | no | yes, `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched |
-| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
-| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
-| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
+| JavaScript syntax tree | no | not released yet; on `main` in `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and all 4,374 that shouldn't fail do, through the parser and `parsec_js::early_errors`, in `cargo test` |
+| JavaScript scopes | no | not released yet; on `main` as `parsec_js::scope`: every reference resolved to its binding or listed as free, with hoisting, Annex B's functions in blocks, the temporal dead zone, and the scopes a direct `eval` or a `with` makes dynamic; a name declared twice is an early error, which catches all 190 of test262's redeclaration tests |
+| JavaScript regular expressions checked | no | not released yet; on `main` as `parsec_js::regexp`: a pattern checked by its own grammar and early errors, without the `u` flag (with Annex B's additions), with `u`, and with `v`'s set operations and properties of strings; named groups, duplicate names in separate alternatives, modifiers and every `\p{…}` name in Unicode 17.0; all 358 of test262's pattern tests that should fail do |
+| JavaScript diagnostics | no | not released yet; on `main` as `parsec_js::diagnostics`: every error has a stable code, listed with its spec section, and labels on the places it involves; `Diagnostic::render` prints a code frame, and `parse_recovering` reports every error in one parse |
+| JavaScript incremental parsing | no | not released yet; on `main` as `Ast::reparse`: after an edit, only the function body or statement around it is parsed again, and the tree is the one a full parse gives, which `cargo test` checks on random edits |
+| JavaScript module records | no | not released yet; on `main` as `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
+| State from a page's scripts | no | not released yet; on `main` as `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
+| XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; XPath 1.0 over it with the `xpath` feature, passing all 84 of libxml2's document tests; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
+| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; XML through `parsec_xml_parse` |
+| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.xml` for XML |
+| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseXml` and `parseXmlBytes` for XML, in the native Node build too |
+| Node.js, native | not from Lexbor | next release: the npm package picks a native build on Linux, macOS and Windows, x86-64 and ARM, with the same API, `parseAsync`, and 1.5 times the WebAssembly's speed |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
@@ -457,12 +472,17 @@ page.
 | M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
 | M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | under way |
 | M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11) | under way |
-| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12) | planned |
+| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12) | under way |
 | M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13) | planned |
 | M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | planned |
-| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16) | planned |
-| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | planned |
+| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16) | under way |
+| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | under way |
 | M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15) | planned |
+
+"Under way" means part of it is merged on `main` with its tests, but
+none of it is in a release: today that's `parsec-base`, the JavaScript
+lexer and script parser, `parsec-xml`, and the native Node build.
+0.3.0 is the first release with `parsec-js`.
 
 ## Using it
 
@@ -489,7 +509,7 @@ assert_eq!(parsed.encoding.name(), "Shift_JIS");
 assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 ```
 
-**Python** 3.9 or newer, free-threaded too; then `import parsec_html`:
+**Python** 3.10 or newer, free-threaded too; then `import parsec_html`:
 
 ```sh
 pip install parsec-html

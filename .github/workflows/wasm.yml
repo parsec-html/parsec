@@ -47,7 +47,7 @@ jobs:
       - run: ./build.sh
       # As `npm install ./pkg` would place it, without npm.
       - run: mkdir -p node_modules && ln -s ../pkg node_modules/parsec-html
-      - run: node --test tests/package.test.mjs
+      - run: node --test tests/package.test.mjs tests/xml.test.mjs
       - name: Package size
         run: |
           {
@@ -57,3 +57,23 @@ jobs:
               echo "| \`$f\` | $(wc -c < "$f") | $(gzip -9 -c "$f" | wc -c) |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
+      # The HTML parser alone, as `--no-default-features` builds it, for a
+      # page that doesn't need XML. The XML parser is about 110 KB of the
+      # package's .wasm; this fails if it, or anything else that size,
+      # finds its way into the build without it. Raise the ceiling on
+      # purpose, in the commit that needs it.
+      - name: HTML-only size
+        run: |
+          wasm-pack build --release --target web --weak-refs --out-dir "$RUNNER_TEMP/html-only" --out-name parsec_html -- --no-default-features
+          f="$RUNNER_TEMP/html-only/parsec_html_bg.wasm"
+          size=$(wc -c < "$f")
+          max=1180000
+          {
+            echo "| HTML only (\`--no-default-features\`) | Bytes | Gzipped |"
+            echo "|---|---:|---:|"
+            echo "| \`parsec_html_bg.wasm\` | $size | $(gzip -9 -c "$f" | wc -c) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt "$max" ]; then
+            echo "::error::the HTML-only build's .wasm is $size bytes, over the $max ceiling"
+            exit 1
+          fi

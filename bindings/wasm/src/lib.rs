@@ -10,6 +10,8 @@
 //! a removed node can still be read, and put back.
 
 mod units;
+#[cfg(feature = "xml")]
+mod xml;
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
@@ -20,6 +22,8 @@ use parsec_encoding::{Confidence, Encoding};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
 use units::Units;
 use wasm_bindgen::prelude::*;
+#[cfg(feature = "xml")]
+pub use xml::{XmlAttribute, XmlDocument, XmlNode, XmlParseOptions, parse_xml, parse_xml_bytes};
 
 type Shared = Rc<Tree>;
 
@@ -162,7 +166,8 @@ export interface SelectOptions {
 
 /**
  * What `xpath()` gives: an array for a node-set (attributes as their
- * values), or a string, a number or a boolean.
+ * values, namespace nodes as their URIs), or a string, a number or a
+ * boolean.
  */
 export type XPathResult = (Node | string)[] | string | number | boolean;
 "#;
@@ -673,14 +678,16 @@ impl Node {
 
     /// Runs an XPath 1.0 expression with this node as the context. A
     /// node-set comes back as an array in document order, with attributes
-    /// as their values; names match lowercase, as lxml matches HTML.
+    /// as their values and namespace nodes as their URIs; names match
+    /// lowercase, as lxml matches HTML.
     #[wasm_bindgen(unchecked_return_type = "XPathResult")]
     pub fn xpath(&self, expr: &str) -> Result<JsValue, JsError> {
         let compiled = XPath::new(expr).map_err(|e| JsError::new(&e.to_string()))?;
         let index = self.doc.index();
         let doc = self.doc.borrow();
+        let view = Doc::html(&doc, &index);
         let value = compiled
-            .evaluate(Doc::html(&doc, &index), self.id, &[], &[], &NoExtensions)
+            .evaluate(view, self.id, &[], &[], &NoExtensions)
             .map_err(|e| JsError::new(&e.to_string()))?;
         Ok(match value {
             Value::Nodes(items) => items
@@ -693,6 +700,7 @@ impl Node {
                     Item::Attr { owner, index, .. } => {
                         JsValue::from_str(attr_value(&doc, owner, index))
                     }
+                    Item::Ns { decl, .. } => JsValue::from_str(view.namespace_at(decl).1),
                 })
                 .collect::<Vec<_>>()
                 .into(),
