@@ -79,7 +79,7 @@ use crate::pages::Rng;
 
 pub const SEED: u64 = 20_261_119;
 /// How long one page may take before it counts as a timeout.
-const PAGE_LIMIT: Duration = Duration::from_secs(10);
+pub(crate) const PAGE_LIMIT: Duration = Duration::from_secs(10);
 /// The exit status a child uses when a page passed PAGE_LIMIT.
 const TIMED_OUT: i32 = 124;
 /// The load average to wait for before a run, and for how long in all.
@@ -824,7 +824,7 @@ fn children_peak_rss() -> u64 {
     }
 }
 
-fn load_average() -> f64 {
+pub(crate) fn load_average() -> f64 {
     let mut loads = [0.0f64; 3];
     // SAFETY: room for the three averages asked for.
     let got = unsafe { getloadavg(loads.as_mut_ptr(), 3) };
@@ -840,12 +840,27 @@ fn tool_run(args: &[String]) {
     let batch = Batch::from_args(&args[1..]);
     let plan = &batch.plan();
     let corpus = &Corpus::load();
+    feed(&args[0], batch.pages, &|i| {
+        let page = input(&batch, plan, corpus, i);
+        (page.bytes, page.transport.map(str::to_string))
+    });
+}
+
+/// Feeds pages `0..pages`, each as `page` gives its bytes and transport
+/// label, to `boss-worker <tool>` processes, starting a new worker after
+/// a crash or timeout, and prints their lines, `crash <page> <status>` for
+/// a crash, and last `rss <bytes>`.
+pub(crate) fn feed(
+    tool: &str,
+    pages: usize,
+    page: &(dyn Fn(usize) -> (Vec<u8>, Option<String>) + Sync),
+) {
     let mut next = 0;
     let mut out = std::io::stdout();
-    while next < batch.pages {
+    while next < pages {
         let mut child = Command::new(std::env::current_exe().unwrap())
             .arg("boss-worker")
-            .arg(&args[0])
+            .arg(tool)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -855,17 +870,17 @@ fn tool_run(args: &[String]) {
         let from = next;
         std::thread::scope(|s| {
             s.spawn(move || {
-                for i in from..batch.pages {
-                    let page = input(&batch, plan, corpus, i);
+                for i in from..pages {
+                    let (bytes, transport) = page(i);
                     let header = format!(
                         "{i} {} {}\n",
-                        page.bytes.len(),
-                        page.transport.unwrap_or("-")
+                        bytes.len(),
+                        transport.as_deref().unwrap_or("-")
                     );
                     // A worker that died stops taking pages; the loop below
                     // sees it end.
                     if stdin.write_all(header.as_bytes()).is_err()
-                        || stdin.write_all(&page.bytes).is_err()
+                        || stdin.write_all(&bytes).is_err()
                     {
                         return;
                     }
@@ -892,7 +907,7 @@ fn tool_run(args: &[String]) {
 
 /// How one page went for one tool in one run.
 #[derive(Clone, Copy)]
-enum Outcome {
+pub(crate) enum Outcome {
     Parsed { secs: f64, elements: usize },
     Refused { secs: f64 },
     TimedOut,
@@ -900,7 +915,7 @@ enum Outcome {
 }
 
 impl Outcome {
-    fn secs(&self) -> f64 {
+    pub(crate) fn secs(&self) -> f64 {
         match *self {
             Outcome::Parsed { secs, .. } | Outcome::Refused { secs } => secs,
             // A timeout counts as the limit; a crash, as nothing.
@@ -916,27 +931,27 @@ struct Run {
     load: f64,
 }
 
-/// Waits until the one-minute load is under QUIET or `deadline` passes,
-/// and returns the load it starts at.
-fn wait_for_quiet(deadline: Instant) -> f64 {
+/// Waits until the one-minute load is under `quiet` or `deadline`
+/// passes, and returns the load it starts at.
+pub(crate) fn wait_for_quiet(quiet: f64, deadline: Instant) -> f64 {
     loop {
         let load = load_average();
-        if load < QUIET || Instant::now() >= deadline {
+        if load < quiet || Instant::now() >= deadline {
             return load;
         }
         std::thread::sleep(Duration::from_secs(20));
     }
 }
 
-fn measure(tool: usize, batch: &Batch) -> (Vec<Outcome>, u64, Vec<String>) {
+/// Runs this program with `args`, a process that `feed`s `pages` pages,
+/// and returns how each went, the peak RSS and the crashes and timeouts.
+pub(crate) fn measure(args: &[String], pages: usize) -> (Vec<Outcome>, u64, Vec<String>) {
     let mut child = Command::new(std::env::current_exe().unwrap())
-        .arg("boss-tool")
-        .arg(tool.to_string())
-        .args(batch.args())
+        .args(args)
         .stdout(Stdio::piped())
         .spawn()
         .expect("couldn't start a run");
-    let mut pages = vec![Outcome::Crashed; batch.pages];
+    let mut pages = vec![Outcome::Crashed; pages];
     let mut rss = 0;
     let mut events = Vec::new();
     for line in BufReader::new(child.stdout.take().unwrap()).lines() {
@@ -964,7 +979,7 @@ fn measure(tool: usize, batch: &Batch) -> (Vec<Outcome>, u64, Vec<String>) {
     (pages, rss, events)
 }
 
-fn median(mut v: Vec<f64>) -> f64 {
+pub(crate) fn median(mut v: Vec<f64>) -> f64 {
     v.sort_by(f64::total_cmp);
     v[v.len() / 2]
 }
@@ -1085,9 +1100,13 @@ pub fn run(args: &[String]) {
             let load = if smoke || gate || now {
                 load_average()
             } else {
-                wait_for_quiet(deadline)
+                wait_for_quiet(QUIET, deadline)
             };
-            let (pages, rss, ev) = measure(tool, &batch);
+            let args = [
+                vec!["boss-tool".to_string(), tool.to_string()],
+                batch.args().to_vec(),
+            ];
+            let (pages, rss, ev) = measure(&args.concat(), batch.pages);
             println!(
                 "  run {} {:<10} load {load:.2} at start, {:.1} s",
                 r + 1,

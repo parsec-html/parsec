@@ -226,3 +226,58 @@ fn a_script_has_no_records() {
     let ast = parse(src, &Options::default()).unwrap();
     assert_eq!(ModuleRecord::new(&ast, src), ModuleRecord::default());
 }
+
+#[test]
+fn two_lone_surrogates_are_two_requests() {
+    let r = record(r#"import "\uD800"; import "\uD801"; import "\uD800";"#);
+    assert_eq!(r.requested_modules.len(), 2);
+    assert_eq!(r.import_entries.len(), 0);
+}
+
+fn best_of_three(f: impl Fn()) -> std::time::Duration {
+    (0..3)
+        .map(|_| {
+            let t = std::time::Instant::now();
+            f();
+            t.elapsed()
+        })
+        .min()
+        .unwrap()
+}
+
+/// Builds the record for n and 10n of `make`'s input, parse excluded,
+/// and fails if 10x the input takes 35x the time.
+fn assert_linear(what: &str, make: impl Fn(usize) -> String) {
+    let options = Options {
+        source_type: SourceType::Module,
+        ..Options::default()
+    };
+    let (small, big) = (make(5_000), make(50_000));
+    let (a, b) = (
+        parse(&small, &options).unwrap(),
+        parse(&big, &options).unwrap(),
+    );
+    let ts = best_of_three(|| drop(ModuleRecord::new(&a, &small)));
+    let tb = best_of_three(|| drop(ModuleRecord::new(&b, &big)));
+    let ratio = tb.as_secs_f64() / ts.as_secs_f64().max(1e-6);
+    assert!(
+        ratio < 35.0,
+        "{what}: 10x the input took {ratio:.1}x the time ({ts:?}, {tb:?})"
+    );
+}
+
+#[test]
+fn many_requests_and_exports_stay_linear() {
+    let lines = |n: usize, f: &dyn Fn(usize) -> String| (0..n).map(f).collect::<String>();
+    assert_linear("distinct imports", |n| {
+        lines(n, &|i| format!("import a{i} from 'm{i}';\n"))
+    });
+    assert_linear("export * from distinct", |n| {
+        lines(n, &|i| format!("export * from 'm{i}';\n"))
+    });
+    assert_linear("imports and local exports", |n| {
+        lines(n, &|i| {
+            format!("import a{i} from 'm{i}';\nexport {{ a{i} }};\n")
+        })
+    });
+}

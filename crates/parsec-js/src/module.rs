@@ -38,6 +38,8 @@
 //! `"\uD800"`, has U+FFFD in its place. Export and import names can't
 //! have one; the parser rejects them.
 
+use std::collections::HashMap;
+
 use parsec_base::Span;
 
 use crate::ast::{Ast, Node, NodeId};
@@ -124,6 +126,7 @@ impl ModuleRecord {
     /// The records for `ast`, parsed from `src`. A script's are empty.
     pub fn new(ast: &Ast, src: &str) -> ModuleRecord {
         let mut record = ModuleRecord::default();
+        let mut requests = Requests::new();
         let Node::Program { body, .. } = *ast.node(ast.root()) else {
             unreachable!("the root is a program")
         };
@@ -135,7 +138,7 @@ impl ModuleRecord {
                     source,
                     attributes,
                 } => {
-                    let request = record.request(ast, src, source, attributes);
+                    let request = record.request(&mut requests, ast, src, source, attributes);
                     for &spec in ast.get(specifiers) {
                         let (import_name, local) = match *ast.node(spec) {
                             Node::ImportSpecifier { imported, local } => {
@@ -172,7 +175,8 @@ impl ModuleRecord {
                     source,
                     attributes,
                 } => {
-                    let request = source.map(|s| record.request(ast, src, s, attributes));
+                    let request =
+                        source.map(|s| record.request(&mut requests, ast, src, s, attributes));
                     for &spec in ast.get(specifiers) {
                         let Node::ExportSpecifier { local, exported } = *ast.node(spec) else {
                             continue;
@@ -209,7 +213,7 @@ impl ModuleRecord {
                     source,
                     attributes,
                 } => {
-                    let request = record.request(ast, src, source, attributes);
+                    let request = record.request(&mut requests, ast, src, source, attributes);
                     let export_name = exported.map(|e| export_name(ast, src, e));
                     let import_name = if export_name.is_some() {
                         ExportImportName::All
@@ -227,14 +231,20 @@ impl ModuleRecord {
                 _ => {}
             }
         }
+        // Early errors allow each local name to be imported once, so the
+        // first entry is the only one.
+        let mut by_local: HashMap<&str, usize> = HashMap::new();
+        for (i, ie) in record.import_entries.iter().enumerate() {
+            by_local.entry(ie.local_name.as_str()).or_insert(i);
+        }
         for ee in exports {
             match (&ee.module_request, &ee.import_name) {
                 (None, _) => {
-                    let local = ee.local_name.as_deref();
-                    let imported = record
-                        .import_entries
-                        .iter()
-                        .find(|ie| Some(ie.local_name.as_str()) == local);
+                    let imported = ee
+                        .local_name
+                        .as_deref()
+                        .and_then(|l| by_local.get(l))
+                        .map(|&i| &record.import_entries[i]);
                     match imported {
                         None
                         | Some(ImportEntry {
@@ -269,38 +279,45 @@ impl ModuleRecord {
     /// it's new.
     fn request(
         &mut self,
+        requests: &mut Requests,
         ast: &Ast,
         src: &str,
         source: NodeId,
         attributes: crate::ast::List,
     ) -> usize {
-        let specifier = string(ast, src, source);
-        let mut attrs: Vec<(Vec<u16>, String, String)> = ast
+        let mut attrs: Vec<(Vec<u16>, Vec<u16>)> = ast
             .get(attributes)
             .iter()
             .filter_map(|&a| match *ast.node(a) {
                 Node::ImportAttribute { key, value } => {
-                    let key = export_name(ast, src, key);
-                    Some((key.encode_utf16().collect(), key, string(ast, src, value)))
+                    let key = match ast.node(key) {
+                        Node::Literal(_) => string_units(ast, src, key),
+                        _ => name(ast, src, key).encode_utf16().collect(),
+                    };
+                    Some((key, string_units(ast, src, value)))
                 }
                 _ => None,
             })
             .collect();
         attrs.sort();
-        let attributes: Vec<(String, String)> = attrs.into_iter().map(|(_, k, v)| (k, v)).collect();
-        if let Some(i) = self
-            .requested_modules
-            .iter()
-            .position(|m| m.specifier == specifier && m.attributes == attributes)
-        {
+        // Compared as UTF-16, so two lone surrogates that both read as
+        // U+FFFD stay two requests.
+        let key = (string_units(ast, src, source), attrs);
+        if let Some(&i) = requests.get(&key) {
             return i;
         }
+        let (specifier, attrs) = &key;
         self.requested_modules.push(ModuleRequest {
-            specifier,
-            attributes,
+            specifier: String::from_utf16_lossy(specifier),
+            attributes: attrs
+                .iter()
+                .map(|(k, v)| (String::from_utf16_lossy(k), String::from_utf16_lossy(v)))
+                .collect(),
             span: ast.span(source),
         });
-        self.requested_modules.len() - 1
+        let i = self.requested_modules.len() - 1;
+        requests.insert(key, i);
+        i
     }
 }
 
@@ -320,10 +337,18 @@ fn name(ast: &Ast, src: &str, id: NodeId) -> String {
 }
 
 /// A string literal's value.
+/// A request's specifier and sorted attributes, as UTF-16, to its index.
+type Requests = HashMap<(Vec<u16>, Vec<(Vec<u16>, Vec<u16>)>), usize>;
+
 fn string(ast: &Ast, src: &str, id: NodeId) -> String {
+    String::from_utf16_lossy(&string_units(ast, src, id))
+}
+
+/// A string literal's value, as the UTF-16 code units the spec compares.
+fn string_units(ast: &Ast, src: &str, id: NodeId) -> Vec<u16> {
     let span = ast.span(id);
     let body = Span::new(span.start + 1, span.end - 1).text(src);
-    String::from_utf16_lossy(&text::string_value(body))
+    text::string_value(body)
 }
 
 /// A ModuleExportName: an identifier name or a string.
