@@ -32,6 +32,11 @@
 //! [`early_errors`] gives the early errors the parser leaves for a later
 //! pass: those two, and an export of a name a module never declares.
 //!
+//! Every error is a [`Diagnostic`] with a stable code, listed with the
+//! rule it breaks in [`diagnostics`], and labels on the other places it
+//! involves. [`parse_recovering`] goes on after an error to find the
+//! rest, and [`Diagnostic::render`] prints one as a code frame.
+//!
 //! [`module`] has a module's import and export records, the spec's
 //! ImportEntry and ExportEntry, for building a module graph.
 //!
@@ -72,6 +77,7 @@
 
 pub mod ast;
 pub mod data;
+pub mod diagnostics;
 pub mod early;
 mod estree;
 mod lexer;
@@ -87,6 +93,6 @@ pub use ast::{Ast, Comment, CommentKind, List, Node, NodeId};
 pub use early::{early_errors, early_errors_in};
 pub use estree::EstreeOptions;
 pub use lexer::{Goal, Lexer, SourceType};
-pub use parsec_base::{Diagnostic, Limits, LineIndex, Severity, Span};
-pub use parser::{DEFAULT_MAX_DEPTH, Options, parse, parse_script};
+pub use parsec_base::{Diagnostic, Label, Limits, LineIndex, RenderOptions, Severity, Span};
+pub use parser::{DEFAULT_MAX_DEPTH, Options, parse, parse_recovering, parse_script};
 pub use token::{Flags, Keyword, Kind, Punct, Token};

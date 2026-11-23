@@ -5,23 +5,25 @@
 //! function declarations as `if` bodies and labelled items in sloppy
 //! code.
 
-use parsec_base::Span;
+use parsec_base::{Diagnostic, Span};
 
-use super::{Label, Parser, R};
+use super::{Ctx, Label, Parser, R, Stop};
 use crate::ast::{FunctionKind, Node, NodeId, VarKind};
 use crate::token::{Flags, Keyword, Kind, Punct};
 
 impl Parser<'_> {
     /// StatementListItems into the scratch list, up to a `}` or the end,
     /// which it leaves. With `prologue`, the directive prologue first;
-    /// whether it held `"use strict"`.
-    pub(super) fn statement_list(&mut self, prologue: bool) -> R<bool> {
-        let mut use_strict = false;
+    /// where it said `"use strict"`, if it did.
+    pub(super) fn statement_list(&mut self, prologue: bool) -> R<Option<Span>> {
+        let mut use_strict = None;
         let mut octal: Option<Span> = None;
         if prologue {
             while self.tok.kind == Kind::String {
                 let t = self.tok;
-                let item = self.statement_list_item()?;
+                let Some(item) = self.list_item()? else {
+                    break;
+                };
                 self.scratch.push(item);
                 let Node::Expression { expression, .. } = self.node(item) else {
                     break;
@@ -38,14 +40,17 @@ impl Parser<'_> {
                 }
                 let raw = &self.src[t.span.start as usize + 1..t.span.end as usize - 1];
                 if raw == "use strict" {
-                    use_strict = true;
+                    use_strict = Some(t.span);
                     if !self.ctx.strict {
                         self.ctx.strict = true;
                         if let Some(span) = octal {
-                            return self.err(
-                                "legacy-octal-in-strict",
-                                span,
-                                "legacy octal escapes aren't allowed in strict code",
+                            return self.fail(
+                                Diagnostic::error(
+                                    "legacy-octal-in-strict",
+                                    span,
+                                    "legacy octal escapes aren't allowed in strict code",
+                                )
+                                .with_label(t.span, "this makes the code strict"),
                             );
                         }
                     }
@@ -53,10 +58,158 @@ impl Parser<'_> {
             }
         }
         while !self.at(Punct::RBrace) && self.tok.kind != Kind::Eof {
-            let item = self.statement_list_item()?;
-            self.scratch.push(item);
+            if let Some(item) = self.list_item()? {
+                self.scratch.push(item);
+            }
         }
         Ok(use_strict)
+    }
+
+    /// A StatementListItem, or when recovering from an error in it,
+    /// `None`, the error kept and the tokens up to the next statement
+    /// skipped.
+    fn list_item(&mut self) -> R<Option<NodeId>> {
+        if !self.recover {
+            return self.statement_list_item().map(Some);
+        }
+        let saved = Saved {
+            ctx: self.ctx,
+            depth: self.depth,
+            scratch: self.scratch.len(),
+            labels: self.labels.len(),
+            if_chain: self.if_chain.len(),
+            pending: self.pending.len(),
+            classes: self.classes.len(),
+            start: self.tok.span.start,
+        };
+        match self.statement_list_item() {
+            Ok(item) => Ok(Some(item)),
+            Err(Stop) => {
+                self.recover_from(saved)?;
+                Ok(None)
+            }
+        }
+    }
+
+    /// Keeps the error that stopped a statement, puts the parser back as
+    /// it was before it, and skips to where the next statement starts.
+    /// An error from a limit stops the parse.
+    #[cold]
+    #[inline(never)]
+    fn recover_from(&mut self, saved: Saved) -> R<()> {
+        let d = self.error.take().expect("a stop has a diagnostic");
+        if matches!(d.code, "too-deep" | "step-budget" | "input-too-large") {
+            return self.fail(d);
+        }
+        self.errors.push(d);
+        self.ctx = saved.ctx;
+        self.depth = saved.depth;
+        self.scratch.truncate(saved.scratch);
+        self.labels.truncate(saved.labels);
+        self.if_chain.truncate(saved.if_chain);
+        self.pending.truncate(saved.pending);
+        self.classes.truncate(saved.classes);
+        self.label_chain = None;
+        self.label_candidate = None;
+        self.in_body = false;
+        // Whatever comes next, a statement that took no token gets one
+        // skipped, so the same error isn't found again.
+        let mut first = self.tok.span.start == saved.start;
+        // The `{` and template substitutions open: those the statement
+        // opened before its error, read again, and those met while
+        // skipping. Inside them, nothing ends the statement.
+        let mut open: Vec<Kind> = Vec::new();
+        let mut last = Kind::Eof;
+        let mut lexer = self.lexer.starting_at(saved.start, false);
+        loop {
+            let t = lexer.next_token(crate::lexer::Goal::Div);
+            if t.kind == Kind::Eof || t.span.start >= self.tok.span.start {
+                break;
+            }
+            if self.budget.spend(1).is_err() {
+                return self.err(
+                    "step-budget",
+                    t.span,
+                    "the parse used up its step budget here",
+                );
+            }
+            if !t.is_trivia() {
+                let t = match t.kind {
+                    Kind::Punct(Punct::RBrace) if open.last() == Some(&Kind::TemplateHead) => {
+                        lexer.rescan(t, crate::lexer::Goal::TemplateTail)
+                    }
+                    Kind::Punct(Punct::Slash | Punct::SlashEq) if regexp_after(last) => {
+                        lexer.rescan(t, crate::lexer::Goal::RegExp)
+                    }
+                    _ => t,
+                };
+                track(&mut open, t.kind);
+                last = t.kind;
+            }
+        }
+        loop {
+            let t = self.tok;
+            match t.kind {
+                Kind::Eof => return Ok(()),
+                _ if first => {}
+                Kind::Punct(Punct::Semicolon) if open.is_empty() => {
+                    self.skip_token()?;
+                    return Ok(());
+                }
+                Kind::Punct(Punct::RBrace) if open.is_empty() => return Ok(()),
+                Kind::Keyword(k)
+                    if open.is_empty() && t.newline_before() && starts_statement(k) =>
+                {
+                    return Ok(());
+                }
+                _ => {}
+            }
+            first = false;
+            match t.kind {
+                Kind::Punct(Punct::RBrace)
+                    if open.last() == Some(&Kind::TemplateHead) && self.rescannable(t) =>
+                {
+                    self.tok = self.lexer.rescan(t, crate::lexer::Goal::TemplateTail);
+                }
+                Kind::Punct(Punct::Slash | Punct::SlashEq)
+                    if regexp_after(last) && self.rescannable(t) =>
+                {
+                    self.tok = self.lexer.rescan(t, crate::lexer::Goal::RegExp);
+                }
+                _ => {}
+            }
+            track(&mut open, self.tok.kind);
+            last = self.tok.kind;
+            self.skip_token()?;
+        }
+    }
+
+    /// Whether `t` is the last token the lexer read, which an error can
+    /// leave it not to be.
+    fn rescannable(&self, t: crate::token::Token) -> bool {
+        self.lexer.position() == t.span.end
+    }
+
+    /// The token being looked at, skipped while recovering, with the
+    /// comments after it. The lexer's errors in what's skipped are left
+    /// out, since they'd only follow from reading it wrong.
+    pub(super) fn skip_token(&mut self) -> R<()> {
+        let t = self.tok;
+        if self.budget.spend(1).is_err() {
+            return self.err(
+                "step-budget",
+                t.span,
+                "the parse used up its step budget here",
+            );
+        }
+        self.prev_end = t.span.end;
+        let mut next = self.lexer.next_token(crate::lexer::Goal::Div);
+        while next.is_trivia() {
+            next = self.lexer.next_token(crate::lexer::Goal::Div);
+        }
+        self.seen = self.lexer.diagnostics().len();
+        self.tok = next;
+        Ok(())
     }
 
     /// Whether a `let` being looked at starts a lexical declaration: it
@@ -134,9 +287,9 @@ impl Parser<'_> {
                     Keyword::For => self.for_statement()?,
                     Keyword::While => {
                         self.bump()?;
-                        self.expect(Punct::LParen)?;
+                        let open = self.expect(Punct::LParen)?;
                         let test = self.expression(false)?;
-                        self.expect(Punct::RParen)?;
+                        self.expect_in(Punct::RParen, open)?;
                         let body = self.loop_body()?;
                         self.finish(start, Node::While { test, body })
                     }
@@ -144,9 +297,9 @@ impl Parser<'_> {
                         self.bump()?;
                         let body = self.loop_body()?;
                         self.expect_kw(Keyword::While)?;
-                        self.expect(Punct::LParen)?;
+                        let open = self.expect(Punct::LParen)?;
                         let test = self.expression(false)?;
-                        self.expect(Punct::RParen)?;
+                        self.expect_in(Punct::RParen, open)?;
                         // A semicolon is always inserted after a do-while.
                         self.eat(Punct::Semicolon)?;
                         self.finish(start, Node::DoWhile { body, test })
@@ -178,22 +331,25 @@ impl Parser<'_> {
                     return self.err("with-in-strict", span, "strict code can't use `with`");
                 }
                 self.bump()?;
-                self.expect(Punct::LParen)?;
+                let open = self.expect(Punct::LParen)?;
                 let object = self.expression(false)?;
-                self.expect(Punct::RParen)?;
+                self.expect_in(Punct::RParen, open)?;
                 self.in_body = true;
                 let body = self.statement()?;
                 self.finish(start, Node::With { object, body })
             }
             Kind::Keyword(Keyword::Switch) => self.switch_statement()?,
             Kind::Keyword(Keyword::Throw) => {
-                self.bump()?;
+                let throw = self.bump()?;
                 if self.tok.newline_before() {
                     let span = self.tok.span;
-                    return self.err(
-                        "newline-after-throw",
-                        span,
-                        "a `throw` and its expression have to be on the same line",
+                    return self.fail(
+                        Diagnostic::error(
+                            "newline-after-throw",
+                            span,
+                            "a `throw` and its expression have to be on the same line",
+                        )
+                        .with_label(throw.span, "the line ends after this `throw`"),
                     );
                 }
                 let argument = self.expression(false)?;
@@ -260,20 +416,25 @@ impl Parser<'_> {
     ) -> R<NodeId> {
         let span = self.span(label);
         let name = self.name(span).into_owned();
-        if self.labels[self.ctx.labels..]
+        if let Some(first) = self.labels[self.ctx.labels..]
             .iter()
-            .any(|l| l.name == name)
+            .find(|l| l.name == name)
         {
-            return self.err(
-                "duplicate-label",
-                span,
-                format!("the label `{name}` is already in use here"),
+            let first = first.span;
+            return self.fail(
+                Diagnostic::error(
+                    "duplicate-label",
+                    span,
+                    format!("the label `{name}` is already in use here"),
+                )
+                .with_label(first, "the label is defined here"),
             );
         }
         self.bump()?;
         self.label_chain = Some(chain.unwrap_or(self.labels.len()));
         self.labels.push(Label {
             name,
+            span,
             is_loop: false,
         });
         let body = if self.at_kw(Keyword::Function) {
@@ -305,11 +466,15 @@ impl Parser<'_> {
                 .find(|l| l.name == name);
             match found {
                 Some(l) if is_break || l.is_loop => {}
-                Some(_) => {
-                    return self.err(
-                        "continue-not-loop",
-                        span,
-                        format!("`continue {name}` needs `{name}` to label a loop"),
+                Some(l) => {
+                    let defined = l.span;
+                    return self.fail(
+                        Diagnostic::error(
+                            "continue-not-loop",
+                            span,
+                            format!("`continue {name}` needs `{name}` to label a loop"),
+                        )
+                        .with_label(defined, "the label is defined here, not on a loop"),
                     );
                 }
                 None => {
@@ -353,10 +518,10 @@ impl Parser<'_> {
 
     pub(super) fn block(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
-        self.expect(Punct::LBrace)?;
+        let open = self.expect(Punct::LBrace)?;
         let mark = self.scratch.len();
         self.statement_list(false)?;
-        self.expect(Punct::RBrace)?;
+        self.expect_in(Punct::RBrace, open)?;
         let body = self.take_list(mark);
         Ok(self.finish(start, Node::Block { body }))
     }
@@ -367,9 +532,9 @@ impl Parser<'_> {
         let alternate = loop {
             let start = self.tok.span.start;
             self.expect_kw(Keyword::If)?;
-            self.expect(Punct::LParen)?;
+            let open = self.expect(Punct::LParen)?;
             let test = self.expression(false)?;
-            self.expect(Punct::RParen)?;
+            self.expect_in(Punct::RParen, open)?;
             let consequent = self.if_body()?;
             self.if_chain.push((start, test, consequent));
             if !self.at_kw(Keyword::Else) {
@@ -518,7 +683,7 @@ impl Parser<'_> {
             self.bump()?;
             is_await = true;
         }
-        self.expect(Punct::LParen)?;
+        let open = self.expect(Punct::LParen)?;
         let first = self.tok;
         let mut decl = None;
         let mut cover_mark = None;
@@ -611,7 +776,7 @@ impl Parser<'_> {
             } else {
                 self.expression(false)?
             };
-            self.expect(Punct::RParen)?;
+            self.expect_in(Punct::RParen, open)?;
             let body = self.loop_body()?;
             let node = if of {
                 Node::ForOf {
@@ -653,7 +818,7 @@ impl Parser<'_> {
         } else {
             Some(self.expression(false)?)
         };
-        self.expect(Punct::RParen)?;
+        self.expect_in(Punct::RParen, open)?;
         let body = self.loop_body()?;
         Ok(self.finish(
             start,
@@ -669,28 +834,31 @@ impl Parser<'_> {
     fn switch_statement(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
         self.bump()?;
-        self.expect(Punct::LParen)?;
+        let open = self.expect(Punct::LParen)?;
         let discriminant = self.expression(false)?;
-        self.expect(Punct::RParen)?;
+        self.expect_in(Punct::RParen, open)?;
         self.expect(Punct::LBrace)?;
         self.ctx.breakable += 1;
         let mark = self.scratch.len();
-        let mut default = false;
+        let mut default: Option<Span> = None;
         while !self.at(Punct::RBrace) {
             let cstart = self.tok.span.start;
             let test = if self.at_kw(Keyword::Case) {
                 self.bump()?;
                 Some(self.expression(false)?)
             } else if self.at_kw(Keyword::Default) {
-                if default {
-                    let span = self.tok.span;
-                    return self.err(
-                        "duplicate-default",
-                        span,
-                        "a switch can have only one `default`",
+                let span = self.tok.span;
+                if let Some(first) = default {
+                    return self.fail(
+                        Diagnostic::error(
+                            "duplicate-default",
+                            span,
+                            "a switch can have only one `default`",
+                        )
+                        .with_label(first, "the first `default`"),
                     );
                 }
-                default = true;
+                default = Some(span);
                 self.bump()?;
                 None
             } else {
@@ -729,10 +897,11 @@ impl Parser<'_> {
         let handler = if self.at_kw(Keyword::Catch) {
             let cstart = self.tok.span.start;
             self.bump()?;
-            let param = if self.eat(Punct::LParen)? {
+            let param = if self.at(Punct::LParen) {
+                let open = self.bump()?;
                 let p = self.binding_target()?;
                 self.check_duplicates(&[p])?;
-                self.expect(Punct::RParen)?;
+                self.expect_in(Punct::RParen, open)?;
                 Some(p)
             } else {
                 None
@@ -759,5 +928,76 @@ impl Parser<'_> {
                 finalizer,
             },
         ))
+    }
+}
+
+/// What [`Parser::list_item`] puts back after an error.
+struct Saved {
+    ctx: Ctx,
+    depth: u32,
+    scratch: usize,
+    labels: usize,
+    if_chain: usize,
+    pending: usize,
+    classes: usize,
+    /// Where the statement started.
+    start: u32,
+}
+
+/// The braces and template substitutions open, after a token of kind
+/// `kind`. Parentheses and brackets aren't counted: one left open by a
+/// typo would hide every statement after it.
+fn track(open: &mut Vec<Kind>, kind: Kind) {
+    match kind {
+        Kind::Punct(Punct::LBrace) | Kind::TemplateHead => open.push(kind),
+        Kind::Punct(Punct::RBrace) | Kind::TemplateTail => {
+            open.pop();
+        }
+        _ => {}
+    }
+}
+
+/// Keywords that start a statement, where skipping after an error stops
+/// when one starts a line.
+fn starts_statement(k: Keyword) -> bool {
+    matches!(
+        k,
+        Keyword::Var
+            | Keyword::Let
+            | Keyword::Const
+            | Keyword::Function
+            | Keyword::Class
+            | Keyword::If
+            | Keyword::For
+            | Keyword::While
+            | Keyword::Do
+            | Keyword::Return
+            | Keyword::Try
+            | Keyword::Throw
+            | Keyword::Switch
+            | Keyword::Break
+            | Keyword::Continue
+            | Keyword::Import
+            | Keyword::Export
+            | Keyword::Debugger
+            | Keyword::With
+    )
+}
+
+/// Whether a `/` after a token of this kind, met while skipping, starts
+/// a regular expression: the guess the parser doesn't need to make
+/// elsewhere.
+fn regexp_after(kind: Kind) -> bool {
+    match kind {
+        Kind::Punct(p) => !matches!(p, Punct::RParen | Punct::RBracket | Punct::RBrace),
+        Kind::Keyword(k) => {
+            k.is_reserved()
+                && !matches!(
+                    k,
+                    Keyword::This | Keyword::Super | Keyword::Null | Keyword::True | Keyword::False
+                )
+        }
+        Kind::Eof | Kind::TemplateHead | Kind::TemplateMiddle => true,
+        _ => false,
     }
 }

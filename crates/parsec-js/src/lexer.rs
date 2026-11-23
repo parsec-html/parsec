@@ -151,6 +151,19 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// A lexer reading from byte `pos`, as from the start of a line when
+    /// `newline` says one is before it.
+    pub(crate) fn starting_at(&self, pos: u32, newline: bool) -> Lexer<'a> {
+        Lexer {
+            src: self.src,
+            pos: pos as usize,
+            source: self.source,
+            newline,
+            line_start: newline,
+            diagnostics: Vec::new(),
+        }
+    }
+
     /// The next token, read with `goal`. Comments and a hashbang come
     /// back as tokens too ([`Kind::is_trivia`]); whitespace and line
     /// terminators don't, but [`Token::newline_before`] says where a line

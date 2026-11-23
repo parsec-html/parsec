@@ -487,9 +487,9 @@ impl Parser<'_> {
                     }
                 }
                 Kind::Punct(Punct::LBracket) => {
-                    self.bump()?;
+                    let open = self.bump()?;
                     let property = self.expression(false)?;
-                    self.expect(Punct::RBracket)?;
+                    self.expect_in(Punct::RBracket, open)?;
                     e = self.finish(
                         start,
                         Node::Member {
@@ -552,7 +552,7 @@ impl Parser<'_> {
     /// `( arguments )`, and where a comma follows a spread last, for an
     /// async arrow's parameters. With `cover`, they may turn into those.
     pub(super) fn arguments(&mut self, cover: bool) -> R<(List, Option<Span>)> {
-        self.expect(Punct::LParen)?;
+        let open = self.expect(Punct::LParen)?;
         let mark = self.scratch.len();
         let mut comma_after_spread = None;
         while !self.at(Punct::RParen) {
@@ -568,13 +568,13 @@ impl Parser<'_> {
             }
             self.scratch.push(e);
             if !self.at(Punct::RParen) {
-                let comma = self.expect(Punct::Comma)?;
+                let comma = self.expect_in(Punct::Comma, open)?;
                 comma_after_spread = spread.then_some(comma.span);
             } else {
                 comma_after_spread = None;
             }
         }
-        self.expect(Punct::RParen)?;
+        self.expect_in(Punct::RParen, open)?;
         Ok((self.take_list(mark), comma_after_spread))
     }
 
@@ -714,7 +714,7 @@ impl Parser<'_> {
     /// `(`: a parenthesized expression, or an arrow's parameters.
     fn parenthesized(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
-        self.bump()?;
+        let open = self.bump()?;
         let mark = self.scratch.len();
         let mut only_arrow: Option<Span> = None;
         if self.at(Punct::RParen) {
@@ -733,13 +733,13 @@ impl Parser<'_> {
             let e = self.assign_cover(false)?;
             self.scratch.push(e);
             if !self.at(Punct::RParen) {
-                self.expect(Punct::Comma)?;
+                self.expect_in(Punct::Comma, open)?;
                 if self.at(Punct::RParen) {
                     only_arrow = Some(Span::at(self.prev_end - 1));
                 }
             }
         }
-        self.expect(Punct::RParen)?;
+        self.expect_in(Punct::RParen, open)?;
         if self.at(Punct::Arrow) && !self.tok.newline_before() {
             let params = self.take_list(mark);
             let simple = self.params_from_cover(params)?;
@@ -818,7 +818,7 @@ impl Parser<'_> {
 
     fn array(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
-        self.bump()?;
+        let open = self.bump()?;
         let mark = self.scratch.len();
         let mut comma_after_spread = false;
         while !self.at(Punct::RBracket) {
@@ -836,7 +836,7 @@ impl Parser<'_> {
             }
             self.scratch.push(e);
             if !self.at(Punct::RBracket) {
-                self.expect(Punct::Comma)?;
+                self.expect_in(Punct::Comma, open)?;
                 comma_after_spread |= spread;
             }
         }
@@ -853,7 +853,7 @@ impl Parser<'_> {
 
     fn object(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
-        self.bump()?;
+        let open = self.bump()?;
         let mark = self.scratch.len();
         let mut proto = false;
         let mut pending = Vec::new();
@@ -862,7 +862,7 @@ impl Parser<'_> {
             let p = self.property(&mut proto, &mut pending)?;
             self.scratch.push(p);
             if !self.at(Punct::RBrace) {
-                self.expect(Punct::Comma)?;
+                self.expect_in(Punct::Comma, open)?;
                 comma_after_spread |= matches!(self.node(p), Node::Spread { .. });
             }
         }

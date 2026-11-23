@@ -373,6 +373,15 @@ Errors with codes, labels and code frames, comments kept for tools, and
 reparsing only what an edit touched
 ([#165](https://github.com/parsec-html/parsec/issues/165)).
 
+- Done: diagnostics with codes, labels and code frames
+  ([#166](https://github.com/parsec-html/parsec/issues/166)). Every code
+  is in `parsec_js::diagnostics` with its spec section,
+  `Diagnostic::render` prints a code frame, and `parse_recovering`
+  reports every error in one parse. `cargo test` compares the frames
+  for 53 of test262's negatives with a committed snapshot.
+- Next: incremental reparsing
+  ([#167](https://github.com/parsec-html/parsec/issues/167)).
+
 ## M14. XML
 
 `parsec-xml`: XML 1.0 and Namespaces with XML's own rules. Non-validating,

@@ -16,9 +16,12 @@
 //! the expression reading has, like `{a = 1}` outside a pattern, wait in
 //! [`Parser::pending`] until it's known which reading it is.
 //!
-//! The first error ends the parse. Recursion is counted against a depth
-//! limit, and tokens against the step budget, so no input overflows the
-//! stack or runs past what it was allowed.
+//! The first error ends the parse, unless it's [`parse_recovering`]:
+//! then a statement that fails is skipped to where the next one starts,
+//! and the parse goes on to report more. Recursion is counted against a
+//! depth limit, and tokens against the step budget, so no input
+//! overflows the stack or runs past what it was allowed, recovering or
+//! not.
 
 mod expr;
 mod function;
@@ -27,7 +30,7 @@ mod pattern;
 mod stmt;
 
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use parsec_base::{Budget, Diagnostic, Limits, Severity, Span};
 
@@ -80,6 +83,29 @@ pub fn parse_script(src: &str) -> Result<Ast, Diagnostic> {
     parse(src, &Options::default())
 }
 
+/// Parses `src` as [`parse`] does, but goes on after a syntax error to
+/// find the rest: every error, in the order found, is the `Err`.
+///
+/// After an error the parser skips to where the next statement starts:
+/// past a `;`, to a `}` that closes the block it's in, or to a statement
+/// keyword at the start of a line. Errors after the first can follow
+/// from it, as with any compiler; the first is the one [`parse`] gives.
+/// A program with no errors parses to the same tree as with [`parse`].
+///
+/// ```
+/// use parsec_js::{Options, parse_recovering};
+///
+/// let src = "let a = ;\nlet b = 2;\nif (b { go() }\n";
+/// let errors = parse_recovering(src, &Options::default()).unwrap_err();
+/// let codes: Vec<_> = errors.iter().map(|d| (d.code, d.span.start)).collect();
+/// assert_eq!(codes, [("unexpected-token", 8), ("unexpected-token", 27)]);
+/// ```
+pub fn parse_recovering(src: &str, options: &Options) -> Result<Ast, Vec<Diagnostic>> {
+    let mut p = Parser::new(src, options);
+    p.recover = true;
+    p.parse_all()
+}
+
 /// The parse ended; the diagnostic is in [`Parser::error`].
 #[derive(Debug)]
 pub(crate) struct Stop;
@@ -111,9 +137,10 @@ pub(crate) struct Ctx {
     pub labels: usize,
 }
 
-/// A label in scope, and whether it labels a loop.
+/// A label in scope, where it is, and whether it labels a loop.
 struct Label {
     name: String,
+    span: Span,
     is_loop: bool,
 }
 
@@ -131,7 +158,7 @@ enum Private {
 /// it that might be declared later in it or in a class around it.
 #[derive(Default)]
 struct ClassScope {
-    declared: HashMap<String, (Private, bool)>,
+    declared: HashMap<String, (Private, bool, Span)>,
     used: Vec<(String, Span)>,
 }
 
@@ -152,6 +179,10 @@ pub(crate) struct Parser<'a> {
     /// The `if`s of `else if` chains being parsed, innermost at the end.
     if_chain: Vec<(u32, NodeId, NodeId)>,
     error: Option<Diagnostic>,
+    /// Going on after errors, for [`parse_recovering`], and the errors
+    /// found so far.
+    recover: bool,
+    errors: Vec<Diagnostic>,
     /// How many of the lexer's diagnostics have been looked at.
     seen: usize,
     module: bool,
@@ -175,8 +206,8 @@ pub(crate) struct Parser<'a> {
     /// is an error.
     pending: Vec<(NodeId, Span, &'static str)>,
     classes: Vec<ClassScope>,
-    /// The names a module exports so far.
-    exports: HashSet<String>,
+    /// The names a module exports so far, and where.
+    exports: HashMap<String, Span>,
     /// Where the last `yield` and `await` expressions, and the last
     /// `await` read as an identifier, started, for the parameter lists
     /// that may hold none of them.
@@ -210,6 +241,8 @@ impl<'a> Parser<'a> {
             sorted_names: Vec::new(),
             if_chain: Vec::new(),
             error: None,
+            recover: false,
+            errors: Vec::new(),
             seen: 0,
             module,
             ctx: Ctx {
@@ -226,7 +259,7 @@ impl<'a> Parser<'a> {
             in_body: false,
             pending: Vec::new(),
             classes: Vec::new(),
-            exports: HashSet::new(),
+            exports: HashMap::new(),
             last_yield: None,
             last_await: None,
             last_await_ident: None,
@@ -248,6 +281,26 @@ impl<'a> Parser<'a> {
         Ok(ast)
     }
 
+    /// The parse for [`parse_recovering`].
+    fn parse_all(mut self) -> Result<Ast, Vec<Diagnostic>> {
+        let result = self.program();
+        let mut errors = std::mem::take(&mut self.errors);
+        if let Err(Stop) = result {
+            errors.extend(self.error.take());
+        }
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        let mut ast = self.ast;
+        ast.warnings = self
+            .lexer
+            .take_diagnostics()
+            .into_iter()
+            .filter(|d| d.severity == Severity::Warning)
+            .collect();
+        Ok(ast)
+    }
+
     fn program(&mut self) -> R<()> {
         // A lexer that refused the input has said why.
         if let Some(d) = self.lexer.diagnostics().first() {
@@ -256,6 +309,13 @@ impl<'a> Parser<'a> {
         self.tok = self.next_token()?;
         let mark = self.scratch.len();
         self.statement_list(true)?;
+        // Recovering, a `}` with nothing to close is one more error.
+        while self.recover && self.at(Punct::RBrace) {
+            let d = self.unexpected_diagnostic();
+            self.errors.push(d);
+            self.skip_token()?;
+            self.statement_list(false)?;
+        }
         if self.tok.kind != Kind::Eof {
             return self.unexpected();
         }
@@ -293,9 +353,14 @@ impl<'a> Parser<'a> {
 
     /// An error at the token being looked at, which nothing here expects.
     fn unexpected<T>(&mut self) -> R<T> {
+        let d = self.unexpected_diagnostic();
+        self.fail(d)
+    }
+
+    fn unexpected_diagnostic(&self) -> Diagnostic {
         let t = self.tok;
         if t.kind == Kind::Eof {
-            return self.err(
+            return Diagnostic::error(
                 "unexpected-end",
                 t.span,
                 "the input ends in the middle of something",
@@ -303,11 +368,32 @@ impl<'a> Parser<'a> {
         }
         let text = t.text(self.src);
         let shown: String = text.chars().take(40).collect();
-        self.err(
+        Diagnostic::error(
             "unexpected-token",
             t.span,
             format!("`{shown}` can't go here"),
         )
+    }
+
+    /// `p`, inside the bracket `open` opened: an error here points back
+    /// at it.
+    fn expect_in(&mut self, p: Punct, open: Token) -> R<Token> {
+        if self.at(p) {
+            return self.bump();
+        }
+        self.unclosed(open)
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn unclosed<T>(&mut self, open: Token) -> R<T> {
+        let what = match open.kind {
+            Kind::Punct(Punct::LParen) => "this `(` is still open",
+            Kind::Punct(Punct::LBracket) => "this `[` is still open",
+            _ => "this `{` is still open",
+        };
+        let d = self.unexpected_diagnostic().with_label(open.span, what);
+        self.fail(d)
     }
 
     // Tokens.
@@ -632,28 +718,28 @@ impl<'a> Parser<'a> {
                 "private names are only declared in classes",
             );
         };
-        match scope.declared.get_mut(&name) {
+        let first = match scope.declared.get_mut(&name) {
             None => {
-                scope.declared.insert(name, (kind, is_static));
-                Ok(())
+                scope.declared.insert(name, (kind, is_static, span));
+                return Ok(());
             }
-            Some((had, was_static)) if *was_static == is_static => match (*had, kind) {
+            Some((had, was_static, first)) if *was_static == is_static => match (*had, kind) {
                 (Private::Get, Private::Set) | (Private::Set, Private::Get) => {
                     *had = Private::GetSet;
-                    Ok(())
+                    return Ok(());
                 }
-                _ => self.err(
-                    "duplicate-private-name",
-                    span,
-                    format!("#{name} is declared twice"),
-                ),
+                _ => *first,
             },
-            Some(_) => self.err(
+            Some((.., first)) => *first,
+        };
+        self.fail(
+            Diagnostic::error(
                 "duplicate-private-name",
                 span,
                 format!("#{name} is declared twice"),
-            ),
-        }
+            )
+            .with_label(first, "declared here first"),
+        )
     }
 
     fn use_private(&mut self, span: Span) -> R<()> {
