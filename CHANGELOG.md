@@ -78,6 +78,10 @@ minor release can break the API and a patch release won't.
     module.
   - test262 runs in `cargo test`, and CI's summary has its counts
     ([#148](https://github.com/parsec-html/parsec/issues/148)).
+  - `bench/` times the lexer against oxc's and swc's with
+    `parsec-html-bench js-lex`: 347 MB/s to oxc's 568 and swc's 328 over
+    the 11.6 MB JavaScript corpus, with all three reading the same tokens
+    ([#149](https://github.com/parsec-html/parsec/issues/149)).
   - `parsec-js` parses ECMAScript 2025 scripts and modules: `parse`
     gives an `Ast` with a span on every node and the comments beside
     it, or the first syntax error as a `Diagnostic`, and

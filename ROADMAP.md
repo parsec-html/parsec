@@ -229,6 +229,10 @@ against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
   files that should parse tokenize. Of the 4,676 that shouldn't, the
   lexer catches the 267 whose error is in the tokens; the parser will
   check the rest.
+- Done: the lexer bench, `parsec-html-bench js-lex`, against oxc's and
+  swc's lexers on the JavaScript corpus: 347 MB/s to oxc's 568 and swc's
+  328, every token at the same span in all three
+  ([#149](https://github.com/parsec-html/parsec/issues/149)).
 
 ## M10. JavaScript syntax tree
 
