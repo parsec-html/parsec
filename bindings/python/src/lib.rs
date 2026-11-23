@@ -12,6 +12,8 @@
 //! while holding it, since that can need every other thread to pause.
 
 mod units;
+#[cfg(feature = "xml")]
+mod xml;
 
 use std::borrow::Cow;
 use std::sync::{Arc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError};
@@ -1988,6 +1990,8 @@ fn parsec_html(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(encoding_for_locale, m)?)?;
     m.add("SelectorError", m.py().get_type::<SelectorError>())?;
     m.add("XPathError", m.py().get_type::<XPathError>())?;
+    #[cfg(feature = "xml")]
+    xml::add(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

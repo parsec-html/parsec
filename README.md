@@ -437,9 +437,9 @@ every module Lexbor has, and then go past it:
 | JavaScript module records | no | not released yet; on `main` as `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
 | State from a page's scripts | no | not released yet; on `main` as `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
 | XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; XPath 1.0 over it with the `xpath` feature, passing all 84 of libxml2's document tests; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
-| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included |
-| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed |
-| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed |
+| C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; XML through `parsec_xml_parse` |
+| Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.xml` for XML |
+| WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseXml` and `parseXmlBytes` for XML, in the native Node build too |
 | Node.js, native | not from Lexbor | next release: the npm package picks a native build on Linux, macOS and Windows, x86-64 and ARM, with the same API, `parseAsync`, and 1.5 times the WebAssembly's speed |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or

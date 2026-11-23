@@ -10,6 +10,8 @@
 
 #[path = "../../wasm/src/units.rs"]
 mod units;
+#[cfg(feature = "xml")]
+pub mod xml;
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;

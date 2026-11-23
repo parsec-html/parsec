@@ -17,6 +17,11 @@ export const {
   parseAsync,
   parseBytes,
   parseFragment,
+  XmlAttribute,
+  XmlDocument,
+  XmlNode,
+  parseXml,
+  parseXmlBytes,
 } = parsec;
 
 export default parsec;

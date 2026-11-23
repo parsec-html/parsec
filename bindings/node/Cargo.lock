@@ -403,6 +403,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsec-base"
+version = "0.2.0"
+
+[[package]]
 name = "parsec-html-core"
 version = "0.2.0"
 dependencies = [
@@ -427,7 +431,16 @@ dependencies = [
  "napi-derive",
  "parsec-html-core",
  "parsec-html-encoding",
+ "parsec-xml",
  "parsec-xpath",
+]
+
+[[package]]
+name = "parsec-xml"
+version = "0.2.0"
+dependencies = [
+ "encoding_rs",
+ "parsec-base",
 ]
 
 [[package]]

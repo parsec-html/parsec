@@ -62,6 +62,34 @@ minor release can break the API and a patch release won't.
   - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
     on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
     ([#172](https://github.com/parsec-html/parsec/issues/172)).
+- The XML parser is in every binding: a document from text or bytes in
+  the encoding it declares, walked node by node with each name's prefix,
+  local part and namespace, attributes with theirs, text, spans, and
+  serialization back to XML. A document that isn't well-formed, or that
+  runs past `max_depth` or the entity limits, is an error with its code,
+  line and column, so a billion laughs fails at once
+  ([#174](https://github.com/parsec-html/parsec/issues/174),
+  [#175](https://github.com/parsec-html/parsec/issues/175),
+  [#176](https://github.com/parsec-html/parsec/issues/176)).
+  - C: `parsec_xml_parse` gives a `parsec_xml_document`, read with
+    `parsec_xml_*` functions that mirror the HTML ones (parent, children
+    and siblings, names, `parsec_xml_attr_at`, `parsec_xml_attr_get_ns`,
+    `parsec_xml_text`, `parsec_xml_serialize`, spans, line and column,
+    and warnings), freed by `parsec_xml_document_free`. An error is
+    `PARSEC_ERR_XML` with a `parsec_xml_error`.
+  - Python: `parsec_html.xml.parse()` takes `str` or `bytes` and gives
+    an `XMLDocument` of `XMLNode`s with the HTML parser's names (`tag`,
+    `parent`, `next`, `attributes`, `text()`, `source_range`) plus
+    `local_name`, `prefix`, `namespace` and `attribute_list`. An error
+    raises `XMLSyntaxError`, a `ValueError`.
+  - WebAssembly and the native Node build: `parseXml` and
+    `parseXmlBytes` give an `XmlDocument` of `XmlNode`s with the DOM's
+    names (`namespaceURI`, `getAttributeNS`, `childNodes`), and throw a
+    `SyntaxError` with `code`, `line` and `column`. It adds 113 KB to the
+    `.wasm` (44 KB gzipped); `--no-default-features` builds the HTML
+    parser alone, and CI fails if that build grows past its ceiling.
+  - `parsec-xml` gains `Document::node`, a node by its number, checked;
+    `parsec-base` gains `LineIndex::owned`, an index that keeps its text.
 - The start of a JavaScript parser of Parsec's own, in two new crates
   ([#143](https://github.com/parsec-html/parsec/issues/143),
   [#147](https://github.com/parsec-html/parsec/issues/147)).

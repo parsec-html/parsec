@@ -10,6 +10,8 @@
 //! a removed node can still be read, and put back.
 
 mod units;
+#[cfg(feature = "xml")]
+mod xml;
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
@@ -20,6 +22,8 @@ use parsec_encoding::{Confidence, Encoding};
 use parsec_xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
 use units::Units;
 use wasm_bindgen::prelude::*;
+#[cfg(feature = "xml")]
+pub use xml::{XmlAttribute, XmlDocument, XmlNode, XmlParseOptions, parse_xml, parse_xml_bytes};
 
 type Shared = Rc<Tree>;
 

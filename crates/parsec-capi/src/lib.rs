@@ -27,6 +27,9 @@ use html::css::{MatchOptions, SelectorList};
 use html::{Document, Kind, NodeId, Ns, Options, ParseError};
 use xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
 
+mod xml_api;
+pub use xml_api::*;
+
 /// A parsed document. Made by `parsec_parse` and friends, freed by
 /// `parsec_document_free`.
 pub struct parsec_document {
@@ -455,6 +458,7 @@ pub extern "C" fn parsec_status_message(status: parsec_status) -> *const c_char 
         }
         PARSEC_ERR_PANIC => "internal error in Parsec (please report it)\0",
         PARSEC_ERR_XPATH => "the XPath expression isn't valid, or couldn't be evaluated\0",
+        PARSEC_ERR_XML => "the XML isn't well-formed, or runs past a limit\0",
         PARSEC_ERR_REMOVED => "the node was removed from its document, so it can't be used again\0",
         PARSEC_ERR_BUSY => "the document can't be changed from a parsec_select callback\0",
         _ => "unknown status\0",

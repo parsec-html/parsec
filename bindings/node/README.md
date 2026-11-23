@@ -42,7 +42,8 @@ the WebAssembly.
 Every function, class, getter and option is the WebAssembly package's,
 with the same names and the same error messages: `parse`,
 `parseFragment`, `parseBytes`, `ByteParser`, `select` and `selectFirst`
-with `maxSteps`, `xpath`, spans and errors. The [WebAssembly
+with `maxSteps`, `xpath`, spans and errors, and `parseXml` and
+`parseXmlBytes` for XML. The [WebAssembly
 README](../wasm/README.md) documents them all. The few differences:
 
 - **`parseAsync(html, options)`** gives a promise of what `parse` gives,
@@ -82,11 +83,12 @@ cd ../wasm
 mkdir -p node_modules/@parsec-web
 ln -s ../pkg node_modules/parsec-html
 ln -s ../../../node/out/darwin-arm64 node_modules/@parsec-web/binding-darwin-arm64
-PARSEC_BACKEND=native node --test tests/package.test.mjs
-PARSEC_BACKEND=wasm node --test tests/package.test.mjs
+PARSEC_BACKEND=native node --test tests/package.test.mjs tests/xml.test.mjs
+PARSEC_BACKEND=wasm node --test tests/package.test.mjs tests/xml.test.mjs
 node ../node/bench.mjs ../../bench/corpus     # after bench/fetch-pages.sh
 ```
 
 Use your platform's name and library (`libparsec_html_node.so`,
 `parsec_html_node.dll`) in place of macOS's. `src/lib.rs` mirrors
-`bindings/wasm/src/lib.rs`, so a change to the API goes in both.
+`bindings/wasm/src/lib.rs`, and `src/xml.rs` mirrors
+`bindings/wasm/src/xml.rs`, so a change to the API goes in both.
