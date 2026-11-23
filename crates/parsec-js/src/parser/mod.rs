@@ -637,8 +637,23 @@ impl<'a> Parser<'a> {
     }
 
     /// Checks `t` as an IdentifierReference, a BindingIdentifier when
-    /// `binding`, or a LabelIdentifier, in this context.
+    /// `binding`, or a LabelIdentifier, in this context. Most are a plain
+    /// name with nothing to check, and that answer comes first, inline.
+    #[inline(always)]
     fn check_identifier(&mut self, t: Token, binding: bool) -> R<()> {
+        if t.kind == Kind::Ident
+            && !t.flags.contains(Flags::ESCAPED)
+            && !(binding && self.ctx.strict)
+        {
+            return Ok(());
+        }
+        self.check_word(t, binding)
+    }
+
+    /// [`Parser::check_identifier`] for a word, an escape, or a binding in
+    /// strict code.
+    #[inline(never)]
+    fn check_word(&mut self, t: Token, binding: bool) -> R<()> {
         let word = self.word(t);
         let reserved = match word {
             None => false,
@@ -658,14 +673,9 @@ impl<'a> Parser<'a> {
                 format!("`{name}` is reserved here, so it can't be an identifier"),
             );
         }
-        if word.is_none() {
-            let text = t.text(self.src);
-            let name = if t.flags.contains(Flags::ESCAPED) {
-                self.name(t.span)
-            } else {
-                Cow::Borrowed(text)
-            };
-            if binding && self.ctx.strict && (name == "eval" || name == "arguments") {
+        if word.is_none() && binding && self.ctx.strict {
+            let name = self.name(t.span);
+            if name == "eval" || name == "arguments" {
                 return self.err(
                     "strict-binding",
                     t.span,
