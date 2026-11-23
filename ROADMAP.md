@@ -379,8 +379,12 @@ reparsing only what an edit touched
   `Diagnostic::render` prints a code frame, and `parse_recovering`
   reports every error in one parse. `cargo test` compares the frames
   for 53 of test262's negatives with a committed snapshot.
-- Next: incremental reparsing
+- Done: incremental reparsing
   ([#167](https://github.com/parsec-html/parsec/issues/167)).
+  `Ast::reparse` parses only the function body or statement around an
+  edit, and gives the tree `parse` would. `cargo test` checks that on
+  random edits to test262's files and the benchmark bundles, and
+  `bench js-reparse` times single-character edits to typescript.js.
 
 ## M14. XML
 

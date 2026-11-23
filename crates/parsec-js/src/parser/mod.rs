@@ -106,6 +106,78 @@ pub fn parse_recovering(src: &str, options: &Options) -> Result<Ast, Vec<Diagnos
     p.parse_all()
 }
 
+/// Where [`parse_piece`] starts, and what the parser knew there when it
+/// parsed the whole source.
+pub(crate) struct Resume {
+    pub start: u32,
+    /// A function body from its `{`, or else a StatementListItem.
+    pub body: bool,
+    pub ctx: Ctx,
+    /// The labels around it in its function: name, where, on a loop.
+    pub labels: Vec<(String, Span, bool)>,
+    /// How many class bodies are around it.
+    pub classes: usize,
+    /// The depth to start at, and the most allowed.
+    pub depth: u32,
+    pub max_depth: u32,
+}
+
+/// What [`parse_piece`] parsed: its nodes, lists, comments and warnings,
+/// the root last; where it ends; and the private names it uses that a
+/// class around it has to declare.
+pub(crate) struct Piece {
+    pub ast: Ast,
+    pub end: u32,
+    pub private_names: Vec<String>,
+}
+
+/// Parses one function body or statement of `src` from `r.start`, as
+/// the whole parse would there, into a tree of its own: `None` if it
+/// fails. Its lists start at 1, so an empty one made there and one
+/// that's `List::default()` stay apart.
+pub(crate) fn parse_piece(src: &str, options: &Options, r: Resume) -> Option<Piece> {
+    let mut p = Parser::with_room(src, options, 64);
+    p.ast.lists.push(NodeId::new(1));
+    p.lexer = p.lexer.starting_at(r.start, false);
+    p.ctx = r.ctx;
+    p.labels = r
+        .labels
+        .into_iter()
+        .map(|(name, span, is_loop)| Label {
+            name,
+            span,
+            is_loop,
+        })
+        .collect();
+    p.classes = (0..r.classes).map(|_| ClassScope::default()).collect();
+    p.depth = r.depth;
+    p.max_depth = r.max_depth;
+    let root = p.piece(r.body).ok()?;
+    if root.index() + 1 != p.ast.nodes.len() {
+        return None;
+    }
+    let end = p.prev_end;
+    let mut private_names = Vec::new();
+    for scope in p.classes.drain(..) {
+        private_names.extend(scope.used.into_iter().map(|(name, _)| name));
+    }
+    let mut ast = p.ast;
+    // The token after the piece was read too, and its comments.
+    ast.comments.retain(|c| c.span.start < end);
+    ast.warnings = p
+        .lexer
+        .take_diagnostics()
+        .into_iter()
+        .filter(|d| d.severity == Severity::Warning && d.span.start < end)
+        .collect();
+    ast.root = Some(root);
+    Some(Piece {
+        ast,
+        end,
+        private_names,
+    })
+}
+
 /// The parse ended; the diagnostic is in [`Parser::error`].
 #[derive(Debug)]
 pub(crate) struct Stop;
@@ -218,13 +290,25 @@ pub(crate) struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub(crate) fn new(src: &'a str, options: &Options) -> Parser<'a> {
-        let lexer = Lexer::with_limits(src, options.source_type, &options.limits);
         // About one node per eight bytes of a large bundle, but small
         // scripts run denser, one per four or five, and growing the
         // vectors costs a short parse more than the room does: the first
         // 64 KB are sized at one per four, with 16 more for the tiniest.
-        let len = lexer.source().len();
-        let ast = Ast::new(16 + len.min(1 << 16) / 4 + len.saturating_sub(1 << 16) / 8);
+        let len = match options.limits.check_input(src.len()) {
+            Ok(()) => src.len(),
+            Err(_) => 0,
+        };
+        Parser::with_room(
+            src,
+            options,
+            16 + len.min(1 << 16) / 4 + len.saturating_sub(1 << 16) / 8,
+        )
+    }
+
+    /// A parser whose tree has room for `nodes` nodes to start with.
+    fn with_room(src: &'a str, options: &Options, nodes: usize) -> Parser<'a> {
+        let lexer = Lexer::with_limits(src, options.source_type, &options.limits);
+        let ast = Ast::new(nodes);
         let module = options.source_type == SourceType::Module;
         Parser {
             src: lexer.source(),
@@ -279,6 +363,19 @@ impl<'a> Parser<'a> {
             .filter(|d| d.severity == Severity::Warning)
             .collect();
         Ok(ast)
+    }
+
+    /// The piece [`parse_piece`] parses.
+    fn piece(&mut self, body: bool) -> R<NodeId> {
+        if let Some(d) = self.lexer.diagnostics().first() {
+            return self.fail(d.clone());
+        }
+        self.advance()?;
+        if body {
+            self.function_body(List::default(), true, false, None)
+        } else {
+            self.statement_list_item()
+        }
     }
 
     /// The parse for [`parse_recovering`].
