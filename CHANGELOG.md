@@ -56,9 +56,9 @@ minor release can break the API and a patch release won't.
     compare exactly, `xmlns` and `xmlns:*` aren't attributes, `id()`
     finds `xml:id` and attributes the internal subset declares `ID`,
     and `lang()` reads `xml:lang`. `NodeId::from_index` turns a result's
-    node back into a `NodeId`. libxml2's XPath document tests run in
-    `cargo test`: 79 pass, none fail, and the 5 skipped use the
-    namespace axis, which is empty.
+    node back into a `NodeId`. The namespace axis has the namespaces in
+    scope at each element. libxml2's XPath document tests run in
+    `cargo test`: all 84 pass.
   - `bench/` times it against libxml2 v2.15.4, roxmltree and quick-xml
     on real XML: 1,314 MB/s to libxml2's 495 over 102 MB
     ([#172](https://github.com/parsec-html/parsec/issues/172)).
@@ -143,6 +143,9 @@ minor release can break the API and a patch release won't.
 - The Python wheels need Python 3.10 or newer: 3.9 reached end of life
   in October 2025, and its CI jobs kept a pytest with a known
   vulnerability ([#220](https://github.com/parsec-html/parsec/issues/220)).
+- `parsec_xpath::Item` has a third variant, `Item::Ns { owner, decl }`,
+  for a namespace node, so a `match` on it needs an arm for it.
+  `Doc::namespace_at(decl)` gives its prefix and URI.
 
 ### Changed
 
@@ -162,6 +165,15 @@ minor release can break the API and a patch release won't.
   attributes took quadratic time: 3.9 seconds where it now takes 4 ms.
   A page built to stall a crawler's XPath could have used it.
   `Document::attr_at(id, i)` reads one attribute in constant time.
+- XPath's `namespace::` axis was always empty. It now has the namespaces
+  in scope at an element, in libxml2's order: `xml` first, then the
+  outermost element's bindings. `xmlns=""` takes the default namespace
+  away and leaves no node for it. In XML, `parsec-xml`'s `Document`
+  reports its `xmlns` attributes; in HTML, every element has only the
+  `xml` namespace, as lxml gives it. The Python, Node.js and
+  WebAssembly bindings give a namespace node as its URI, a string, as
+  they give an attribute as its value. The C API gives it as its
+  element with `PARSEC_NS_ATTR` in place of an attribute index.
 
 ## 0.2.0
 

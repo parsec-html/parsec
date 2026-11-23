@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! XPath over parsec-xml's tree: names, namespaces, attributes, text,
-//! processing instructions, comments, `id()` and `lang()`.
+//! XPath over parsec-xml's tree: names, namespaces, the namespace axis,
+//! attributes, text, processing instructions, comments, `id()` and
+//! `lang()`.
 
 use parsec_xml::xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
-use parsec_xml::{Document, NodeId, Options};
+use parsec_xml::{Document, Limits, NodeId, Options};
 
 const DOC: &str = r#"<?xml version="1.0"?>
 <!DOCTYPE r:doc [
@@ -64,6 +65,7 @@ fn nodes(doc: &Document, expr: &str) -> Vec<NodeId> {
             .map(|i| match i {
                 Item::Node(n) => NodeId::from_index(n as usize),
                 Item::Attr { owner, .. } => panic!("{expr}: an attribute of {owner}"),
+                Item::Ns { owner, .. } => panic!("{expr}: a namespace node of {owner}"),
             })
             .collect(),
         v => panic!("{expr}: {v:?}"),
@@ -118,8 +120,109 @@ fn attributes_leave_out_namespace_declarations() {
     assert_eq!(string(&doc, "namespace-uri(//r:item/@plain)"), "");
     // A default the DTD supplied is an attribute too.
     assert_eq!(string(&doc, "//d:note/@kind"), "aside");
-    // The namespace axis is empty: there are no namespace nodes.
-    assert_eq!(count(&doc, "/*/namespace::*"), 0.0);
+    // They're on the namespace axis instead, with xml's.
+    assert_eq!(count(&doc, "/*/namespace::*"), 3.0);
+}
+
+const XML_NS: &str = "http://www.w3.org/XML/1998/namespace";
+
+/// A namespaced document: `r` and a default on the root, `s` on `r:item`,
+/// and on `Item` the default taken away and `r` bound again.
+const NS_DOC: &str = r#"<r:doc xmlns:r="urn:r" xmlns="urn:d" xml:lang="en">
+  <r:item xmlns:s="urn:s" r:k="1" plain="2"/>
+  <Item xmlns="" xmlns:r="urn:r2" a="3"/>
+</r:doc>"#;
+
+/// A node-set's items as text: `prefix=uri` for a namespace node, `@name`
+/// for an attribute and the qualified name for an element.
+fn items(doc: &Document, expr: &str) -> Vec<String> {
+    let index = Index::build(doc, &[0]);
+    let view = Doc::new(doc, &index);
+    let value = XPath::new(expr)
+        .unwrap()
+        .evaluate(view, 0, &[], &[("r".into(), "urn:r".into())], &NoExtensions)
+        .unwrap_or_else(|e| panic!("{expr}: {e}"));
+    let Value::Nodes(items) = value else {
+        panic!("{expr}: {value:?}")
+    };
+    items
+        .into_iter()
+        .map(|i| match i {
+            Item::Ns { decl, .. } => {
+                let (prefix, uri) = view.namespace_at(decl);
+                format!("{prefix}={uri}")
+            }
+            Item::Attr { owner, index } => {
+                let a = doc
+                    .attributes(NodeId::from_index(owner as usize))
+                    .filter(|a| !a.is_namespace_declaration())
+                    .nth(index as usize)
+                    .unwrap();
+                format!("@{}", a.name.qname)
+            }
+            Item::Node(n) => match doc.kind(NodeId::from_index(n as usize)) {
+                parsec_xml::NodeKind::Element(name) => name.qname.to_string(),
+                k => format!("{k:?}"),
+            },
+        })
+        .collect()
+}
+
+#[test]
+fn the_namespace_axis_has_what_is_in_scope() {
+    let doc = parsec_xml::parse(NS_DOC).unwrap();
+    let xml = format!("xml={XML_NS}");
+    // xml first, then the outermost element's bindings, each element's
+    // last written first, as libxml2 and lxml give them.
+    assert_eq!(items(&doc, "/*/namespace::*"), [&*xml, "=urn:d", "r=urn:r"]);
+    assert_eq!(
+        items(&doc, "//r:item/namespace::*"),
+        [&*xml, "=urn:d", "r=urn:r", "s=urn:s"]
+    );
+    // xmlns="" takes the default away and leaves no node; xmlns:r rebinds.
+    assert_eq!(items(&doc, "//*[@a]/namespace::*"), [&*xml, "r=urn:r2"]);
+    assert_eq!(
+        items(&doc, "//*[@a]/namespace::node()"),
+        [&*xml, "r=urn:r2"]
+    );
+    assert_eq!(items(&doc, "//r:item/namespace::s"), ["s=urn:s"]);
+    assert!(items(&doc, "//*[@a]/namespace::s").is_empty());
+    assert_eq!(items(&doc, "//*[namespace::s]"), ["r:item"]);
+    assert_eq!(items(&doc, "//*[namespace::r = 'urn:r2']"), ["Item"]);
+    assert_eq!(count(&doc, "//namespace::*"), 9.0);
+    // A namespace node's name is its prefix and its value its URI.
+    assert_eq!(string(&doc, "name(/*/namespace::*[. = 'urn:d'])"), "");
+    assert_eq!(string(&doc, "//r:item/namespace::s"), "urn:s");
+    assert_eq!(string(&doc, "namespace-uri(//r:item/namespace::s)"), "");
+    assert_eq!(items(&doc, "//r:item/namespace::s/.."), ["r:item"]);
+    // Only elements have namespace nodes.
+    assert!(items(&doc, "/namespace::*").is_empty());
+    assert!(items(&doc, "//@plain/namespace::*").is_empty());
+}
+
+#[test]
+fn namespace_nodes_sort_after_their_element_and_before_its_attributes() {
+    let doc = parsec_xml::parse(NS_DOC).unwrap();
+    assert_eq!(
+        items(&doc, "/*/@* | /*/namespace::r | /*"),
+        ["r:doc", "r=urn:r", "@xml:lang"]
+    );
+    assert_eq!(
+        items(&doc, "//r:item/@* | //r:item/namespace::s | //r:item"),
+        ["r:item", "s=urn:s", "@r:k", "@plain"]
+    );
+    // The declarations are namespace nodes, not attributes.
+    assert_eq!(items(&doc, "//*[@a]/@*"), ["@a"]);
+}
+
+#[test]
+fn without_namespaces_there_are_no_declarations() {
+    let options = Options {
+        namespaces: false,
+        ..Options::default()
+    };
+    let doc = parsec_xml::parse_with("<a:b xmlns:a='urn:a' xmlns='urn:d'/>", &options).unwrap();
+    assert_eq!(items(&doc, "/*/namespace::*"), [format!("xml={XML_NS}")]);
 }
 
 #[test]
@@ -180,6 +283,67 @@ fn time(f: impl Fn()) -> std::time::Duration {
         })
         .min()
         .unwrap()
+}
+
+#[test]
+fn the_namespace_axis_stays_linear() {
+    // A chain of n elements, each binding `p` again and with a leaf that
+    // binds `q`, and one element with n declarations and n attributes.
+    // Ten times the size should take about ten times as long.
+    fn chain(n: usize) -> Document {
+        let deep = Options {
+            limits: Limits {
+                max_depth: None,
+                ..Limits::default()
+            },
+            ..Options::default()
+        };
+        let open: String = (0..n)
+            .map(|i| format!("<e xmlns:p='urn:{i}'><l xmlns:q='urn:q'/>"))
+            .collect();
+        parsec_xml::parse_with(&(open + &"</e>".repeat(n)), &deep).unwrap()
+    }
+    fn wide(n: usize) -> Document {
+        let attrs: String = (0..n)
+            .map(|i| format!(" xmlns:p{i}='urn:{i}' a{i}='{i}'"))
+            .collect();
+        parsec_xml::parse(&format!("<w{attrs}/>")).unwrap()
+    }
+    type Build = fn(usize) -> Document;
+    let cases: [(Build, &str, usize, usize); 6] = [
+        (chain, "count(//e/namespace::*)", 2, 0),
+        (chain, "count(//l/namespace::*)", 3, 0),
+        (chain, "count(//*[namespace::p = 'urn:7'])", 0, 2),
+        (wide, "count(/w/namespace::*)", 1, 1),
+        (wide, "count(/w/namespace::* | /w/@*)", 2, 1),
+        (wide, "count(/w/namespace::p7) + count(/w/@a7)", 0, 2),
+    ];
+    for (make, expr, a, b) in cases {
+        let (small, big) = (make(2_000), make(20_000));
+        let run = |doc: &Document, n: usize| {
+            let index = Index::build(doc, &[0]);
+            let got = XPath::new(expr).unwrap().evaluate(
+                Doc::new(doc, &index),
+                0,
+                &[],
+                &[],
+                &NoExtensions,
+            );
+            let want = (a * n + b) as f64;
+            assert!(
+                matches!(got, Ok(Value::Num(v)) if v == want),
+                "{expr}: {got:?}"
+            );
+        };
+        let ts = time(|| run(&small, 2_000));
+        let tb = time(|| run(&big, 20_000));
+        let ratio = tb.as_secs_f64() / ts.as_secs_f64().max(1e-3);
+        eprintln!("{expr}: 2,000 {ts:?}, 20,000 {tb:?}, {ratio:.1}x");
+        assert!(
+            ratio < 20.0,
+            "{expr}: 10x the size took {ratio:.1}x ({ts:?}, {tb:?})"
+        );
+    }
 }
 
 #[test]

@@ -77,6 +77,12 @@
 // that's a node rather than an attribute.
 #define PARSEC_NO_ATTR UINT32_MAX
 
+// What `parsec_xpath_result_item` gives as the attribute index of a
+// namespace node, from `namespace::`. An HTML document's elements have
+// one, the `xml` namespace, whose URI is
+// `http://www.w3.org/XML/1998/namespace`.
+#define PARSEC_NS_ATTR (UINT32_MAX - 1)
+
 #define PARSEC_NODE_ELEMENT 1
 
 #define PARSEC_NODE_TEXT 3
@@ -652,7 +658,8 @@ size_t parsec_xpath_result_count(const parsec_xpath_result *result);
 // The node-set's `index`th item, in document order. A node comes back as
 // `*node` with `*attr` set to `PARSEC_NO_ATTR`; an attribute as its
 // element in `*node` and its place among the element's attributes in
-// `*attr`, for `parsec_attr_at`. Either out pointer may be NULL.
+// `*attr`, for `parsec_attr_at`; a namespace node as its element and
+// `PARSEC_NS_ATTR`. Either out pointer may be NULL.
 // `PARSEC_ERR_INVALID` if `index` is past the last item or the result
 // isn't a node-set.
 parsec_status parsec_xpath_result_item(const parsec_xpath_result *result,

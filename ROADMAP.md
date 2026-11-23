@@ -405,9 +405,8 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
   exactly, prefixes from the query's namespaces, namespace declarations
   left out of the attributes, `id()` from `xml:id` and the DTD's `ID`
   attributes, and `lang()` from `xml:lang`. libxml2's XPath document
-  tests run against it in `cargo test`: 79 of 84 queries pass and none
-  fail; the 5 skipped use the namespace axis, which `parsec-xpath`
-  leaves empty.
+  tests run against it in `cargo test`: all 84 queries pass, the 5 on
+  the namespace axis among them.
 
 ## M15. One toolkit, in pieces
 

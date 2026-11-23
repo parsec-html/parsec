@@ -64,7 +64,7 @@ doc.select(selector, { maxSteps: 10_000_000 });
 
 XPath is 1.0. `doc.xpath("//li")` gives an array of nodes, with
 attributes as their values (`doc.xpath("//a/@href")` is an array of
-strings), and `count()`, `string()` or `boolean()` give a number, a
+strings) and namespace nodes as their URIs, and `count()`, `string()` or `boolean()` give a number, a
 string or a boolean.
 
 ```js

@@ -185,6 +185,12 @@ pub const PARSEC_XPATH_BOOLEAN: parsec_xpath_type = 4;
 /// that's a node rather than an attribute.
 pub const PARSEC_NO_ATTR: u32 = u32::MAX;
 
+/// What `parsec_xpath_result_item` gives as the attribute index of a
+/// namespace node, from `namespace::`. An HTML document's elements have
+/// one, the `xml` namespace, whose URI is
+/// `http://www.w3.org/XML/1998/namespace`.
+pub const PARSEC_NS_ATTR: u32 = u32::MAX - 1;
+
 /// A namespace, for elements and fragment contexts. 0 is no namespace:
 /// what `parsec_element_ns` gives for a node that isn't an element.
 pub type parsec_ns = u32;
@@ -1799,6 +1805,7 @@ pub unsafe extern "C" fn parsec_xpath_evaluate(
                         .map(|item| match item {
                             Item::Node(n) => (n, PARSEC_NO_ATTR),
                             Item::Attr { owner, index, .. } => (owner, index),
+                            Item::Ns { owner, .. } => (owner, PARSEC_NS_ATTR),
                         })
                         .collect(),
                 ),
@@ -1851,7 +1858,8 @@ pub unsafe extern "C" fn parsec_xpath_result_count(result: *const parsec_xpath_r
 /// The node-set's `index`th item, in document order. A node comes back as
 /// `*node` with `*attr` set to `PARSEC_NO_ATTR`; an attribute as its
 /// element in `*node` and its place among the element's attributes in
-/// `*attr`, for `parsec_attr_at`. Either out pointer may be NULL.
+/// `*attr`, for `parsec_attr_at`; a namespace node as its element and
+/// `PARSEC_NS_ATTR`. Either out pointer may be NULL.
 /// `PARSEC_ERR_INVALID` if `index` is past the last item or the result
 /// isn't a node-set.
 #[unsafe(no_mangle)]
