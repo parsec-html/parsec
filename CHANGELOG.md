@@ -122,6 +122,11 @@ minor release can break the API and a patch release won't.
     module never declares (`export-undeclared`), and regular expression
     patterns. With it, all 4,374 of test262's parse negatives fail
     ([#159](https://github.com/parsec-html/parsec/issues/159)).
+  - `parsec_js::module::ModuleRecord` has a module's imports and
+    exports as the spec records them: requested modules with their
+    import attributes, ImportEntry records, and ExportEntry records in
+    local, indirect and star lists
+    ([#160](https://github.com/parsec-html/parsec/issues/160)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler

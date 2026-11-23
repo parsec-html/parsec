@@ -329,6 +329,13 @@ and what each module imports and exports
   table every rule with its code and where it's checked. test262's
   harness no longer skips any parse negative for the kind of error it
   has: all 4,374 fail, and all 48,408 files that should parse do.
+- Done: import and export records
+  ([#160](https://github.com/parsec-html/parsec/issues/160)).
+  `ModuleRecord::new` gives a module's requested modules, each once with
+  its import attributes, its ImportEntry records, and its ExportEntry
+  records sorted into local, indirect and star exports as ParseModule
+  sorts them, an imported name exported again included. `cargo test`
+  checks them against the spec's two tables of import and export forms.
 
 ## M12. Data from scripts
 

@@ -32,6 +32,9 @@
 //! [`early_errors`] gives the early errors the parser leaves for a later
 //! pass: those two, and an export of a name a module never declares.
 //!
+//! [`module`] has a module's import and export records, the spec's
+//! ImportEntry and ExportEntry, for building a module graph.
+//!
 //! [`data`] reads the state pages keep in scripts, `window.__NUXT__ = …`
 //! and its kin, as JSON, without running anything.
 //!
@@ -72,6 +75,7 @@ pub mod data;
 pub mod early;
 mod estree;
 mod lexer;
+pub mod module;
 mod parser;
 pub mod regexp;
 pub mod scope;
