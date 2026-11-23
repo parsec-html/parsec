@@ -29,7 +29,8 @@
 //!   [`Options::max_entity_depth`] and to no more text in all than
 //!   [`Options::entity_allowance`] plus [`Options::entity_ratio`] bytes per
 //!   byte of input, so a billion laughs or a quadratic blowup stops with
-//!   an error.
+//!   an error. An attribute default counts each time an element gets it,
+//!   so a big default on many elements stops the same way.
 //! - Elements nest no deeper than [`Limits::max_depth`]: 2,048 unless you
 //!   say otherwise. The parser keeps open elements on a stack of its own,
 //!   so even a million levels with no limit cost time in proportion and
@@ -113,11 +114,13 @@ pub struct Options {
     /// How deep entity references may nest in the entities they refer
     /// to: 16 by default, and never past [`ENTITY_DEPTH_CEILING`].
     pub max_entity_depth: u32,
-    /// Entity expansion may add this many bytes to any document, 1 MiB by
+    /// Entity expansion, and the attribute defaults the DTD applies to
+    /// each element, may add this many bytes to any document, 1 MiB by
     /// default...
     pub entity_allowance: u64,
     /// ...plus this many for each byte of the document itself, 8 by
-    /// default. Every expansion counts, of the same entity too.
+    /// default. Every expansion counts, of the same entity too, and so
+    /// does every element a default is applied to.
     pub entity_ratio: u64,
 }
 

@@ -909,6 +909,17 @@ impl<'s, 'o> Parser<'s, 'o> {
                             s
                         }
                     };
+                    // Stored once, but every element it's applied to hands it
+                    // out again, so it counts as an expansion each time: a
+                    // big default on many elements is a blowup like an
+                    // entity's.
+                    self.expansion.spend(u64::from(value.len)).map_err(|_| {
+                        err(
+                            "entity-expansion-limit",
+                            tag,
+                            "the DTD's attribute defaults add more text than the limit allows",
+                        )
+                    })?;
                     self.pending.push(Pending {
                         name: def.name,
                         value,
