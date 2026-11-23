@@ -76,6 +76,9 @@ pub struct Lexer<'a> {
     /// Only whitespace and comments without line terminators since the
     /// last line terminator: where Annex B lets `-->` start a comment.
     line_start: bool,
+    /// An identifier with an escape has been read, so a name's text may
+    /// not be its name.
+    escaped_ident: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -104,6 +107,7 @@ impl<'a> Lexer<'a> {
             // InputElementHashbangOrRegExp, the goal at the start, has
             // HTMLCloseComment: `-->` can start the first line too.
             line_start: true,
+            escaped_ident: false,
             diagnostics,
         }
     }
@@ -120,6 +124,12 @@ impl<'a> Lexer<'a> {
     /// What's been reported so far, in the order it was found.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
+    }
+
+    /// Whether any identifier read so far had an escape in it. Until one
+    /// has, every identifier's text is its name.
+    pub(crate) fn escaped_ident(&self) -> bool {
+        self.escaped_ident
     }
 
     pub fn take_diagnostics(&mut self) -> Vec<Diagnostic> {
@@ -147,6 +157,7 @@ impl<'a> Lexer<'a> {
             source: self.source,
             newline: self.newline,
             line_start: self.line_start,
+            escaped_ident: self.escaped_ident,
             diagnostics: Vec::new(),
         }
     }
@@ -160,6 +171,7 @@ impl<'a> Lexer<'a> {
             source: self.source,
             newline,
             line_start: newline,
+            escaped_ident: self.escaped_ident,
             diagnostics: Vec::new(),
         }
     }
@@ -170,11 +182,11 @@ impl<'a> Lexer<'a> {
     /// terminator was.
     pub fn next_token(&mut self, goal: Goal) -> Token {
         if self.pos == 0 && self.src.starts_with("#!") {
-            let start = self.pos;
-            self.pos = self.line_end(2);
-            return self.trivia(Kind::Hashbang, start, false);
+            return self.rest_of_line(Kind::Hashbang, 0, 2);
         }
-        self.skip_whitespace();
+        if !self.skip_whitespace() {
+            return self.after_unicode(goal);
+        }
         let start = self.pos;
         let b = self.src.as_bytes();
         let Some(&c) = b.get(start) else {
@@ -183,10 +195,7 @@ impl<'a> Lexer<'a> {
         let script = self.source == SourceType::Script;
         let kind = match c {
             b'/' => match b.get(start + 1) {
-                Some(b'/') => {
-                    self.pos = self.line_end(start + 2);
-                    return self.trivia(Kind::LineComment, start, false);
-                }
+                Some(b'/') => return self.rest_of_line(Kind::LineComment, start, 2),
                 Some(b'*') => return self.block_comment(start),
                 _ if goal.regexp() => return self.regexp(start),
                 Some(b'=') => self.punct(2, Punct::SlashEq),
@@ -195,12 +204,10 @@ impl<'a> Lexer<'a> {
             // Annex B's HTML-like comments, in scripts only: in a module
             // `<!--` is `<` `!` `--` and `-->` is `--` `>`.
             b'<' if script && b[start..].starts_with(b"<!--") => {
-                self.pos = self.line_end(start + 4);
-                return self.trivia(Kind::HtmlOpenComment, start, false);
+                return self.rest_of_line(Kind::HtmlOpenComment, start, 4);
             }
             b'-' if script && self.line_start && b[start..].starts_with(b"-->") => {
-                self.pos = self.line_end(start + 3);
-                return self.trivia(Kind::HtmlCloseComment, start, false);
+                return self.rest_of_line(Kind::HtmlCloseComment, start, 3);
             }
             b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_' | b'\\' => return self.ident(start),
             b'0'..=b'9' => return self.number(start),
@@ -221,33 +228,46 @@ impl<'a> Lexer<'a> {
             b',' => self.punct(1, Punct::Comma),
             b':' => self.punct(1, Punct::Colon),
             b'~' => self.punct(1, Punct::Tilde),
-            0x80.. => {
-                let ch = self.char_at(start);
-                if is_id_start(ch) {
-                    return self.ident(start);
-                }
-                self.pos += ch.len_utf8();
-                self.error(
-                    "unexpected-character",
-                    start,
-                    "this character can't start a token",
-                );
-                Kind::Invalid
-            }
+            0x80.. => return self.non_ascii(start),
             _ => match self.punctuator(start) {
                 Some(p) => Kind::Punct(p),
-                None => {
-                    self.pos += 1;
-                    self.error(
-                        "unexpected-character",
-                        start,
-                        "this character can't start a token",
-                    );
-                    Kind::Invalid
-                }
+                None => return self.unexpected_character(start, 1),
             },
         };
         self.token(kind, start, Flags::empty())
+    }
+
+    // What `next_token` leaves out of line, so the registers these need
+    // aren't saved and restored for every token.
+
+    /// A comment or hashbang `skip` bytes long to start, to the end of
+    /// its line.
+    #[inline(never)]
+    fn rest_of_line(&mut self, kind: Kind, start: usize, skip: usize) -> Token {
+        self.pos = self.line_end(start + skip);
+        self.trivia(kind, start, false)
+    }
+
+    /// A token starting with a character above ASCII.
+    #[inline(never)]
+    fn non_ascii(&mut self, start: usize) -> Token {
+        let ch = self.char_at(start);
+        if is_id_start(ch) {
+            return self.ident(start);
+        }
+        self.unexpected_character(start, ch.len_utf8())
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn unexpected_character(&mut self, start: usize, len: usize) -> Token {
+        self.pos += len;
+        self.error(
+            "unexpected-character",
+            start,
+            "this character can't start a token",
+        );
+        self.token(Kind::Invalid, start, Flags::empty())
     }
 
     // Helpers that end a token.
@@ -340,8 +360,10 @@ impl<'a> Lexer<'a> {
         i
     }
 
-    /// Whitespace and line terminators (12.2, 12.3).
-    fn skip_whitespace(&mut self) {
+    /// Whitespace and line terminators (12.2, 12.3) in ASCII. False if it
+    /// stopped at a character above ASCII, which may be either.
+    #[inline(always)]
+    fn skip_whitespace(&mut self) -> bool {
         let b = self.src.as_bytes();
         while let Some(&c) = b.get(self.pos) {
             match c {
@@ -351,19 +373,40 @@ impl<'a> Lexer<'a> {
                     self.newline = true;
                     self.line_start = true;
                 }
-                0x80.. => {
-                    let ch = self.char_at(self.pos);
-                    if matches!(ch, '\u{2028}' | '\u{2029}') {
-                        self.newline = true;
-                        self.line_start = true;
-                    } else if !is_whitespace(ch) {
-                        return;
-                    }
-                    self.pos += ch.len_utf8();
-                }
-                _ => return,
+                0x80.. => return false,
+                _ => return true,
             }
         }
+        true
+    }
+
+    /// The next token from a character above ASCII, after any whitespace
+    /// and line terminators from there. Out of line, so `next_token`
+    /// calls nothing before it reads a token and saves no registers.
+    #[inline(never)]
+    fn after_unicode(&mut self, goal: Goal) -> Token {
+        while self.unicode_space() {
+            if self.skip_whitespace() {
+                // At ASCII that isn't whitespace, or the end: one call
+                // deep, as there's nothing to skip there.
+                return self.next_token(goal);
+            }
+        }
+        self.non_ascii(self.pos)
+    }
+
+    /// Skips the whitespace or line terminator above ASCII at `pos`, if
+    /// that's what's there.
+    fn unicode_space(&mut self) -> bool {
+        let ch = self.char_at(self.pos);
+        if matches!(ch, '\u{2028}' | '\u{2029}') {
+            self.newline = true;
+            self.line_start = true;
+        } else if !is_whitespace(ch) {
+            return false;
+        }
+        self.pos += ch.len_utf8();
+        true
     }
 
     // Comments (12.4, B.1.1).
@@ -428,20 +471,25 @@ impl<'a> Lexer<'a> {
         let b = self.src.as_bytes();
         // Most identifiers are plain ASCII: read those in a tight loop,
         // and leave escapes and other characters to the loop below.
-        if matches!(b[start], b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_') {
-            let mut end = start + 1;
-            while b
-                .get(end)
-                .is_some_and(|&c| c < 0x80 && ID_CONTINUE_ASCII[c as usize])
-            {
-                end += 1;
-            }
-            if !matches!(b.get(end), Some(b'\\' | 0x80..)) {
-                self.pos = end;
-                let kind = Keyword::from_bytes(&b[start..end]).map_or(Kind::Ident, Kind::Keyword);
+        // No indexing that could panic either: that's a call to save
+        // registers for.
+        let rest = b.get(start..).unwrap_or_default();
+        if let Some((b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_', tail)) = rest.split_first() {
+            let len = 1 + ident_run(tail);
+            if !matches!(rest.get(len), Some(b'\\' | 0x80..)) {
+                self.pos = start + len;
+                let kind = Keyword::from_prefix(rest, len).map_or(Kind::Ident, Kind::Keyword);
                 return self.token(kind, start, Flags::empty());
             }
         }
+        self.ident_slow(start)
+    }
+
+    /// An identifier with an escape or a character above ASCII in it.
+    /// Out of line, so plain ones save no registers for it.
+    #[inline(never)]
+    fn ident_slow(&mut self, start: usize) -> Token {
+        let b = self.src.as_bytes();
         let mut flags = Flags::empty();
         self.pos = start;
         let mut first = true;
@@ -499,6 +547,7 @@ impl<'a> Lexer<'a> {
             }
             first = false;
         }
+        self.escaped_ident |= flags.contains(Flags::ESCAPED);
         let kind = match flags.contains(Flags::ESCAPED) {
             false => Keyword::from_bytes(&b[start..self.pos]).map_or(Kind::Ident, Kind::Keyword),
             true => Kind::Ident,
@@ -699,6 +748,7 @@ impl<'a> Lexer<'a> {
 
     // String literals (12.9.4, B.1.2).
 
+    #[inline(never)]
     fn string(&mut self, start: usize, quote: u8) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
@@ -1051,6 +1101,47 @@ fn string_run(b: &[u8], quote: u8) -> usize {
         .unwrap_or(b.len() - i)
 }
 
+/// How many bytes from the start of `b` are ASCII IdentifierPart
+/// characters: letters, digits, `$` and `_`. Eight bytes at a time, so
+/// the loop doesn't branch on every byte and the end of a short name
+/// isn't a guess the processor gets wrong.
+fn ident_run(b: &[u8]) -> usize {
+    const L: u64 = u64::from_ne_bytes([0x01; 8]);
+    const LOW7: u64 = L * 0x7F;
+    const HIGHS: u64 = L * 0x80;
+    // Lowercase for letters, and `$` and `_` in every byte.
+    const CASE: u64 = L * 0x20;
+    const DOLLARS: u64 = L * b'$' as u64;
+    const UNDERSCORES: u64 = L * b'_' as u64;
+    // The high bit of each byte of `x` that's above `lo` and below `hi`,
+    // exactly, for bytes below 0x80 (Sean Anderson's bit hacks).
+    let between = |x: u64, lo: u64, hi: u64| {
+        let low = x & LOW7;
+        (L * (127 + hi)).wrapping_sub(low) & !x & (low + L * (127 - lo)) & HIGHS
+    };
+    // The high bit of each zero byte of `v`, exactly: no borrow crosses
+    // bytes, as it does in the trick `string_run` uses.
+    let zero = |v: u64| !(((v & LOW7) + LOW7) | v | LOW7);
+    let mut i = 0;
+    while let Some(&chunk) = b.get(i..).and_then(|r| r.first_chunk::<8>()) {
+        let w = u64::from_le_bytes(chunk);
+        let part = between(w | CASE, 0x60, 0x7B)
+            | between(w, 0x2F, 0x3A)
+            | zero(w ^ DOLLARS)
+            | zero(w ^ UNDERSCORES);
+        let stop = !part & HIGHS;
+        if stop != 0 {
+            return i + (stop.trailing_zeros() / 8) as usize;
+        }
+        i += 8;
+    }
+    let rest = b.get(i..).unwrap_or_default();
+    i + rest
+        .iter()
+        .position(|&c| c >= 0x80 || !ID_CONTINUE_ASCII[c as usize])
+        .unwrap_or(rest.len())
+}
+
 /// U+2028 or U+2029 at the start of `b`.
 fn is_separator(b: &[u8]) -> bool {
     b.len() >= 3 && b[0] == 0xE2 && b[1] == 0x80 && (b[2] == 0xA8 || b[2] == 0xA9)
@@ -1137,6 +1228,33 @@ mod tests {
                     }
                     for q in *b"\"'" {
                         assert_eq!(string_run(&b, q), naive(&b, q), "{b:?} {q}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ident_runs() {
+        let naive = |b: &[u8]| {
+            b.iter()
+                .position(|&c| c >= 0x80 || !ID_CONTINUE_ASCII[c as usize])
+                .unwrap_or(b.len())
+        };
+        // Every byte value at every offset of names around the word size,
+        // after every byte that may come before it.
+        for len in 0..20 {
+            for at in 0..=len {
+                for stop in 0..=255u8 {
+                    for before in [b'a', b'z', b'0', b'9', b'$', b'_', b'%', 0xFF] {
+                        let mut b = vec![b'k'; len];
+                        if at < len {
+                            b[at] = stop;
+                            if at > 0 {
+                                b[at - 1] = before;
+                            }
+                        }
+                        assert_eq!(ident_run(&b), naive(&b), "{b:?}");
                     }
                 }
             }
