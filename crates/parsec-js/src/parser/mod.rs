@@ -306,7 +306,7 @@ impl<'a> Parser<'a> {
         if let Some(d) = self.lexer.diagnostics().first() {
             return self.fail(d.clone());
         }
-        self.tok = self.next_token()?;
+        self.advance()?;
         let mark = self.scratch.len();
         self.statement_list(true)?;
         // Recovering, a `}` with nothing to close is one more error.
@@ -398,32 +398,35 @@ impl<'a> Parser<'a> {
 
     // Tokens.
 
-    /// The next token that isn't a comment, read with [`Goal::Div`].
-    fn next_token(&mut self) -> R<Token> {
-        let t = self.lexer.next_token(Goal::Div);
+    /// Reads the next token that isn't a comment, with [`Goal::Div`],
+    /// into `tok`: straight there, and not through a `Result` and a
+    /// copy or two on the stack.
+    fn advance(&mut self) -> R<()> {
+        self.tok = self.lexer.next_token(Goal::Div);
         self.check_lexer()?;
-        if t.is_trivia() {
-            return self.after_comments(t);
+        if self.tok.is_trivia() {
+            return self.after_comments();
         }
-        Ok(t)
+        Ok(())
     }
 
-    /// Keeps `t`, a comment, and any more after it, and gives the token
-    /// that follows them. Out of line, so the path for a token with no
-    /// comment before it stays short.
+    /// Keeps `tok`, a comment, and any more after it, and reads the token
+    /// that follows them into `tok`. Out of line, so the path for a token
+    /// with no comment before it stays short.
     #[inline(never)]
-    fn after_comments(&mut self, mut t: Token) -> R<Token> {
+    fn after_comments(&mut self) -> R<()> {
         loop {
+            let t = self.tok;
             let kind = match t.kind {
                 Kind::LineComment => CommentKind::Line,
                 Kind::BlockComment => CommentKind::Block,
                 Kind::Hashbang => CommentKind::Hashbang,
                 Kind::HtmlOpenComment => CommentKind::HtmlOpen,
                 Kind::HtmlCloseComment => CommentKind::HtmlClose,
-                _ => return Ok(t),
+                _ => return Ok(()),
             };
             self.ast.comments.push(Comment { kind, span: t.span });
-            t = self.lexer.next_token(Goal::Div);
+            self.tok = self.lexer.next_token(Goal::Div);
             self.check_lexer()?;
         }
     }
@@ -471,7 +474,7 @@ impl<'a> Parser<'a> {
             );
         }
         self.prev_end = t.span.end;
-        self.tok = self.next_token()?;
+        self.advance()?;
         Ok(t)
     }
 
