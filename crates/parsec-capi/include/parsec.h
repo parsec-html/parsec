@@ -185,7 +185,9 @@ typedef struct {
   // 0, or `PARSEC_JS_MODULE`.
   uint32_t flags;
   // How deep the tree may nest, at most 256; 0 is 256. Deeper fails
-  // with `PARSEC_ERR_JS` and the code `too-deep`.
+  // with `PARSEC_ERR_JS` and the code `too-deep`. A parse at 256 can
+  // use about 256 KiB of stack, so lower it on a thread with less:
+  // musl's default thread stack, on Alpine for one, is 128 KiB.
   uint32_t max_depth;
   // The most tokens to read before giving up with
   // `PARSEC_ERR_TIMEOUT`; 0 is no limit.

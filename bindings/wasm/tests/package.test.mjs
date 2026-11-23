@@ -270,7 +270,13 @@ test("JavaScript parses to ESTree, and pages give up their state", () => {
   assert.equal(tree.sourceType, "module");
   assert.equal(tree.body[0].declaration.declarations[0].init.elements.length, 2);
   assert.throws(() => parseJs("let x = ;"), (e) => e instanceof SyntaxError && e.code === "unexpected-token" && e.column === 9);
+  // start and end count UTF-16 units, as a string's indexes do: the emoji is two.
+  assert.throws(
+    () => parseJs("'é😀' + ;"),
+    (e) => e.start === 8 && e.end === 9 && e.frame.includes("^"),
+  );
   assert.throws(() => parseJs("(".repeat(1000)), (e) => e.code === "too-deep");
+  assert.throws(() => parseJs("1", { maxDepth: 257 }), /maxDepth/);
   assert.throws(() => parseJs("a; ".repeat(100), { maxSteps: 10 }), /maxSteps/);
   assert.deepEqual(pageState("window.__S = {a: !0}"), [{ name: "window.__S", value: { a: true } }]);
   const doc = parse("<script>window.x = [1]</script><script type=application/json>{}</script>");

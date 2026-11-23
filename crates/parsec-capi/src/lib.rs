@@ -1946,7 +1946,9 @@ pub struct parsec_js_options {
     /// 0, or `PARSEC_JS_MODULE`.
     pub flags: u32,
     /// How deep the tree may nest, at most 256; 0 is 256. Deeper fails
-    /// with `PARSEC_ERR_JS` and the code `too-deep`.
+    /// with `PARSEC_ERR_JS` and the code `too-deep`. A parse at 256 can
+    /// use about 256 KiB of stack, so lower it on a thread with less:
+    /// musl's default thread stack, on Alpine for one, is 128 KiB.
     pub max_depth: u32,
     /// The most tokens to read before giving up with
     /// `PARSEC_ERR_TIMEOUT`; 0 is no limit.

@@ -8,6 +8,8 @@
 //! tell which it got. What it adds is `parseAsync`, which parses on
 //! Node's thread pool.
 
+#[cfg(feature = "js")]
+pub mod js;
 #[path = "../../wasm/src/units.rs"]
 mod units;
 #[cfg(feature = "xml")]

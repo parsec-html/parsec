@@ -207,10 +207,10 @@ minor release can break the API and a patch release won't.
     `ValueError`) or, past `max_steps=`, `TimeoutError`;
     `parsec_html.js.page_state()` and `HTMLParser.page_state()` give the
     state as lists of dicts.
-  - WebAssembly: `parseJs`, `pageState` and `Document.pageState` give
-    plain objects, and a syntax error is a `SyntaxError` with `code`,
-    `line`, `column`, `start`, `end` and `frame`. They add 193 KB to the
-    `.wasm` (79 KB gzipped); `--no-default-features` builds the HTML
+  - WebAssembly and the native Node build: `parseJs`, `pageState` and
+    `Document.pageState` give plain objects, and a syntax error is a
+    `SyntaxError` with `code`, `line`, `column`, `start`, `end` and
+    `frame`. They add 193 KB to the `.wasm` (79 KB gzipped); `--no-default-features` builds the HTML
     parser alone, and CI fails if that build grows past its ceiling.
   - `parsec-js` gains what the bindings needed: `EstreeOptions::offsets`
     counts `start` and `end` in UTF-16 units, characters or bytes;

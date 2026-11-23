@@ -22,6 +22,8 @@ export const {
   XmlNode,
   parseXml,
   parseXmlBytes,
+  pageState,
+  parseJs,
 } = parsec;
 
 export default parsec;
