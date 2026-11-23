@@ -36,6 +36,38 @@
 //!   no recursion.
 //! - Anything that isn't well-formed is an [`Error`], fatal as the spec
 //!   says, with a code, a span, and the line and column.
+//!
+//! ## XPath
+//!
+//! With the `xpath` feature (`parsec-xml = { version = "0.2", features =
+//! ["xpath"] }`), a [`Document`] is a tree `xpath` can query, and
+//! `parsec_xml::xpath` is `parsec-xpath` re-exported. No HTML parser
+//! comes with it. Names compare exactly, a query's prefixes are bound by
+//! the namespaces it's run with, `xmlns` and `xmlns:*` aren't attributes,
+//! `id()` finds `xml:id` and attributes the internal subset declares an
+//! `ID`, and `lang()` reads `xml:lang`. The namespace axis is empty.
+//!
+//! ```
+//! # #[cfg(feature = "xpath")] {
+//! use parsec_xml::xpath::{Doc, Index, Item, NoExtensions, Value, XPath};
+//!
+//! let doc = parsec_xml::parse(r#"<feed xmlns="http://www.w3.org/2005/Atom">
+//!   <entry><title>Ships</title></entry><entry><title>Ports</title></entry>
+//! </feed>"#).unwrap();
+//! // Build the index once per document; every query reads it.
+//! let index = Index::build(&doc, &[0]);
+//! let atom = [("a".to_string(), "http://www.w3.org/2005/Atom".to_string())];
+//! let query = XPath::new("//a:entry[2]/a:title").unwrap();
+//! let Ok(Value::Nodes(hits)) =
+//!     query.evaluate(Doc::new(&doc, &index), 0, &[], &atom, &NoExtensions)
+//! else {
+//!     panic!("a node-set")
+//! };
+//! let Item::Node(title) = hits[0] else { panic!("a node") };
+//! let title = parsec_xml::NodeId::from_index(title as usize);
+//! assert_eq!(doc.text(title), "Ports");
+//! # }
+//! ```
 
 mod bytes;
 mod chars;
@@ -43,6 +75,8 @@ mod dtd;
 mod parse;
 mod serialize;
 mod tree;
+#[cfg(feature = "xpath")]
+mod xpath_tree;
 
 use std::fmt;
 
@@ -50,6 +84,9 @@ pub use bytes::{Parsed, parse_bytes};
 pub use encoding_rs::Encoding;
 pub use parse::ENTITY_DEPTH_CEILING;
 pub use parsec_base::{Diagnostic, Limits, LineCol, LineIndex, Severity, Span};
+#[cfg(feature = "xpath")]
+#[doc(inline)]
+pub use parsec_xpath as xpath;
 pub use tree::{
     Attribute, Doctype, Document, EntityDecl, Name, NodeId, NodeKind, Notation, XML_NS, XMLNS_NS,
     XmlDecl,
