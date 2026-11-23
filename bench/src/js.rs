@@ -634,6 +634,7 @@ fn median(mut f: impl FnMut()) -> f64 {
         .collect();
     times.sort_by(f64::total_cmp);
     times[times.len() / 2]
+}
 
 /// Times `Ast::reparse` against a full parse on typescript.js, after
 /// single-character edits: a letter in a name changed to another, or a
