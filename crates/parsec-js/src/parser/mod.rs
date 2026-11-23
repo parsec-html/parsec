@@ -370,7 +370,7 @@ impl<'a> Parser<'a> {
         if let Some(d) = self.lexer.diagnostics().first() {
             return self.fail(d.clone());
         }
-        self.tok = self.next_token()?;
+        self.advance()?;
         if body {
             self.function_body(List::default(), true, false, None)
         } else {
@@ -403,7 +403,7 @@ impl<'a> Parser<'a> {
         if let Some(d) = self.lexer.diagnostics().first() {
             return self.fail(d.clone());
         }
-        self.tok = self.next_token()?;
+        self.advance()?;
         let mark = self.scratch.len();
         self.statement_list(true)?;
         // Recovering, a `}` with nothing to close is one more error.
@@ -495,32 +495,35 @@ impl<'a> Parser<'a> {
 
     // Tokens.
 
-    /// The next token that isn't a comment, read with [`Goal::Div`].
-    fn next_token(&mut self) -> R<Token> {
-        let t = self.lexer.next_token(Goal::Div);
+    /// Reads the next token that isn't a comment, with [`Goal::Div`],
+    /// into `tok`: straight there, and not through a `Result` and a
+    /// copy or two on the stack.
+    fn advance(&mut self) -> R<()> {
+        self.tok = self.lexer.next_token(Goal::Div);
         self.check_lexer()?;
-        if t.is_trivia() {
-            return self.after_comments(t);
+        if self.tok.is_trivia() {
+            return self.after_comments();
         }
-        Ok(t)
+        Ok(())
     }
 
-    /// Keeps `t`, a comment, and any more after it, and gives the token
-    /// that follows them. Out of line, so the path for a token with no
-    /// comment before it stays short.
+    /// Keeps `tok`, a comment, and any more after it, and reads the token
+    /// that follows them into `tok`. Out of line, so the path for a token
+    /// with no comment before it stays short.
     #[inline(never)]
-    fn after_comments(&mut self, mut t: Token) -> R<Token> {
+    fn after_comments(&mut self) -> R<()> {
         loop {
+            let t = self.tok;
             let kind = match t.kind {
                 Kind::LineComment => CommentKind::Line,
                 Kind::BlockComment => CommentKind::Block,
                 Kind::Hashbang => CommentKind::Hashbang,
                 Kind::HtmlOpenComment => CommentKind::HtmlOpen,
                 Kind::HtmlCloseComment => CommentKind::HtmlClose,
-                _ => return Ok(t),
+                _ => return Ok(()),
             };
             self.ast.comments.push(Comment { kind, span: t.span });
-            t = self.lexer.next_token(Goal::Div);
+            self.tok = self.lexer.next_token(Goal::Div);
             self.check_lexer()?;
         }
     }
@@ -568,7 +571,7 @@ impl<'a> Parser<'a> {
             );
         }
         self.prev_end = t.span.end;
-        self.tok = self.next_token()?;
+        self.advance()?;
         Ok(t)
     }
 
@@ -677,20 +680,28 @@ impl<'a> Parser<'a> {
 
     // Identifiers.
 
-    /// An identifier's name, escapes decoded.
+    /// An identifier's name, escapes decoded. Until the lexer has read
+    /// an identifier with an escape, none has one to look for.
     fn name(&self, span: Span) -> Cow<'a, str> {
-        text::ident_name(span.text(self.src))
+        let raw = span.text(self.src);
+        if !self.lexer.escaped_ident() {
+            return Cow::Borrowed(raw);
+        }
+        text::ident_name(raw)
     }
 
     /// Whether the identifier at `span` is `name`, escapes decoded. Only a
-    /// longer spelling can hold an escape that decodes to `name`, so most
-    /// answers come from the lengths without decoding.
+    /// longer spelling can hold an escape that decodes to `name`, and only
+    /// once the lexer has read one, so most answers come from the lengths
+    /// without decoding.
     fn name_is(&self, span: Span, name: &str) -> bool {
         let raw = span.text(self.src);
         match raw.len().cmp(&name.len()) {
             std::cmp::Ordering::Less => false,
             std::cmp::Ordering::Equal => raw == name,
-            std::cmp::Ordering::Greater => raw.contains('\\') && text::ident_name(raw) == name,
+            std::cmp::Ordering::Greater => {
+                self.lexer.escaped_ident() && raw.contains('\\') && text::ident_name(raw) == name
+            }
         }
     }
 
@@ -723,8 +734,23 @@ impl<'a> Parser<'a> {
     }
 
     /// Checks `t` as an IdentifierReference, a BindingIdentifier when
-    /// `binding`, or a LabelIdentifier, in this context.
+    /// `binding`, or a LabelIdentifier, in this context. Most are a plain
+    /// name with nothing to check, and that answer comes first, inline.
+    #[inline(always)]
     fn check_identifier(&mut self, t: Token, binding: bool) -> R<()> {
+        if t.kind == Kind::Ident
+            && !t.flags.contains(Flags::ESCAPED)
+            && !(binding && self.ctx.strict)
+        {
+            return Ok(());
+        }
+        self.check_word(t, binding)
+    }
+
+    /// [`Parser::check_identifier`] for a word, an escape, or a binding in
+    /// strict code.
+    #[inline(never)]
+    fn check_word(&mut self, t: Token, binding: bool) -> R<()> {
         let word = self.word(t);
         let reserved = match word {
             None => false,
@@ -744,14 +770,9 @@ impl<'a> Parser<'a> {
                 format!("`{name}` is reserved here, so it can't be an identifier"),
             );
         }
-        if word.is_none() {
-            let text = t.text(self.src);
-            let name = if t.flags.contains(Flags::ESCAPED) {
-                self.name(t.span)
-            } else {
-                Cow::Borrowed(text)
-            };
-            if binding && self.ctx.strict && (name == "eval" || name == "arguments") {
+        if word.is_none() && binding && self.ctx.strict {
+            let name = self.name(t.span);
+            if name == "eval" || name == "arguments" {
                 return self.err(
                     "strict-binding",
                     t.span,

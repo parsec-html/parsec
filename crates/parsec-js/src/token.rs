@@ -249,6 +249,38 @@ impl Keyword {
         (k.as_str().as_bytes() == b).then_some(k)
     }
 
+    /// [`Keyword::from_bytes`] of the first `len` bytes of `rest`, with
+    /// no call, which would have the lexer save registers for it: given
+    /// 16 bytes, the word is compared to the spelling as one masked
+    /// `u128`, and a byte at a time in the last 16 of the input.
+    #[inline(always)]
+    pub(crate) fn from_prefix(rest: &[u8], len: usize) -> Option<Keyword> {
+        let word = rest.get(..len)?;
+        if !(2..=10).contains(&len) {
+            return None;
+        }
+        let h = keyword_hash(word);
+        let k = KEYWORDS[h]?;
+        let same = match rest.first_chunk::<16>() {
+            // The bytes past the word are masked off: a word shorter than
+            // the keyword has zeros where it has letters, and a longer one
+            // letters where it has zeros.
+            Some(chunk) => {
+                u128::from_le_bytes(*chunk) & (u128::MAX >> (128 - 8 * len)) == SPELLINGS[h]
+            }
+            None => {
+                let text = k.as_bytes();
+                text.len() == len && text.iter().zip(word).all(|(x, y)| x == y)
+            }
+        };
+        same.then_some(k)
+    }
+
+    /// Its spelling, from a table rather than a call.
+    fn as_bytes(self) -> &'static [u8] {
+        TEXT[self as usize]
+    }
+
     /// Whether strict code reserves it beyond the ReservedWords.
     pub const fn is_strict_reserved(self) -> bool {
         (self as u8) > (Keyword::Yield as u8) && (self as u8) <= (Keyword::Public as u8)
@@ -270,6 +302,36 @@ static KEYWORDS: [Option<Keyword>; 256] = {
         let h = keyword_hash(k.as_str().as_bytes());
         assert!(table[h].is_none(), "two keywords share a hash");
         table[h] = Some(k);
+        i += 1;
+    }
+    table
+};
+
+/// Each keyword's spelling, by its number.
+static TEXT: [&[u8]; Keyword::ALL.len()] = {
+    let mut table: [&[u8]; Keyword::ALL.len()] = [&[]; Keyword::ALL.len()];
+    let mut i = 0;
+    while i < Keyword::ALL.len() {
+        table[i] = Keyword::ALL[i].as_str().as_bytes();
+        i += 1;
+    }
+    table
+};
+
+/// The spelling of the keyword at each hash in [`KEYWORDS`], as the
+/// little-endian `u128` of its bytes.
+static SPELLINGS: [u128; 256] = {
+    let mut table = [0; 256];
+    let mut i = 0;
+    while i < 256 {
+        if let Some(k) = KEYWORDS[i] {
+            let b = k.as_str().as_bytes();
+            let mut j = 0;
+            while j < b.len() {
+                table[i] |= (b[j] as u128) << (8 * j);
+                j += 1;
+            }
+        }
         i += 1;
     }
     table
@@ -346,6 +408,15 @@ mod tests {
     fn keywords_by_hash() {
         for &k in Keyword::ALL {
             assert_eq!(Keyword::from_bytes(k.as_str().as_bytes()), Some(k));
+            assert_eq!(k.as_bytes(), k.as_str().as_bytes());
+            // With 16 bytes to read and without, before what can follow.
+            for after in ["", " ", "(", "x", "                "] {
+                for pad in ["", "                "] {
+                    let s = format!("{}{after}{pad}", k.as_str());
+                    let len = k.as_str().len();
+                    assert_eq!(Keyword::from_prefix(s.as_bytes(), len), Some(k), "{s:?}");
+                }
+            }
         }
         for word in [
             "",
@@ -364,6 +435,14 @@ mod tests {
                 Keyword::from_str(word),
                 "{word}"
             );
+            for pad in ["", " ", "                "] {
+                let s = format!("{word}{pad}");
+                assert_eq!(
+                    Keyword::from_prefix(s.as_bytes(), word.len()),
+                    Keyword::from_str(word),
+                    "{s:?}"
+                );
+            }
         }
     }
 }

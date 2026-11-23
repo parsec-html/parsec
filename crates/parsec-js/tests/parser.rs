@@ -436,6 +436,20 @@ fn declarations() {
     ok(&["var a, a"]);
     bad("unexpected-token", &["var if", "var class", "let [if] = a"]);
     bad("reserved-word", &["var \\u0069f", "v\\u0061r = 1"]);
+    // A name with an escape is still the name it spells, whether it's the
+    // first escape in the source or comes after plain names.
+    bad(
+        "let-binding",
+        &["let l\\u0065t = 1", "var a, b; const [l\\u{65}t] = 1"],
+    );
+    bad(
+        "duplicate-proto",
+        &[
+            "({__proto__: 1, __pr\\u006fto__: 2})",
+            "a; b; ({__\\u0070roto__: 1, '__proto__': 2})",
+        ],
+    );
+    bad("strict-binding", &["'use strict'; a; ev\\u0061l = 1"]);
 }
 
 #[test]
