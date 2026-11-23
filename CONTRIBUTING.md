@@ -84,7 +84,10 @@ newer commit.
 
 ## Checking your change
 
-These are what CI runs, so running them first saves a round trip:
+These are what CI runs, so running them first saves a round trip. The
+wiki's [Testing](https://github.com/parsec-html/parsec/wiki/Testing) page
+has how the spec suites, the stress tests and the real web fit together,
+and the gates a release has to pass:
 
 ```
 cargo fmt --all
