@@ -170,11 +170,11 @@ impl<'a> Lexer<'a> {
     /// terminator was.
     pub fn next_token(&mut self, goal: Goal) -> Token {
         if self.pos == 0 && self.src.starts_with("#!") {
-            let start = self.pos;
-            self.pos = self.line_end(2);
-            return self.trivia(Kind::Hashbang, start, false);
+            return self.rest_of_line(Kind::Hashbang, 0, 2);
         }
-        self.skip_whitespace();
+        if !self.skip_whitespace() {
+            return self.after_unicode(goal);
+        }
         let start = self.pos;
         let b = self.src.as_bytes();
         let Some(&c) = b.get(start) else {
@@ -183,10 +183,7 @@ impl<'a> Lexer<'a> {
         let script = self.source == SourceType::Script;
         let kind = match c {
             b'/' => match b.get(start + 1) {
-                Some(b'/') => {
-                    self.pos = self.line_end(start + 2);
-                    return self.trivia(Kind::LineComment, start, false);
-                }
+                Some(b'/') => return self.rest_of_line(Kind::LineComment, start, 2),
                 Some(b'*') => return self.block_comment(start),
                 _ if goal.regexp() => return self.regexp(start),
                 Some(b'=') => self.punct(2, Punct::SlashEq),
@@ -195,12 +192,10 @@ impl<'a> Lexer<'a> {
             // Annex B's HTML-like comments, in scripts only: in a module
             // `<!--` is `<` `!` `--` and `-->` is `--` `>`.
             b'<' if script && b[start..].starts_with(b"<!--") => {
-                self.pos = self.line_end(start + 4);
-                return self.trivia(Kind::HtmlOpenComment, start, false);
+                return self.rest_of_line(Kind::HtmlOpenComment, start, 4);
             }
             b'-' if script && self.line_start && b[start..].starts_with(b"-->") => {
-                self.pos = self.line_end(start + 3);
-                return self.trivia(Kind::HtmlCloseComment, start, false);
+                return self.rest_of_line(Kind::HtmlCloseComment, start, 3);
             }
             b'a'..=b'z' | b'A'..=b'Z' | b'$' | b'_' | b'\\' => return self.ident(start),
             b'0'..=b'9' => return self.number(start),
@@ -221,33 +216,46 @@ impl<'a> Lexer<'a> {
             b',' => self.punct(1, Punct::Comma),
             b':' => self.punct(1, Punct::Colon),
             b'~' => self.punct(1, Punct::Tilde),
-            0x80.. => {
-                let ch = self.char_at(start);
-                if is_id_start(ch) {
-                    return self.ident(start);
-                }
-                self.pos += ch.len_utf8();
-                self.error(
-                    "unexpected-character",
-                    start,
-                    "this character can't start a token",
-                );
-                Kind::Invalid
-            }
+            0x80.. => return self.non_ascii(start),
             _ => match self.punctuator(start) {
                 Some(p) => Kind::Punct(p),
-                None => {
-                    self.pos += 1;
-                    self.error(
-                        "unexpected-character",
-                        start,
-                        "this character can't start a token",
-                    );
-                    Kind::Invalid
-                }
+                None => return self.unexpected_character(start, 1),
             },
         };
         self.token(kind, start, Flags::empty())
+    }
+
+    // What `next_token` leaves out of line, so the registers these need
+    // aren't saved and restored for every token.
+
+    /// A comment or hashbang `skip` bytes long to start, to the end of
+    /// its line.
+    #[inline(never)]
+    fn rest_of_line(&mut self, kind: Kind, start: usize, skip: usize) -> Token {
+        self.pos = self.line_end(start + skip);
+        self.trivia(kind, start, false)
+    }
+
+    /// A token starting with a character above ASCII.
+    #[inline(never)]
+    fn non_ascii(&mut self, start: usize) -> Token {
+        let ch = self.char_at(start);
+        if is_id_start(ch) {
+            return self.ident(start);
+        }
+        self.unexpected_character(start, ch.len_utf8())
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn unexpected_character(&mut self, start: usize, len: usize) -> Token {
+        self.pos += len;
+        self.error(
+            "unexpected-character",
+            start,
+            "this character can't start a token",
+        );
+        self.token(Kind::Invalid, start, Flags::empty())
     }
 
     // Helpers that end a token.
@@ -340,8 +348,10 @@ impl<'a> Lexer<'a> {
         i
     }
 
-    /// Whitespace and line terminators (12.2, 12.3).
-    fn skip_whitespace(&mut self) {
+    /// Whitespace and line terminators (12.2, 12.3) in ASCII. False if it
+    /// stopped at a character above ASCII, which may be either.
+    #[inline(always)]
+    fn skip_whitespace(&mut self) -> bool {
         let b = self.src.as_bytes();
         while let Some(&c) = b.get(self.pos) {
             match c {
@@ -351,19 +361,40 @@ impl<'a> Lexer<'a> {
                     self.newline = true;
                     self.line_start = true;
                 }
-                0x80.. => {
-                    let ch = self.char_at(self.pos);
-                    if matches!(ch, '\u{2028}' | '\u{2029}') {
-                        self.newline = true;
-                        self.line_start = true;
-                    } else if !is_whitespace(ch) {
-                        return;
-                    }
-                    self.pos += ch.len_utf8();
-                }
-                _ => return,
+                0x80.. => return false,
+                _ => return true,
             }
         }
+        true
+    }
+
+    /// The next token from a character above ASCII, after any whitespace
+    /// and line terminators from there. Out of line, so `next_token`
+    /// calls nothing before it reads a token and saves no registers.
+    #[inline(never)]
+    fn after_unicode(&mut self, goal: Goal) -> Token {
+        while self.unicode_space() {
+            if self.skip_whitespace() {
+                // At ASCII that isn't whitespace, or the end: one call
+                // deep, as there's nothing to skip there.
+                return self.next_token(goal);
+            }
+        }
+        self.non_ascii(self.pos)
+    }
+
+    /// Skips the whitespace or line terminator above ASCII at `pos`, if
+    /// that's what's there.
+    fn unicode_space(&mut self) -> bool {
+        let ch = self.char_at(self.pos);
+        if matches!(ch, '\u{2028}' | '\u{2029}') {
+            self.newline = true;
+            self.line_start = true;
+        } else if !is_whitespace(ch) {
+            return false;
+        }
+        self.pos += ch.len_utf8();
+        true
     }
 
     // Comments (12.4, B.1.1).
@@ -693,6 +724,7 @@ impl<'a> Lexer<'a> {
 
     // String literals (12.9.4, B.1.2).
 
+    #[inline(never)]
     fn string(&mut self, start: usize, quote: u8) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
