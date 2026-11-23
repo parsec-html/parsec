@@ -580,20 +580,28 @@ impl<'a> Parser<'a> {
 
     // Identifiers.
 
-    /// An identifier's name, escapes decoded.
+    /// An identifier's name, escapes decoded. Until the lexer has read
+    /// an identifier with an escape, none has one to look for.
     fn name(&self, span: Span) -> Cow<'a, str> {
-        text::ident_name(span.text(self.src))
+        let raw = span.text(self.src);
+        if !self.lexer.escaped_ident() {
+            return Cow::Borrowed(raw);
+        }
+        text::ident_name(raw)
     }
 
     /// Whether the identifier at `span` is `name`, escapes decoded. Only a
-    /// longer spelling can hold an escape that decodes to `name`, so most
-    /// answers come from the lengths without decoding.
+    /// longer spelling can hold an escape that decodes to `name`, and only
+    /// once the lexer has read one, so most answers come from the lengths
+    /// without decoding.
     fn name_is(&self, span: Span, name: &str) -> bool {
         let raw = span.text(self.src);
         match raw.len().cmp(&name.len()) {
             std::cmp::Ordering::Less => false,
             std::cmp::Ordering::Equal => raw == name,
-            std::cmp::Ordering::Greater => raw.contains('\\') && text::ident_name(raw) == name,
+            std::cmp::Ordering::Greater => {
+                self.lexer.escaped_ident() && raw.contains('\\') && text::ident_name(raw) == name
+            }
         }
     }
 

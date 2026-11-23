@@ -76,6 +76,9 @@ pub struct Lexer<'a> {
     /// Only whitespace and comments without line terminators since the
     /// last line terminator: where Annex B lets `-->` start a comment.
     line_start: bool,
+    /// An identifier with an escape has been read, so a name's text may
+    /// not be its name.
+    escaped_ident: bool,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -104,6 +107,7 @@ impl<'a> Lexer<'a> {
             // InputElementHashbangOrRegExp, the goal at the start, has
             // HTMLCloseComment: `-->` can start the first line too.
             line_start: true,
+            escaped_ident: false,
             diagnostics,
         }
     }
@@ -120,6 +124,12 @@ impl<'a> Lexer<'a> {
     /// What's been reported so far, in the order it was found.
     pub fn diagnostics(&self) -> &[Diagnostic] {
         &self.diagnostics
+    }
+
+    /// Whether any identifier read so far had an escape in it. Until one
+    /// has, every identifier's text is its name.
+    pub(crate) fn escaped_ident(&self) -> bool {
+        self.escaped_ident
     }
 
     pub fn take_diagnostics(&mut self) -> Vec<Diagnostic> {
@@ -147,6 +157,7 @@ impl<'a> Lexer<'a> {
             source: self.source,
             newline: self.newline,
             line_start: self.line_start,
+            escaped_ident: self.escaped_ident,
             diagnostics: Vec::new(),
         }
     }
@@ -160,6 +171,7 @@ impl<'a> Lexer<'a> {
             source: self.source,
             newline,
             line_start: newline,
+            escaped_ident: self.escaped_ident,
             diagnostics: Vec::new(),
         }
     }
@@ -535,6 +547,7 @@ impl<'a> Lexer<'a> {
             }
             first = false;
         }
+        self.escaped_ident |= flags.contains(Flags::ESCAPED);
         let kind = match flags.contains(Flags::ESCAPED) {
             false => Keyword::from_bytes(&b[start..self.pos]).map_or(Kind::Ident, Kind::Keyword),
             true => Kind::Ident,
