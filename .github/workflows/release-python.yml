@@ -1,7 +1,7 @@
 name: release-python
 
 # Wheels for parsec-html on PyPI, built when a v* tag is pushed: one per
-# CPython version from 3.9 to 3.15, free-threaded 3.14t and 3.15t
+# CPython version from 3.10 to 3.15, free-threaded 3.14t and 3.15t
 # included (PyO3 doesn't support free-threaded 3.13), then an abi3t wheel (stable ABI, any CPython from 3.15,
 # free-threaded too) for the versions after. A manual run builds them all
 # and publishes nothing, to try a release first.
@@ -40,7 +40,7 @@ jobs:
     env:
       # The versions with a wheel of their own. Windows on ARM has CPython
       # from 3.11.
-      PYTHONS: ${{ matrix.platform.pythons || '3.9 3.10 3.11 3.12 3.13 3.14 3.15 3.14t 3.15t' }}
+      PYTHONS: ${{ matrix.platform.pythons || '3.10 3.11 3.12 3.13 3.14 3.15 3.14t 3.15t' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,7 +51,6 @@ jobs:
         if: runner.os != 'Linux' && matrix.platform.runner != 'windows-11-arm'
         with:
           python-version: |
-            3.9
             3.10
             3.11
             3.12
