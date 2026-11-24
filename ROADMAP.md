@@ -40,9 +40,9 @@ Nothing marked "on `main`" is in a release yet.
 
 ## M0. Foundations
 
-The repository, CI on Linux, macOS and Windows, the shared parser core and
-the check that keeps it in step with Netweir, fuzzing, the wiki, and this
-roadmap.
+The repository, CI on Linux, macOS and Windows, the parser core, fuzzing,
+the wiki, and this roadmap. The parser core was copied in from Netweir
+until #208; it's written here now.
 
 ## M1. Proof
 

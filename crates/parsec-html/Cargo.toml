@@ -13,9 +13,9 @@ categories = ["parser-implementations", "web-programming"]
 # The regression fixtures run from the repository.
 exclude = ["tests/"]
 
-# The crate to depend on. The parser is parsec-html-core, which is synced
-# from Netweir and so can't carry the re-exports itself; the modules
-# depend on it, so it can't depend on them either.
+# The crate to depend on. The parser is parsec-html-core, which can't
+# carry the re-exports itself: the modules depend on it, so it can't
+# depend on them.
 [lib]
 name = "parsec"
 
