@@ -190,8 +190,8 @@ A reviewer checks, in this order:
    the pull request says so.
 4. **It's documented.** The wiki page for anything users can see is
    updated in the same change, and the README if a claim there changes.
-5. **It's tidy.** CI is green: formatting, clippy, cargo-deny, the drift
-   check and the tests on Linux, macOS and Windows.
+5. **It's tidy.** CI is green: licence headers, formatting, clippy,
+   cargo-deny and the tests on Linux, macOS and Windows.
 
 A pull request merges once all of that holds and every review thread is
 resolved. If a contributor and reviewer disagree, the reasoning goes in the
