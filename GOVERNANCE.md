@@ -21,9 +21,8 @@ the licence needed to use it in both projects.
 
 Every change, including the maintainer's own, goes through a pull request
 that passes CI on Linux, macOS and Windows. Nothing is pushed straight to
-`main`. The parser core is made in Netweir first and synced here, as
-[CONTRIBUTING.md](CONTRIBUTING.md) explains, along with the checks and
-what a pull request needs.
+`main`. [CONTRIBUTING.md](CONTRIBUTING.md) explains the checks and what a
+pull request needs.
 
 ## Maintainers
 

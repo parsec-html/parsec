@@ -192,9 +192,8 @@ marked **free**, say on the issue that you're taking it, and it's yours. A
 question first is fine too.
 
 New here? The [contributing guide]({CONTRIBUTING}) covers setup, the tests
-and where a change goes: most of the parser's source lives in Netweir and
-syncs across, so a fix there may start in the other repository. A good
-first issue is small and self-contained, and I'll help you through it.
+and where a change goes. A good first issue is small and self-contained,
+and I'll help you through it.
 
 **Taken** means someone is assigned, has said they're on it, or has an open
 pull request linked. If one has gone quiet for a few weeks, ask on the issue.

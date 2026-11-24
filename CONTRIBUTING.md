@@ -24,34 +24,13 @@ its own tree and its own error handling, and only `parsec-base` is
 shared. A change that makes one crate depend on another needs a reason
 in its pull request.
 
-Everything new, `parsec-js`, `parsec-xml` and `parsec-base` included, is
-written here. The HTML parser is the exception: it has two homes. Its source is Netweir's
-[`crates/netweir-html`](https://github.com/netweir/netweir/tree/main/crates/netweir-html),
-and `scripts/sync-from-netweir.sh` copies it into `crates/parsec`,
-renaming as it goes. The Netweir commit it came from is in
-`NETWEIR_COMMIT`.
-
-So if your change touches any of these, make it in Netweir first:
-
-- `crates/parsec/src`
-- `crates/parsec/tests/*.rs`
-- `crates/parsec/examples`
-- `crates/parsec/scripts`
-- `crates/parsec/fuzz/fuzz_targets`
-- `crates/parsec-xpath/src` and `crates/parsec-xpath/tests`, which come from
-  Netweir's [`crates/netweir-xpath`](https://github.com/netweir/netweir/tree/main/crates/netweir-xpath)
-
-Once it's merged there, a pull request here runs the sync and moves
-`NETWEIR_COMMIT` forward:
-
-```
-scripts/sync-from-netweir.sh ../netweir
-```
-
-CI checks that those paths match Netweir at the pinned commit, so an edit
-made here alone fails it. Everything else in the repository, including
-the manifests, the test data and every crate beside `crates/parsec`, is
-Parsec's own, and you change it here directly.
+Every crate is written here, the HTML parser and XPath included, so you
+make your change in this repository and nowhere else. The HTML parser in
+`crates/parsec` and XPath in `crates/parsec-xpath` used to be copied in
+from Netweir; that stopped with
+[#208](https://github.com/parsec-html/parsec/issues/208). Netweir keeps
+its own copy for now, and moves to Parsec's released crates in
+[#209](https://github.com/parsec-html/parsec/issues/209).
 
 ## Getting it running
 
@@ -211,8 +190,8 @@ A reviewer checks, in this order:
    the pull request says so.
 4. **It's documented.** The wiki page for anything users can see is
    updated in the same change, and the README if a claim there changes.
-5. **It's tidy.** CI is green: formatting, clippy, cargo-deny, the drift
-   check and the tests on Linux, macOS and Windows.
+5. **It's tidy.** CI is green: licence headers, formatting, clippy,
+   cargo-deny and the tests on Linux, macOS and Windows.
 
 A pull request merges once all of that holds and every review thread is
 resolved. If a contributor and reviewer disagree, the reasoning goes in the

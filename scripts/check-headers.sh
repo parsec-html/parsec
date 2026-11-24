@@ -1,7 +1,6 @@
 #!/bin/sh
 # Fails if a tracked Rust file doesn't start with Parsec's licence and
-# copyright header. scripts/sync-from-netweir.sh writes it on the synced
-# files; Parsec's own files carry it by hand.
+# copyright header.
 set -eu
 cd "$(dirname "$0")/.."
 want='// SPDX-License-Identifier: Apache-2.0

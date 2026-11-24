@@ -572,9 +572,8 @@ cd parsec
 cargo test
 ```
 
-The parser core is shared with Netweir, so changes to `crates/parsec` start
-there. [CONTRIBUTING.md](https://github.com/parsec-html/parsec/blob/main/CONTRIBUTING.md) explains how that works and how
-to get a change in. Questions go to
+Every part of Parsec, the HTML parser included, is written here.
+[CONTRIBUTING.md](https://github.com/parsec-html/parsec/blob/main/CONTRIBUTING.md) explains how to get a change in. Questions go to
 [Discussions](https://github.com/parsec-html/parsec/discussions), bugs to
 [Issues](https://github.com/parsec-html/parsec/issues).
 
