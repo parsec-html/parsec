@@ -55,10 +55,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#define PARSEC_VERSION "0.2.0"
+#define PARSEC_VERSION "0.2.1"
 #define PARSEC_VERSION_MAJOR 0
 #define PARSEC_VERSION_MINOR 2
-#define PARSEC_VERSION_PATCH 0
+#define PARSEC_VERSION_PATCH 1
 
 // Parse with scripting on, as a browser with JavaScript does: `<noscript>`
 // holds raw text.

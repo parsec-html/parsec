@@ -1,7 +1,7 @@
 {
   "name": "parsec-html",
-  "version": "0.2.0",
-  "description": "An HTML parser that follows the WHATWG spec, with CSS selectors and an editable tree, compiled to WebAssembly.",
+  "version": "0.2.1",
+  "description": "Parsec is parsec-web from 0.3.0: npm install parsec-web. This name stays at 0.2: an HTML parser that follows the WHATWG spec, compiled to WebAssembly.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

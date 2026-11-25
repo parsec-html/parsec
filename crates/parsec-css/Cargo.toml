@@ -3,7 +3,7 @@ name = "parsec-html-css"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "CSS Syntax Level 3 for Parsec: tokenizer, parser, An+B and serialization, tested against css-parsing-tests."
+description = "CSS Syntax Level 3 for Parsec: tokenizer, parser, An+B and serialization, tested against css-parsing-tests. It is parsec-web-css from 0.3.0; this name stays at 0.2."
 repository.workspace = true
 license.workspace = true
 readme = "../../README.md"
@@ -21,7 +21,7 @@ name = "parsec_css"
 
 [dependencies]
 # The document the cascade styles, and its selector engine.
-parsec-html-core = { path = "../parsec", version = "0.2.0" }
+parsec-html-core = { path = "../parsec", version = "0.2.1" }
 # For stylesheets given as bytes; already Parsec's, through parsec-html-encoding.
 encoding_rs = "0.8.35"
 

@@ -3,7 +3,7 @@ name = "parsec-html"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "A fast HTML parser that follows the WHATWG spec, with CSS selectors, a mutable DOM, and the Encoding, URL, XPath and CSS standards beside it."
+description = "Parsec is parsec-web from 0.3.0: depend on parsec-web, and keep use parsec. This name stays at 0.2: a fast HTML parser that follows the WHATWG spec, with CSS selectors and a mutable DOM."
 repository.workspace = true
 license.workspace = true
 documentation = "https://docs.rs/parsec-html"
@@ -18,11 +18,11 @@ categories = ["parser-implementations", "web-programming"]
 name = "parsec"
 
 [dependencies]
-html = { package = "parsec-html-core", path = "../parsec", version = "0.2.0" }
-parsec-html-css = { path = "../parsec-css", version = "0.2.0", optional = true }
-parsec-html-encoding = { path = "../parsec-encoding", version = "0.2.0", optional = true }
-parsec-url = { path = "../parsec-url", version = "0.2.0", optional = true }
-parsec-xpath = { path = "../parsec-xpath", version = "0.2.0", optional = true }
+html = { package = "parsec-html-core", path = "../parsec", version = "0.2.1" }
+parsec-html-css = { path = "../parsec-css", version = "0.2.1", optional = true }
+parsec-html-encoding = { path = "../parsec-encoding", version = "0.2.1", optional = true }
+parsec-url = { path = "../parsec-url", version = "0.2.1", optional = true }
+parsec-xpath = { path = "../parsec-xpath", version = "0.2.1", optional = true }
 
 [features]
 default = ["encoding", "url", "xpath"]

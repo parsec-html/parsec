@@ -1,5 +1,8 @@
 # parsec-html for JavaScript
 
+From 0.3.0 this package is `parsec-web`, and `parsec-html` stays at
+0.2. Install `parsec-web` to keep getting releases.
+
 Parsec is an HTML parser in Rust that reads pages the way a browser does,
 finds what you want with CSS selectors, and lets you change the tree and
 write it back out. This package is Parsec compiled to WebAssembly, with

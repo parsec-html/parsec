@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "parsec-html"
-description = "A fast, spec-following HTML parser with CSS selectors and an editable tree, with a selectolax-style API."
+description = "Parsec is parsec-web from 0.3.0: pip install parsec-web, and keep import parsec_html. This name stays at 0.2."
 readme = "README.md"
 license = "Apache-2.0"
 # Copies of the repository's, which CI checks are the same: maturin takes

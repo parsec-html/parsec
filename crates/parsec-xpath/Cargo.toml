@@ -17,5 +17,5 @@ documentation = "https://docs.rs/parsec-xpath"
 name = "parsec_xpath"
 
 [dependencies]
-parsec-html-core = { path = "../parsec", version = "0.2.0" }
+parsec-html-core = { path = "../parsec", version = "0.2.1" }
 stacker = "0.1"

@@ -8,6 +8,13 @@
   <a href="https://github.com/parsec-html/parsec/actions/workflows/ci.yml"><img src="https://github.com/parsec-html/parsec/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
+> [!IMPORTANT]
+> From 0.3.0, Parsec is `parsec-web` on crates.io, PyPI and npm, and
+> `parsec-html` stays at 0.2. To move, change the name you depend on:
+> `cargo add parsec-web`, `pip install parsec-web` or
+> `npm install parsec-web`. What you import stays `parsec` in Rust and
+> `parsec_html` in Python; in JavaScript, import `parsec-web`.
+
 An HTML parser in Rust that reads pages the way a browser does, finds what
 you're after with CSS selectors, and lets you change the tree and write it
 back out.

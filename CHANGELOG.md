@@ -4,6 +4,19 @@ Every change people using Parsec would notice, newest first. Version
 numbers follow [Semantic Versioning](https://semver.org/); until 1.0, a
 minor release can break the API and a patch release won't.
 
+## 0.2.1
+
+The last release under the name `parsec-html`. From 0.3.0 Parsec is
+`parsec-web` on crates.io, PyPI and npm
+([#213](https://github.com/parsec-html/parsec/issues/213)), and
+`parsec-html-core`, `parsec-html-css` and `parsec-html-encoding` are
+`parsec-web-core`, `parsec-web-css` and `parsec-web-encoding`. This
+release changes no code: its descriptions and READMEs say where to go.
+
+To move, change the name you depend on. What you import doesn't change:
+`parsec`, `parsec_css` and `parsec_encoding` in Rust, `parsec_html` in
+Python. In JavaScript, import `parsec-web`.
+
 ## 0.2.0
 
 A security release. A page could crash any program using Parsec
