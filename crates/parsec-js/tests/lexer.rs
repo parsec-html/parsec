@@ -777,3 +777,19 @@ fn what_ends_a_plain_number() {
         assert_eq!(lex(src)[0].1, text, "{src:?}");
     }
 }
+
+#[test]
+fn indents_of_every_length() {
+    // The spaces after a line break are counted a word at a time.
+    for k in 0..20 {
+        for tail in ["", "\t", " \t ", "\n  ", "\u{a0}"] {
+            let indent = " ".repeat(k);
+            let src = format!("a\r\n{indent}{tail}b");
+            let tokens = driver::tokenize(&src, SourceType::Script).0;
+            let b = tokens.last().unwrap();
+            assert_eq!(b.text(&src), "b", "{src:?}");
+            assert_eq!(b.span.start as usize, src.len() - 1, "{src:?}");
+            assert!(b.newline_before(), "{src:?}");
+        }
+    }
+}

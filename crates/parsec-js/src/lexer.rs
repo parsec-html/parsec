@@ -372,6 +372,17 @@ impl<'a> Lexer<'a> {
                     self.pos += 1;
                     self.newline = true;
                     self.line_start = true;
+                    // The spaces of the indent after it, a word at a time:
+                    // the count is the run of zero bytes at the bottom of
+                    // the word with the spaces taken out.
+                    const SPACES: u64 = u64::from_ne_bytes([b' '; 8]);
+                    while let Some(&w) = b.get(self.pos..).and_then(|r| r.first_chunk::<8>()) {
+                        let n = (u64::from_le_bytes(w) ^ SPACES).trailing_zeros() as usize / 8;
+                        self.pos += n;
+                        if n < 8 {
+                            break;
+                        }
+                    }
                 }
                 0x80.. => return false,
                 _ => return true,
