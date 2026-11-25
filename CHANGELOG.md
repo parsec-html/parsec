@@ -4,7 +4,32 @@ Every change people using Parsec would notice, newest first. Version
 numbers follow [Semantic Versioning](https://semver.org/); until 1.0, a
 minor release can break the API and a patch release won't.
 
-## Unreleased
+## 0.3.0 - 2026-11-25
+
+The first release with JavaScript and XML, and the first under the
+project's name, `parsec-web`. `parsec-js` parses ECMAScript 2025 to a
+tree and to ESTree JSON, works out scopes and module records, reports
+every error with a code and a code frame, reparses only what an edit
+touched, and reads the state a page keeps in its scripts without
+running them, at 1.05 times `oxc_parser`'s speed. `parsec-xml` parses
+XML 1.0 with namespaces, and XPath runs over it. Both are in the C
+API, Python, WebAssembly and a new native Node.js build, and so is a
+limit on selector matching.
+
+Upgrade if you run XPath over pages you don't control: a name test like
+`@id` on an element with 20,000 attributes took 3.9 seconds in 0.2.0,
+and takes 4 ms now (see [Fixed](#fixed)).
+
+What breaks, in short (all of it under [Changed
+(breaking)](#changed-breaking)):
+
+- The packages are `parsec-web`, `parsec-web-core`, `parsec-web-css`
+  and `parsec-web-encoding`. It's one line in `Cargo.toml`, and
+  `pip install parsec-web` or `npm install parsec-web`; what you import
+  doesn't change.
+- The Python wheels need Python 3.10 or newer.
+- `parsec_xpath::Item` has a third variant, and `parsec-xpath` reads
+  trees through a `Tree` trait.
 
 ### Added
 
@@ -39,7 +64,10 @@ minor release can break the API and a patch release won't.
     tree as `NodeKind::EntityRef`.
   - Entity expansion stops with an error past `max_entity_depth` (16)
     or past 1 MiB plus 8 bytes per byte of input, so billion laughs and
-    quadratic blowup cost what you allow. Elements nest at most 2,048
+    quadratic blowup cost what you allow. Each attribute default the
+    internal subset applies counts against the same budget, so a big
+    default on many elements stops there too
+    ([#230](https://github.com/parsec-html/parsec/pull/230)). Elements nest at most 2,048
     deep by default, and with no limit a million levels parse without
     recursion.
   - A document that isn't well-formed is an `Error` with a stable code,
@@ -174,6 +202,14 @@ minor release can break the API and a patch release won't.
     the source is parsed whole. A test checks it against `parse` on
     random edits, and a `reparse` fuzz target joins the nightly run
     ([#167](https://github.com/parsec-html/parsec/issues/167)).
+  - `bench/` times the parser against oxc's and swc's with
+    `parsec-web-bench js`: 375 MB/s over the 11.6 MB corpus of bundles
+    and inline scripts, 1.05 times `oxc_parser` and 2.5 times
+    `swc_ecma_parser`, holding 44 MB on typescript.js to oxc's 67
+    ([#156](https://github.com/parsec-html/parsec/issues/156),
+    [#215](https://github.com/parsec-html/parsec/pull/215),
+    [#236](https://github.com/parsec-html/parsec/pull/236),
+    [#239](https://github.com/parsec-html/parsec/pull/239)).
 - Every binding can now put a limit on selector matching. Most
   selectors cost one walk of the tree, but `div:has(span div)` over a
   few thousand nested divs costs millions of steps, and a crawler
@@ -263,6 +299,11 @@ minor release can break the API and a patch release won't.
   WebAssembly bindings give a namespace node as its URI, a string, as
   they give an attribute as its value. The C API gives it as its
   element with `PARSEC_NS_ATTR` in place of an attribute index.
+- The Python wheels, the npm package and the C library are built with
+  `url` 2.5.9, for RUSTSEC-2026-0592: `Url::origin()` on a deeply
+  nested `blob:` URL overflowed the stack. Parsec only calls
+  `Url::parse`, so it never reached it
+  ([#221](https://github.com/parsec-html/parsec/pull/221)).
 
 ## 0.2.0
 
@@ -276,7 +317,7 @@ docs that said more than the code did. Upgrade if Parsec reads pages
 you don't control.
 
 It's 0.2.0, not 0.1.1, because the edit API changed shape: see
-[Changed](#changed). Until 1.0, a minor release can break the API and
+[Changed](#changed-1). Until 1.0, a minor release can break the API and
 a patch release won't.
 
 ### Changed
