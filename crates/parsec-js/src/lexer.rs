@@ -594,6 +594,31 @@ impl<'a> Lexer<'a> {
     // Numeric literals (12.9.3, B.1.1).
 
     fn number(&mut self, start: usize) -> Token {
+        // Most numbers are decimal digits with nothing after them that
+        // could go on with the number: those need none of the registers
+        // the rest does.
+        let b = self.src.as_bytes();
+        if b[start] != b'.' {
+            let mut end = start + 1;
+            if b[start] != b'0' {
+                while b.get(end).is_some_and(u8::is_ascii_digit) {
+                    end += 1;
+                }
+            }
+            let plain = b.get(end).is_none_or(|&c| {
+                c < 0x80 && !c.is_ascii_alphanumeric() && !matches!(c, b'.' | b'$' | b'_' | b'\\')
+            });
+            if plain {
+                self.pos = end;
+                return self.token(Kind::Number, start, Flags::empty());
+            }
+        }
+        self.number_rest(start)
+    }
+
+    /// A number from `start` that isn't only decimal digits.
+    #[inline(never)]
+    fn number_rest(&mut self, start: usize) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
         let mut kind = Kind::Number;

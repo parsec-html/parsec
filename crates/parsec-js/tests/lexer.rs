@@ -751,3 +751,29 @@ fn hostile_inputs_are_linear() {
     // Generous for a debug build on a slow runner; quadratic would be hours.
     assert!(start.elapsed().as_secs() < 60, "{:?}", start.elapsed());
 }
+
+#[test]
+fn what_ends_a_plain_number() {
+    // Nothing that could go on with the number: the digits are the token.
+    for end in ["", " ", ";", ")", ",", "+", "\n", "]", "}", "/", "\u{a0}"] {
+        let src = format!("12{end}");
+        assert_eq!(lex(&src)[0], (Kind::Number, "12"), "{src:?}");
+        assert!(codes(&src).is_empty(), "{src:?}");
+    }
+    // What can: the rest of the number, or of the word, is in the token.
+    for (src, text) in [
+        ("12.5", "12.5"),
+        ("12e3", "12e3"),
+        ("12n", "12n"),
+        ("1_2", "1_2"),
+        ("12$", "12$"),
+        ("12_", "12_"),
+        ("0.", "0."),
+        ("01", "01"),
+        ("0x1", "0x1"),
+        ("12\u{e9}", "12\u{e9}"),
+        ("12\\u0061", "12\\"),
+    ] {
+        assert_eq!(lex(src)[0].1, text, "{src:?}");
+    }
+}
