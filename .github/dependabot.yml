@@ -20,8 +20,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    # bench/lexbor stays on a release tag. Dependabot follows the default
-    # branch, which doesn't contain the v3.0.1 tag, so it moved the bench to
-    # a 3.0.0 commit (#74). A newer Lexbor release is moved to by hand.
+    # bench/lexbor and bench/libxml2 stay on release tags. Dependabot
+    # follows the default branch, which doesn't contain the tags we pin, so
+    # it moved Lexbor from v3.0.1 to a 3.0.0 commit (#74) and libxml2 from
+    # v2.15.4 back to v2.15.0 (#243). A newer release of either is moved to
+    # by hand.
     ignore:
       - dependency-name: bench/lexbor
+      - dependency-name: bench/libxml2
