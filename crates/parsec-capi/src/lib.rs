@@ -441,7 +441,7 @@ unsafe fn clear<'a, T>(out: *mut *mut T) -> Result<&'a mut *mut T, parsec_status
 
 // ---- the library -----------------------------------------------------------
 
-/// The library's version, such as "0.2.0", NUL-terminated and static.
+/// The library's version, such as "0.3.0", NUL-terminated and static.
 #[unsafe(no_mangle)]
 pub extern "C" fn parsec_version() -> *const c_char {
     concat!(env!("CARGO_PKG_VERSION"), "\0").as_ptr().cast()
