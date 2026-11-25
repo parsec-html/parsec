@@ -8,7 +8,7 @@ minor release can break the API and a patch release won't.
 
 ### Added
 
-- A native build for Node.js, which the npm package `parsec-html` now
+- A native build for Node.js, which the npm package `parsec-web` now
   loads in Node wherever there's one for the platform: Linux on x86-64
   and ARM64, with glibc or musl, macOS on both, and Windows on both
   ([#177](https://github.com/parsec-html/parsec/issues/177)). It has the
@@ -107,7 +107,7 @@ minor release can break the API and a patch release won't.
   - test262 runs in `cargo test`, and CI's summary has its counts
     ([#148](https://github.com/parsec-html/parsec/issues/148)).
   - `bench/` times the lexer against oxc's and swc's with
-    `parsec-html-bench js-lex`: 347 MB/s to oxc's 568 and swc's 328 over
+    `parsec-web-bench js-lex`: 347 MB/s to oxc's 568 and swc's 328 over
     the 11.6 MB JavaScript corpus, with all three reading the same tokens
     ([#149](https://github.com/parsec-html/parsec/issues/149)).
   - `parsec-js` parses ECMAScript 2025 scripts and modules: `parse`
@@ -220,6 +220,15 @@ minor release can break the API and a patch release won't.
 
 ### Changed (breaking)
 
+- Parsec publishes as `parsec-web` on crates.io, PyPI and npm, the
+  project's name now that it parses CSS, JavaScript and XML as well as
+  HTML ([#213](https://github.com/parsec-html/parsec/issues/213)).
+  `parsec-html-core`, `parsec-html-css` and `parsec-html-encoding` are
+  `parsec-web-core`, `parsec-web-css` and `parsec-web-encoding`; the
+  other crates keep their names. What you import doesn't change: in
+  Rust it's still `parsec`, `parsec_css` and `parsec_encoding`, and in
+  Python still `parsec_html`. In JavaScript, import `parsec-web`.
+  `parsec-html` stays at 0.2, pointing here.
 - The Python wheels need Python 3.10 or newer: 3.9 reached end of life
   in October 2025, and its CI jobs kept a pytest with a known
   vulnerability ([#220](https://github.com/parsec-html/parsec/issues/220)).

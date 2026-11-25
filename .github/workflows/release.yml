@@ -222,7 +222,7 @@ jobs:
     timeout-minutes: 30
     environment:
       name: release
-      url: https://crates.io/crates/parsec-html
+      url: https://crates.io/crates/parsec-web
     permissions:
       contents: read
       # For trusted publishing.
@@ -252,11 +252,11 @@ jobs:
         run: |
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
           checksum() {
-            json=$(curl -sf -A "parsec-html release (github.com/parsec-html/parsec)" \
+            json=$(curl -sf -A "parsec-web release (github.com/parsec-html/parsec)" \
               "https://crates.io/api/v1/crates/$1/$version") || return 1
             jq -er .version.checksum <<< "$json"
           }
-          for crate in parsec-base parsec-js parsec-html-core parsec-html-encoding parsec-url parsec-xpath parsec-xml parsec-html-css parsec-html; do
+          for crate in parsec-base parsec-js parsec-web-core parsec-web-encoding parsec-url parsec-xpath parsec-xml parsec-web-css parsec-web; do
             want=$(sha256sum "$RUNNER_TEMP/dist/$crate-$version.crate" | cut -d' ' -f1)
             if have=$(checksum "$crate"); then
               echo "$crate $version is on crates.io already"

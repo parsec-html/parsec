@@ -434,7 +434,7 @@ fn wpt_cascade() {
     if std::env::var_os("UPDATE_KNOWN_FAILURES").is_some() {
         let mut text = String::from(
             "# Every WPT cascade case that fails today, written by\n\
-             # UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-html-css --test wpt_cascade\n",
+             # UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-web-css --test wpt_cascade\n",
         );
         for k in &failing {
             text.push_str(k);

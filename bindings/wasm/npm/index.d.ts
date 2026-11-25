@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-export * from "./node/parsec_html.js";
-import type { Document, ParseOptions } from "./node/parsec_html.js";
+export * from "./node/parsec_web.js";
+import type { Document, ParseOptions } from "./node/parsec_web.js";
 
 /**
  * Parses a whole document as `parse` does, on one of Node's worker threads

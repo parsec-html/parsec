@@ -6,7 +6,7 @@
 
 #[cfg(feature = "xml")]
 mod xml_api {
-    use parsec_html_wasm::{XmlParseOptions, parse_xml, parse_xml_bytes};
+    use parsec_web_wasm::{XmlParseOptions, parse_xml, parse_xml_bytes};
     use wasm_bindgen::prelude::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 

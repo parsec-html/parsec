@@ -139,7 +139,7 @@ MS milliseconds), `differs-from-html5ever` (the two trees differ), or
 non-zero while the bug is there. The result goes beside the page as
 `page.reduced.html`.
 
-Put it in `crates/parsec-html/tests/regressions/` as `<short-name>.html`,
+Put it in `crates/parsec-web/tests/regressions/` as `<short-name>.html`,
 starting with a line that says where it came from:
 
 ```
@@ -149,7 +149,7 @@ starting with a line that says where it came from:
 The `regressions` test parses every file there, and fails on a panic or
 a parse over 10 seconds. A `<short-name>.tree` beside it, the
 html5lib-tests tree dump, holds the tree to that as well;
-`BLESS_REGRESSIONS=1 cargo test -p parsec-html --test regressions` writes
+`BLESS_REGRESSIONS=1 cargo test -p parsec-web --test regressions` writes
 one from what Parsec builds now, once the fix is in.
 
 Reduced inputs only, never whole pages, and always with the site's URL

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! XPath over a tree of the test's own, not parsec-html's: names,
+//! XPath over a tree of the test's own, not parsec-web's: names,
 //! namespaces, attributes, text, `id()` and `lang()` all come through the
 //! `Tree` trait, so this builds and runs without the `html` feature.
 

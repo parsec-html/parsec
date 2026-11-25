@@ -43,8 +43,9 @@ get backports, so when 0.3 comes out, 0.2 stops getting them.
 ## Verifying a release
 
 A release is a signed tag, and on its GitHub release page the crates
-(`parsec-html-VERSION.crate` and the five it's built from), their
-`SHA256SUMS` and the provenance bundle (`parsec-vVERSION.intoto.jsonl`).
+(`parsec-web-VERSION.crate` and the five it's built from;
+`parsec-html-VERSION.crate` before 0.3.0), their `SHA256SUMS` and the
+provenance bundle (`parsec-vVERSION.intoto.jsonl`).
 Each can be checked on its own.
 
 **The tag** is signed with a maintainer's SSH key, listed in
@@ -93,7 +94,7 @@ shows on each file and npm's provenance statement, and only once the
 tag's signature has checked out:
 
 ```sh
-npm audit signatures    # in a project that depends on parsec-html
+npm audit signatures    # in a project that depends on parsec-web
 ```
 
 **A rebuild** gives the same file, byte for byte. At the tag, run

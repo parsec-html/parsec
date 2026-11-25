@@ -315,7 +315,14 @@ name = "parsec-base"
 version = "0.2.0"
 
 [[package]]
-name = "parsec-html-core"
+name = "parsec-js"
+version = "0.2.0"
+dependencies = [
+ "parsec-base",
+]
+
+[[package]]
+name = "parsec-web-core"
 version = "0.2.0"
 dependencies = [
  "memchr",
@@ -323,31 +330,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "parsec-html-encoding"
+name = "parsec-web-encoding"
 version = "0.2.0"
 dependencies = [
  "encoding_rs",
- "parsec-html-core",
+ "parsec-web-core",
 ]
 
 [[package]]
-name = "parsec-html-wasm"
+name = "parsec-web-wasm"
 version = "0.2.0"
 dependencies = [
- "parsec-html-core",
- "parsec-html-encoding",
  "parsec-js",
+ "parsec-web-core",
+ "parsec-web-encoding",
  "parsec-xml",
  "parsec-xpath",
  "wasm-bindgen",
  "wasm-bindgen-test",
-]
-
-[[package]]
-name = "parsec-js"
-version = "0.2.0"
-dependencies = [
- "parsec-base",
 ]
 
 [[package]]
@@ -362,7 +362,7 @@ dependencies = [
 name = "parsec-xpath"
 version = "0.2.0"
 dependencies = [
- "parsec-html-core",
+ "parsec-web-core",
  "stacker",
 ]
 

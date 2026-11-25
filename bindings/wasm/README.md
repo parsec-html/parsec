@@ -1,4 +1,4 @@
-# parsec-html for JavaScript
+# parsec-web for JavaScript
 
 Parsec is an HTML parser in Rust that reads pages the way a browser does,
 finds what you want with CSS selectors, and lets you change the tree and
@@ -6,7 +6,7 @@ write it back out. This package is Parsec compiled to WebAssembly, with
 TypeScript types, for Node and for browsers.
 
 ```js
-import { parse } from "parsec-html";
+import { parse } from "parsec-web";
 
 const doc = parse("<ul><li class=hit>one<li>two</ul>");
 doc.selectFirst("li.hit").textContent; // "one"
@@ -16,7 +16,7 @@ for (const li of doc.select("li")) console.log(li.outerHTML);
 In a browser or a bundler, load the WebAssembly first:
 
 ```js
-import init, { parse } from "parsec-html";
+import init, { parse } from "parsec-web";
 await init();
 ```
 
@@ -24,6 +24,9 @@ Node doesn't need that step: it gets a build that loads itself. On
 Linux, macOS and Windows that's a native build with the same API, which
 parses about 1.5 times as fast and adds `parseAsync`, parsing on a
 worker thread; see [bindings/node](../node/README.md).
+
+Up to 0.2 this package was `parsec-html`. From 0.3.0 it's `parsec-web`:
+install and import that name, and nothing else changes.
 
 ## What's in it
 
@@ -144,7 +147,7 @@ ESTree as plain objects, the same tree acorn gives, with `start` and
 `frame` to print:
 
 ```js
-import { parseJs, pageState } from "parsec-html";
+import { parseJs, pageState } from "parsec-web";
 
 const tree = parseJs("export const a = [1, 2];", { module: true });
 try {
@@ -175,7 +178,7 @@ order mark, else the encoding the XML declaration names, else UTF-8, and
 bytes that aren't that encoding are an error rather than U+FFFD.
 
 ```js
-import { parseXml } from "parsec-html";
+import { parseXml } from "parsec-web";
 
 const doc = parseXml(atom);
 const feed = doc.documentElement;
@@ -243,7 +246,7 @@ cd bindings/wasm
 wasm-pack test --node
 wasm-pack test --headless --firefox --test browser
 ./build.sh                      # the package, in pkg/
-mkdir -p node_modules && ln -s ../pkg node_modules/parsec-html
+mkdir -p node_modules && ln -s ../pkg node_modules/parsec-web
 node --test tests/package.test.mjs tests/xml.test.mjs
 ```
 

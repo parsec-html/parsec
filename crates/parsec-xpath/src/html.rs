@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 
-//! parsec-html's tree as a [`Tree`]: an HTML page as lxml reads one, and
+//! parsec-web's tree as a [`Tree`]: an HTML page as lxml reads one, and
 //! through [`XmlTree`] an XML document built into the same tree.
 
 use parsec::{AttrNs, Document, Kind, Ns};
@@ -118,7 +118,7 @@ fn attr_ignoring_case<'t>(tree: &'t Document, n: NodeId, name: &str) -> Option<&
         .map(|(_, _, v)| v)
 }
 
-/// The namespaces of an XML document built into a parsec-html tree,
+/// The namespaces of an XML document built into a parsec-web tree,
 /// which the tree leaves to its host. Ids are the host's; 0 is no
 /// namespace.
 pub trait Namespaces: Sync {
@@ -138,7 +138,7 @@ pub trait Namespaces: Sync {
     }
 }
 
-/// An XML document built into a parsec-html tree: its elements are
+/// An XML document built into a parsec-web tree: its elements are
 /// [`Ns::Xml`] with their names as written, its attributes' namespaces are
 /// [`AttrNs::Host`] ids, and `names` holds what those ids stand for. The
 /// host keeps namespace declarations out of the attributes.

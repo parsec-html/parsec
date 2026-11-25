@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 James Conway
 //
-// The npm side of the native build. The names come from the parsec-html
+// The npm side of the native build. The names come from the parsec-web
 // package's package.json (bindings/wasm/npm/package.json): its version,
 // and its `napi.packageName`, which each platform's package adds its
 // platform to, as napi-rs names them.

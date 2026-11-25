@@ -5,7 +5,7 @@ pages: parsing, the 32 selectors bench/ times in Rust, and the loop a
 scraper runs (every link's href and text).
 
     bench/fetch-pages.sh
-    pip install selectolax parsec-html   # or maturin develop --release
+    pip install selectolax parsec-web   # or maturin develop --release
     python bindings/python/bench.py [bench/corpus] [--runs N]
 """
 

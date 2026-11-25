@@ -1,5 +1,5 @@
 # Every WPT computed-value case that fails today, written by
-# UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-html-css --test wpt_computed
+# UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-web-css --test wpt_computed
 ["computed","css/css-align/parsing/align-content-computed.html","align-content","flex-end","flow-end"]
 ["computed","css/css-align/parsing/align-content-computed.html","align-content","flex-start","flow-start"]
 ["computed","css/css-align/parsing/align-content-computed.html","align-content","safe flex-start","safe flow-start"]

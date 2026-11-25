@@ -1,4 +1,4 @@
-# parsec-html for Python
+# parsec-web for Python
 
 Parsec is an HTML parser in Rust that reads pages the way a browser does,
 finds what you want with CSS selectors, and lets you change the tree and
@@ -135,8 +135,11 @@ What you get over selectolax:
 ## Installing
 
 ```sh
-pip install parsec-html
+pip install parsec-web
 ```
+
+The package was `parsec-html` up to 0.2. The module is still
+`parsec_html`, so moving up changes nothing in your code.
 
 There are wheels for CPython 3.10 and newer, free-threaded too, on Linux
 (glibc and musl), macOS and Windows, x86-64 and ARM. Anywhere else, pip

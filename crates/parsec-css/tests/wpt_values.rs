@@ -232,7 +232,7 @@ fn wpt_values() {
     if std::env::var_os("UPDATE_KNOWN_FAILURES").is_some() {
         let mut text = String::from(
             "# Every WPT CSS parsing case that fails today, written by\n\
-             # UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-html-css --test wpt_values\n",
+             # UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-web-css --test wpt_values\n",
         );
         for k in &failing {
             text.push_str(k);

@@ -25,9 +25,10 @@ share across threads, XPath, selectors for everything a static page can
 decide, and no use-after-free bugs, because the parser is memory-safe
 Rust.
 
-Parsec is on crates.io, PyPI and npm as `parsec-html`. This
-page says what works today and what's on the way, and the line between
-the two is kept sharp.
+Parsec 0.2 is on crates.io, PyPI and npm as `parsec-html`; from 0.3.0
+it's `parsec-web`, the project's name now that it parses more than
+HTML. This page says what works today and what's on the way, and the
+line between the two is kept sharp.
 
 ## What works today
 
@@ -248,7 +249,7 @@ assert_eq!(doc.text(hits[0]), "one");
   parses the 13 pages below in 66 ms to selectolax's 106, and runs the 32
   selectors in 283 ms to its 781.
 - **WebAssembly for JavaScript** in `bindings/wasm`, the npm package
-  `parsec-html` with TypeScript types: `parse`, `parseFragment`,
+  `parsec-web` with TypeScript types: `parse`, `parseFragment`,
   `select`, `selectFirst`, `xpath`, the tree, attributes, `textContent`,
   `innerHTML` and `outerHTML`, spans and parse errors, in Node and in
   browsers. `parseBytes` and `ByteParser` take a `Uint8Array`, whole or in
@@ -487,16 +488,20 @@ and the bindings. 0.3.0 is the first release with `parsec-js`.
 
 ## Using it
 
-Parsec is on crates.io, PyPI and npm as `parsec-html`, and the C
+From 0.3.0, Parsec is on crates.io, PyPI and npm as `parsec-web`, and the C
 library comes with each [GitHub release](https://github.com/parsec-html/parsec/releases).
+Until 0.3.0 is out, the release is 0.2, as `parsec-html`: the same
+commands with that name. To move, change the name you depend on. What
+you import stays `parsec` in Rust and `parsec_html` in Python; in
+JavaScript, import `parsec-web`.
 
-**Rust.** The package is `parsec-html` and the crate you `use` is
+**Rust.** The package is `parsec-web` and the crate you `use` is
 `parsec`:
 
 ```sh
-cargo add parsec-html                      # parser, selectors, encoding, URL, XPath
-cargo add parsec-html --features css       # plus CSS Syntax, values and the cascade
-cargo add parsec-html --no-default-features --features xpath   # just what you name
+cargo add parsec-web                       # parser, selectors, encoding, URL, XPath
+cargo add parsec-web --features css        # plus CSS Syntax, values and the cascade
+cargo add parsec-web --no-default-features --features xpath   # just what you name
 ```
 
 Each standard is a module: `parsec::encoding`, `parsec::url`,
@@ -513,7 +518,7 @@ assert_eq!(parsed.document.text(parsed.document.root()), "日本");
 **Python** 3.10 or newer, free-threaded too; then `import parsec_html`:
 
 ```sh
-pip install parsec-html
+pip install parsec-web
 ```
 
 Wheels cover Linux, macOS and Windows; anywhere else, pip builds the
@@ -522,7 +527,7 @@ sdist, which needs Rust 1.88 or newer.
 **JavaScript**, in Node or a browser:
 
 ```sh
-npm install parsec-html
+npm install parsec-web
 ```
 
 **C.** Each release has a package per platform (Linux, macOS and Windows,

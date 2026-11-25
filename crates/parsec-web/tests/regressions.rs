@@ -13,7 +13,7 @@
 //! Each one has to parse without a panic and inside `LIMIT`. If
 //! `<name>.tree` sits beside it, the tree has to match it too: the
 //! html5lib-tests tree dump, as `SerializeOptions::html5test` writes it.
-//! `BLESS_REGRESSIONS=1 cargo test -p parsec-html --test regressions`
+//! `BLESS_REGRESSIONS=1 cargo test -p parsec-web --test regressions`
 //! writes each fixture's `.tree` from what Parsec builds now.
 
 use std::path::{Path, PathBuf};

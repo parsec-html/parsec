@@ -1,6 +1,6 @@
 name: wasm
 
-# bindings/wasm, the parsec-html package on npm: linted, tested in Node
+# bindings/wasm, the parsec-web package on npm: linted, tested in Node
 # and in Firefox, then built as the package and tested as it installs.
 on:
   push:
@@ -46,14 +46,14 @@ jobs:
       - run: wasm-pack test --headless --firefox --test browser
       - run: ./build.sh
       # As `npm install ./pkg` would place it, without npm.
-      - run: mkdir -p node_modules && ln -s ../pkg node_modules/parsec-html
+      - run: mkdir -p node_modules && ln -s ../pkg node_modules/parsec-web
       - run: node --test tests/package.test.mjs tests/xml.test.mjs
       - name: Package size
         run: |
           {
             echo "| File | Bytes | Gzipped |"
             echo "|---|---:|---:|"
-            for f in pkg/parsec_html_bg.wasm pkg/parsec_html.js pkg/node/parsec_html.js; do
+            for f in pkg/parsec_web_bg.wasm pkg/parsec_web.js pkg/node/parsec_web.js; do
               echo "| \`$f\` | $(wc -c < "$f") | $(gzip -9 -c "$f" | wc -c) |"
             done
           } >> "$GITHUB_STEP_SUMMARY"
@@ -65,14 +65,14 @@ jobs:
       # purpose, in the commit that needs it.
       - name: HTML-only size
         run: |
-          wasm-pack build --release --target web --weak-refs --out-dir "$RUNNER_TEMP/html-only" --out-name parsec_html -- --no-default-features
-          f="$RUNNER_TEMP/html-only/parsec_html_bg.wasm"
+          wasm-pack build --release --target web --weak-refs --out-dir "$RUNNER_TEMP/html-only" --out-name parsec_web -- --no-default-features
+          f="$RUNNER_TEMP/html-only/parsec_web_bg.wasm"
           size=$(wc -c < "$f")
           max=1180000
           {
             echo "| HTML only (\`--no-default-features\`) | Bytes | Gzipped |"
             echo "|---|---:|---:|"
-            echo "| \`parsec_html_bg.wasm\` | $size | $(gzip -9 -c "$f" | wc -c) |"
+            echo "| \`parsec_web_bg.wasm\` | $size | $(gzip -9 -c "$f" | wc -c) |"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$size" -gt "$max" ]; then
             echo "::error::the HTML-only build's .wasm is $size bytes, over the $max ceiling"

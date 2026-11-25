@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { XmlDocument, XmlNode, parseXml, parseXmlBytes } from "parsec-html";
+import { XmlDocument, XmlNode, parseXml, parseXmlBytes } from "parsec-web";
 
 const ATOM = "http://www.w3.org/2005/Atom";
 const XLINK = "http://www.w3.org/1999/xlink";

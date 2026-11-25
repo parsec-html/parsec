@@ -1,6 +1,6 @@
 name: node
 
-# bindings/node, the native build of the parsec-html npm package: built on
+# bindings/node, the native build of the parsec-web npm package: built on
 # each platform it ships for, then the package's tests run against it
 # there, and against the WebAssembly build it falls back to. Each
 # platform's package is uploaded as an artifact; release-npm.yml calls this
@@ -79,14 +79,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: linux-x64-gnu, os: ubuntu-24.04, lib: libparsec_html_node.so }
-          - { platform: linux-arm64-gnu, os: ubuntu-24.04-arm, lib: libparsec_html_node.so }
-          - { platform: linux-x64-musl, os: ubuntu-24.04, lib: libparsec_html_node.so, alpine: true }
-          - { platform: linux-arm64-musl, os: ubuntu-24.04-arm, lib: libparsec_html_node.so, alpine: true }
-          - { platform: darwin-x64, os: macos-15-intel, lib: libparsec_html_node.dylib }
-          - { platform: darwin-arm64, os: macos-15, lib: libparsec_html_node.dylib }
-          - { platform: win32-x64-msvc, os: windows-2025, lib: parsec_html_node.dll }
-          - { platform: win32-arm64-msvc, os: windows-11-arm, lib: parsec_html_node.dll }
+          - { platform: linux-x64-gnu, os: ubuntu-24.04, lib: libparsec_web_node.so }
+          - { platform: linux-arm64-gnu, os: ubuntu-24.04-arm, lib: libparsec_web_node.so }
+          - { platform: linux-x64-musl, os: ubuntu-24.04, lib: libparsec_web_node.so, alpine: true }
+          - { platform: linux-arm64-musl, os: ubuntu-24.04-arm, lib: libparsec_web_node.so, alpine: true }
+          - { platform: darwin-x64, os: macos-15-intel, lib: libparsec_web_node.dylib }
+          - { platform: darwin-arm64, os: macos-15, lib: libparsec_web_node.dylib }
+          - { platform: win32-x64-msvc, os: windows-2025, lib: parsec_web_node.dll }
+          - { platform: win32-arm64-msvc, os: windows-11-arm, lib: parsec_web_node.dll }
     defaults:
       run:
         shell: bash
@@ -130,13 +130,13 @@ jobs:
         working-directory: bindings/wasm
         run: |
           mkdir -p node_modules/@parsec-web
-          cp -R pkg node_modules/parsec-html
+          cp -R pkg node_modules/parsec-web
           cp -R ../../npm-native/${{ matrix.platform }} "node_modules/$(node -p 'require("./npm/package.json").napi.packageName')-${{ matrix.platform }}"
       - name: Test
         if: ${{ !matrix.alpine }}
         working-directory: bindings/wasm
         run: |
-          node -e 'if (require("parsec-html").backend !== "native") process.exit(1)'
+          node -e 'if (require("parsec-web").backend !== "native") process.exit(1)'
           PARSEC_BACKEND=native node --test tests/package.test.mjs tests/xml.test.mjs
           PARSEC_BACKEND=wasm node --test tests/package.test.mjs tests/xml.test.mjs
       - name: Test in Alpine
@@ -144,7 +144,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/w" -w /w/bindings/wasm "$ALPINE" sh -c '
             apk add --no-cache nodejs &&
-            node -e "if (require(\"parsec-html\").backend !== \"native\") process.exit(1)" &&
+            node -e "if (require(\"parsec-web\").backend !== \"native\") process.exit(1)" &&
             PARSEC_BACKEND=native node --test tests/package.test.mjs tests/xml.test.mjs &&
             PARSEC_BACKEND=wasm node --test tests/package.test.mjs tests/xml.test.mjs'
     env:

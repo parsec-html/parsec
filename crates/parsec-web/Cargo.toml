@@ -1,37 +1,37 @@
 [package]
-name = "parsec-html"
+name = "parsec-web"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 description = "A fast HTML parser that follows the WHATWG spec, with CSS selectors, a mutable DOM, and the Encoding, URL, XPath and CSS standards beside it."
 repository.workspace = true
 license.workspace = true
-documentation = "https://docs.rs/parsec-html"
+documentation = "https://docs.rs/parsec-web"
 readme = "../../README.md"
 keywords = ["html", "parser", "html5", "dom", "css-selectors"]
 categories = ["parser-implementations", "web-programming"]
 # The regression fixtures run from the repository.
 exclude = ["tests/"]
 
-# The crate to depend on. The parser is parsec-html-core, which can't
+# The crate to depend on. The parser is parsec-web-core, which can't
 # carry the re-exports itself: the modules depend on it, so it can't
 # depend on them.
 [lib]
 name = "parsec"
 
 [dependencies]
-html = { package = "parsec-html-core", path = "../parsec", version = "0.2.0" }
-parsec-html-css = { path = "../parsec-css", version = "0.2.0", optional = true }
-parsec-html-encoding = { path = "../parsec-encoding", version = "0.2.0", optional = true }
+html = { package = "parsec-web-core", path = "../parsec", version = "0.2.0" }
+parsec-web-css = { path = "../parsec-css", version = "0.2.0", optional = true }
+parsec-web-encoding = { path = "../parsec-encoding", version = "0.2.0", optional = true }
 parsec-url = { path = "../parsec-url", version = "0.2.0", optional = true }
 parsec-xpath = { path = "../parsec-xpath", version = "0.2.0", optional = true }
 
 [features]
 default = ["encoding", "url", "xpath"]
 # parsec::stylesheet: CSS Syntax, typed values, media queries and the cascade.
-css = ["dep:parsec-html-css"]
+css = ["dep:parsec-web-css"]
 # parsec::encoding: bytes in, with the encoding sniffed as browsers do.
-encoding = ["dep:parsec-html-encoding"]
+encoding = ["dep:parsec-web-encoding"]
 # parsec::url: the WHATWG URL Standard, URLSearchParams and IDNA.
 url = ["dep:parsec-url"]
 # parsec::xpath: XPath 1.0 over the parsed document.

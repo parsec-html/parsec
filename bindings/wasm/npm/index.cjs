@@ -44,7 +44,7 @@ if (binding) {
     if (Symbol.dispose) Class.prototype[Symbol.dispose] = Class.prototype.free;
   }
 } else {
-  binding = require("./node/parsec_html.js");
+  binding = require("./node/parsec_web.js");
 }
 
 module.exports = {
