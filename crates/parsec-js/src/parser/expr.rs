@@ -442,7 +442,15 @@ impl Parser<'_> {
     pub(super) fn lhs(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
         let e = self.primary()?;
-        if self.is_arrow(e) {
+        // Most operands have nothing after them for `subscripts`, which
+        // saves eight register pairs to find that out.
+        let more = matches!(
+            self.tok.kind,
+            Kind::Punct(Punct::Dot | Punct::QuestionDot | Punct::LBracket | Punct::LParen)
+                | Kind::Template
+                | Kind::TemplateHead
+        );
+        if !more || self.is_arrow(e) {
             return Ok(e);
         }
         self.subscripts(e, start, false)
