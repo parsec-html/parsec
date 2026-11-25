@@ -71,7 +71,21 @@ impl Parser<'_> {
             return Ok(e);
         }
         let start = self.tok.span.start;
-        let left = self.conditional(no_in)?;
+        // Most operands have no operator before them, and most have none
+        // after: those go straight to `lhs` and back, not down through
+        // `conditional`, `binary` and `unary` a call each.
+        let left = if plain_operand(self.tok.kind) {
+            let e = self.lhs()?;
+            if ends_operand(self.tok.kind) {
+                e
+            } else {
+                let e = self.postfix(start, e)?;
+                let e = self.binary_from(start, e, 0, no_in)?;
+                self.conditional_from(start, e, no_in)?
+            }
+        } else {
+            self.conditional(no_in)?
+        };
         let Some(operator) = assign_op(self.tok.kind) else {
             self.leave();
             return Ok(left);
@@ -123,6 +137,12 @@ impl Parser<'_> {
     fn conditional(&mut self, no_in: bool) -> R<NodeId> {
         let start = self.tok.span.start;
         let test = self.binary(0, no_in)?;
+        self.conditional_from(start, test, no_in)
+    }
+
+    /// The rest of a ConditionalExpression whose test, from `start`, is
+    /// `test`.
+    fn conditional_from(&mut self, start: u32, test: NodeId, no_in: bool) -> R<NodeId> {
         if !self.at(Punct::Question) {
             return Ok(test);
         }
@@ -183,7 +203,7 @@ impl Parser<'_> {
     /// Binary operators binding tighter than `min`.
     fn binary(&mut self, min: u8, no_in: bool) -> R<NodeId> {
         let start = self.tok.span.start;
-        let mut left = if self.tok.kind == Kind::PrivateName {
+        let left = if self.tok.kind == Kind::PrivateName {
             // `#x in o`, the one place a private name stands alone.
             let t = self.bump()?;
             if !self.at_kw(Keyword::In) || no_in || min >= RELATIONAL {
@@ -198,6 +218,12 @@ impl Parser<'_> {
         } else {
             self.unary()?
         };
+        self.binary_from(start, left, min, no_in)
+    }
+
+    /// The operators binding tighter than `min` after `left`, an operand
+    /// from `start`.
+    fn binary_from(&mut self, start: u32, mut left: NodeId, min: u8, no_in: bool) -> R<NodeId> {
         while let Some((op, prec)) = self.binary_op(no_in) {
             if prec <= min {
                 break;
@@ -355,32 +381,34 @@ impl Parser<'_> {
             self.finish(start, Node::Await { argument })
         } else {
             let e = self.lhs()?;
-            if (self.at(Punct::PlusPlus) || self.at(Punct::MinusMinus))
-                && !self.tok.newline_before()
-            {
-                if self.is_arrow(e) {
-                    return self.unexpected();
-                }
-                let operator = if self.at(Punct::PlusPlus) {
-                    UpdateOp::Increment
-                } else {
-                    UpdateOp::Decrement
-                };
-                self.simple_target(e, true)?;
-                self.bump()?;
-                self.finish(
-                    start,
-                    Node::Update {
-                        operator,
-                        prefix: false,
-                        argument: e,
-                    },
-                )
-            } else {
-                e
-            }
+            self.postfix(start, e)?
         };
         Ok(node)
+    }
+
+    /// `e`, from `start`, with the `++` or `--` after it if there is one.
+    fn postfix(&mut self, start: u32, e: NodeId) -> R<NodeId> {
+        if !(self.at(Punct::PlusPlus) || self.at(Punct::MinusMinus)) || self.tok.newline_before() {
+            return Ok(e);
+        }
+        if self.is_arrow(e) {
+            return self.unexpected();
+        }
+        let operator = if self.at(Punct::PlusPlus) {
+            UpdateOp::Increment
+        } else {
+            UpdateOp::Decrement
+        };
+        self.simple_target(e, true)?;
+        self.bump()?;
+        Ok(self.finish(
+            start,
+            Node::Update {
+                operator,
+                prefix: false,
+                argument: e,
+            },
+        ))
     }
 
     /// `delete x` is an error in strict code, and `delete this.#x`
@@ -1154,4 +1182,36 @@ fn assign_op(kind: Kind) -> Option<AssignOp> {
         Punct::QuestionQuestionEq => A::Coalesce,
         _ => return None,
     })
+}
+
+/// A token that `unary` and `binary` would hand straight to `lhs`: no
+/// prefix operator, no `await`, `yield` or lone private name.
+fn plain_operand(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Ident
+            | Kind::String
+            | Kind::Number
+            | Kind::Punct(Punct::LParen | Punct::LBracket | Punct::LBrace)
+            | Kind::Keyword(
+                Keyword::This | Keyword::True | Keyword::False | Keyword::Null | Keyword::Function
+            )
+    )
+}
+
+/// A token that no postfix, binary, conditional or assignment operator
+/// can be, so the operand before it is the whole expression.
+fn ends_operand(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Eof
+            | Kind::Punct(
+                Punct::Comma
+                    | Punct::Semicolon
+                    | Punct::Colon
+                    | Punct::RParen
+                    | Punct::RBracket
+                    | Punct::RBrace
+            )
+    )
 }
