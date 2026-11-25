@@ -553,26 +553,45 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Consumes the token being looked at and returns it.
+    /// Consumes the token being looked at and returns it. Inlined, so a
+    /// caller that wants the token keeps it, and `skip` keeps nothing
+    /// across the call into the lexer.
+    #[inline(always)]
     fn bump(&mut self) -> R<Token> {
         let t = self.tok;
-        if self.budget.spend(1).is_err() {
+        self.skip()?;
+        Ok(t)
+    }
+
+    /// Consumes the token being looked at.
+    #[inline(never)]
+    fn skip(&mut self) -> R<()> {
+        let spent = self.budget.spend(1).is_ok();
+        if !spent || (self.tok.flags.contains(Flags::LEGACY_OCTAL) && self.ctx.strict) {
+            return self.refuse_token(spent);
+        }
+        self.prev_end = self.tok.span.end;
+        self.advance()
+    }
+
+    /// Why the token being looked at can't be consumed: the step budget
+    /// ran out before it, or it's a legacy octal in strict code.
+    #[cold]
+    #[inline(never)]
+    fn refuse_token(&mut self, spent: bool) -> R<()> {
+        let span = self.tok.span;
+        if !spent {
             return self.err(
                 "step-budget",
-                t.span,
+                span,
                 "the parse used up its step budget here",
             );
         }
-        if t.flags.contains(Flags::LEGACY_OCTAL) && self.ctx.strict {
-            return self.err(
-                "legacy-octal-in-strict",
-                t.span,
-                "legacy octal literals and escapes aren't allowed in strict code",
-            );
-        }
-        self.prev_end = t.span.end;
-        self.advance()?;
-        Ok(t)
+        self.err(
+            "legacy-octal-in-strict",
+            span,
+            "legacy octal literals and escapes aren't allowed in strict code",
+        )
     }
 
     /// Reads the token being looked at, a `/` or `}`, again with `goal`.
