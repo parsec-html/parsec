@@ -750,9 +750,24 @@ impl<'a> Lexer<'a> {
 
     #[inline(never)]
     fn string(&mut self, start: usize, quote: u8) -> Token {
+        // Most strings end at the first byte that might end one, with no
+        // escape: those need none of the registers the rest does.
+        let b = self.src.as_bytes();
+        let end = start + 1 + string_run(&b[start + 1..], quote);
+        if b.get(end) == Some(&quote) {
+            self.pos = end + 1;
+            return self.token(Kind::String, start, Flags::empty());
+        }
+        self.pos = end;
+        self.string_rest(start, quote)
+    }
+
+    /// The rest of a string from `start`, from a byte at `pos` that
+    /// might end it or start an escape.
+    #[inline(never)]
+    fn string_rest(&mut self, start: usize, quote: u8) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
-        self.pos = start + 1;
         loop {
             // Skip what can't end the string or start an escape at once:
             // long strings in inline scripts are mostly that.
@@ -1079,6 +1094,7 @@ impl<'a> Lexer<'a> {
 /// and CR: what a string literal holds before it ends, or might end or
 /// escape. Eight bytes at a time, by the bit trick that finds a zero
 /// byte in a word (a byte equal to `t` is a zero byte of `word ^ t`).
+#[inline(always)]
 fn string_run(b: &[u8], quote: u8) -> usize {
     const ONES: u64 = u64::from_ne_bytes([0x01; 8]);
     const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);
