@@ -63,7 +63,29 @@ impl Parser<'_> {
 
     /// AssignmentExpression where the caller may still turn it into a
     /// pattern: an array element, a property value, a parenthesized one.
+    #[inline(always)]
     pub(super) fn assign_cover(&mut self, no_in: bool) -> R<NodeId> {
+        // Most operands have no operator before them, and most have none
+        // after: those go straight to `lhs` and back, in line in the
+        // caller, not down through `conditional`, `binary` and `unary` a
+        // call each.
+        if !plain_operand(self.tok.kind) {
+            return self.assign_cover_operator(no_in);
+        }
+        self.enter()?;
+        let start = self.tok.span.start;
+        let e = self.lhs()?;
+        if ends_operand(self.tok.kind) {
+            self.leave();
+            return Ok(e);
+        }
+        self.assign_cover_after(start, e, no_in)
+    }
+
+    /// [`Parser::assign_cover`] from a token that may start with an
+    /// operator, or a `yield`.
+    #[inline(never)]
+    fn assign_cover_operator(&mut self, no_in: bool) -> R<NodeId> {
         self.enter()?;
         if self.at_kw(Keyword::Yield) && self.ctx.yield_ {
             let e = self.yield_expression(no_in)?;
@@ -71,21 +93,23 @@ impl Parser<'_> {
             return Ok(e);
         }
         let start = self.tok.span.start;
-        // Most operands have no operator before them, and most have none
-        // after: those go straight to `lhs` and back, not down through
-        // `conditional`, `binary` and `unary` a call each.
-        let left = if plain_operand(self.tok.kind) {
-            let e = self.lhs()?;
-            if ends_operand(self.tok.kind) {
-                e
-            } else {
-                let e = self.postfix(start, e)?;
-                let e = self.binary_from(start, e, 0, no_in)?;
-                self.conditional_from(start, e, no_in)?
-            }
-        } else {
-            self.conditional(no_in)?
-        };
+        let left = self.conditional(no_in)?;
+        self.assignment(start, left, no_in)
+    }
+
+    /// [`Parser::assign_cover`] after `e`, from `start`, a plain operand
+    /// with a token after it that might be an operator.
+    #[inline(never)]
+    fn assign_cover_after(&mut self, start: u32, e: NodeId, no_in: bool) -> R<NodeId> {
+        let e = self.postfix(start, e)?;
+        let e = self.binary_from(start, e, 0, no_in)?;
+        let left = self.conditional_from(start, e, no_in)?;
+        self.assignment(start, left, no_in)
+    }
+
+    /// The rest of an AssignmentExpression from `start` whose left side
+    /// is `left`, one level deeper than its caller.
+    fn assignment(&mut self, start: u32, left: NodeId, no_in: bool) -> R<NodeId> {
         let Some(operator) = assign_op(self.tok.kind) else {
             self.leave();
             return Ok(left);
