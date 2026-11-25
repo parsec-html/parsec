@@ -883,9 +883,36 @@ impl<'a> Lexer<'a> {
 
     /// From `` ` `` or, for a middle or tail, from `}`.
     fn template(&mut self, start: usize, continued: bool) -> Token {
+        // Most templates in minified code are strings in backquotes, with
+        // no escape or substitution: those need none of the registers
+        // the rest does.
+        let b = self.src.as_bytes();
+        let mut end = start + 1;
+        while b
+            .get(end)
+            .is_some_and(|c| !matches!(c, b'`' | b'\\' | b'$'))
+        {
+            end += 1;
+        }
+        self.pos = end;
+        if b.get(end) == Some(&b'`') {
+            self.pos += 1;
+            let kind = if continued {
+                Kind::TemplateTail
+            } else {
+                Kind::Template
+            };
+            return self.token(kind, start, Flags::empty());
+        }
+        self.template_rest(start, continued)
+    }
+
+    /// The rest of a template part from `start`, from a `\`, a `$` or the
+    /// end of the input at `pos`.
+    #[inline(never)]
+    fn template_rest(&mut self, start: usize, continued: bool) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
-        self.pos = start + 1;
         let kind = loop {
             match b.get(self.pos) {
                 None => {
