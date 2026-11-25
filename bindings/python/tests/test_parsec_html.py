@@ -542,5 +542,5 @@ def test_xpath_numbers_follow_the_spec():
 def test_wheel_carries_the_licence_and_notice():
     from importlib.metadata import distribution
 
-    files = {f.name for f in distribution("parsec-html").files or []}
+    files = {f.name for f in distribution("parsec-web").files or []}
     assert {"LICENSE", "NOTICE"} <= files

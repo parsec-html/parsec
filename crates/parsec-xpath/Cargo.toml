@@ -18,12 +18,12 @@ name = "parsec_xpath"
 
 [features]
 default = ["html"]
-# XPath over parsec-html-core's Document. Without it, any tree that
+# XPath over parsec-web-core's Document. Without it, any tree that
 # implements `Tree`, and no HTML parser in the build.
-html = ["dep:parsec-html-core"]
+html = ["dep:parsec-web-core"]
 
 [dependencies]
-parsec-html-core = { path = "../parsec", version = "0.2.0", optional = true }
+parsec-web-core = { path = "../parsec", version = "0.2.0", optional = true }
 stacker = "0.1"
 
 [[test]]

@@ -1,6 +1,6 @@
 name: python
 
-# bindings/python, the parsec-html package on PyPI: linted, built as a
+# bindings/python, the parsec-web package on PyPI: linted, built as a
 # wheel for each Python below and tested with pytest, free-threaded builds
 # included.
 on:

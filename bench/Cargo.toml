@@ -1,5 +1,5 @@
 [package]
-name = "parsec-html-bench"
+name = "parsec-web-bench"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -11,7 +11,7 @@ description = "Times Parsec against Lexbor's C, html5ever, Ada, cssparser, oxc a
 [workspace]
 
 [[bin]]
-name = "parsec-html-bench"
+name = "parsec-web-bench"
 path = "src/main.rs"
 test = false
 bench = false
@@ -20,9 +20,9 @@ bench = false
 cssparser = "0.38"
 html5ever = "0.40"
 markup5ever_rcdom = "0.40"
-parsec-html-core = { path = "../crates/parsec" }
-parsec-html-css = { path = "../crates/parsec-css" }
-parsec-html-encoding = { path = "../crates/parsec-encoding" }
+parsec-web-core = { path = "../crates/parsec" }
+parsec-web-css = { path = "../crates/parsec-css" }
+parsec-web-encoding = { path = "../crates/parsec-encoding" }
 parsec-url = { path = "../crates/parsec-url" }
 parsec-xml = { path = "../crates/parsec-xml" }
 quick-xml = "0.42"

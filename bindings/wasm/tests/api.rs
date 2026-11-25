@@ -4,7 +4,7 @@
 // The exports as JavaScript calls them, run in Node by
 // `wasm-pack test --node`; browser.rs runs the same in a browser.
 
-use parsec_html_wasm::{ByteParser, SelectOptions, parse, parse_bytes, parse_fragment};
+use parsec_web_wasm::{ByteParser, SelectOptions, parse, parse_bytes, parse_fragment};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -58,8 +58,7 @@ fn a_step_limit_that_runs_out_throws() {
 #[wasm_bindgen_test]
 fn a_generous_step_limit_changes_nothing() {
     let doc = parse(PAGE, None).unwrap();
-    let html =
-        |n: Vec<parsec_html_wasm::Node>| n.iter().map(|n| n.outer_html()).collect::<Vec<_>>();
+    let html = |n: Vec<parsec_web_wasm::Node>| n.iter().map(|n| n.outer_html()).collect::<Vec<_>>();
     for q in ["div b", "div, p", ":has(> b)", "nope"] {
         let limited = doc.select(q, Some(steps(1e6))).unwrap();
         assert_eq!(html(limited), html(doc.select(q, None).unwrap()));
@@ -300,19 +299,18 @@ extern "C" {
     fn at(o: &JsValue, path: &str) -> JsValue;
     fn json(o: &JsValue) -> String;
     #[wasm_bindgen(js_name = jsOptions)]
-    fn js_options(module: bool, max_depth: f64, max_steps: f64)
-    -> parsec_html_wasm::JsParseOptions;
+    fn js_options(module: bool, max_depth: f64, max_steps: f64) -> parsec_web_wasm::JsParseOptions;
     #[wasm_bindgen(js_name = isSyntaxError)]
     fn is_syntax_error(e: &JsValue) -> bool;
 }
 
-fn script() -> Option<parsec_html_wasm::JsParseOptions> {
+fn script() -> Option<parsec_web_wasm::JsParseOptions> {
     Some(js_options(false, -1.0, -1.0))
 }
 
 #[wasm_bindgen_test]
 fn a_script_parses_to_estree_objects() {
-    let tree = parsec_html_wasm::parse_js("const t = xs.map((x) => x * 2);", None).unwrap();
+    let tree = parsec_web_wasm::parse_js("const t = xs.map((x) => x * 2);", None).unwrap();
     assert_eq!(at(&tree, "type").as_string().unwrap(), "Program");
     assert_eq!(at(&tree, "sourceType").as_string().unwrap(), "script");
     assert_eq!(
@@ -326,16 +324,16 @@ fn a_script_parses_to_estree_objects() {
 #[wasm_bindgen_test]
 fn a_module_with_offsets_in_utf16() {
     let src = "import a from \"é😀\";\nexport default a;";
-    let tree = parsec_html_wasm::parse_js(src, Some(js_options(true, -1.0, -1.0))).unwrap();
+    let tree = parsec_web_wasm::parse_js(src, Some(js_options(true, -1.0, -1.0))).unwrap();
     assert_eq!(at(&tree, "sourceType").as_string().unwrap(), "module");
     // The emoji is two UTF-16 units, as a JavaScript string counts it.
     assert_eq!(at(&tree, "body.1.start").as_f64(), Some(21.0));
-    assert!(parsec_html_wasm::parse_js(src, script()).is_err());
+    assert!(parsec_web_wasm::parse_js(src, script()).is_err());
 }
 
 #[wasm_bindgen_test]
 fn a_syntax_error_says_where() {
-    let e = parsec_html_wasm::parse_js("let ok = 1;\nlet x = ;", None).unwrap_err();
+    let e = parsec_web_wasm::parse_js("let ok = 1;\nlet x = ;", None).unwrap_err();
     assert!(is_syntax_error(&e));
     assert_eq!(message(e.clone()), "`;` can't go here");
     assert_eq!(at(&e, "code").as_string().unwrap(), "unexpected-token");
@@ -355,29 +353,28 @@ fn a_syntax_error_says_where() {
 #[wasm_bindgen_test]
 fn limits_throw_rather_than_crash() {
     for deep in ["(", "[", "{"] {
-        let e = parsec_html_wasm::parse_js(&deep.repeat(100_000), None).unwrap_err();
+        let e = parsec_web_wasm::parse_js(&deep.repeat(100_000), None).unwrap_err();
         assert_eq!(at(&e, "code").as_string().unwrap(), "too-deep");
     }
     let shallow = Some(js_options(false, 3.0, -1.0));
-    assert!(parsec_html_wasm::parse_js("((((((x))))))", shallow).is_err());
-    let e =
-        parsec_html_wasm::parse_js(&"a + b;".repeat(1000), Some(js_options(false, -1.0, 100.0)))
-            .unwrap_err();
+    assert!(parsec_web_wasm::parse_js("((((((x))))))", shallow).is_err());
+    let e = parsec_web_wasm::parse_js(&"a + b;".repeat(1000), Some(js_options(false, -1.0, 100.0)))
+        .unwrap_err();
     assert!(!is_syntax_error(&e));
     assert!(message(e).starts_with("maxSteps"));
-    assert!(parsec_html_wasm::parse_js("x", Some(js_options(false, 100_000.0, -1.0))).is_err());
-    assert!(parsec_html_wasm::parse_js("x", Some(js_options(false, -1.0, 1.5))).is_err());
+    assert!(parsec_web_wasm::parse_js("x", Some(js_options(false, 100_000.0, -1.0))).is_err());
+    assert!(parsec_web_wasm::parse_js("x", Some(js_options(false, -1.0, 1.5))).is_err());
 }
 
 #[wasm_bindgen_test]
 fn page_state_of_a_script() {
-    let found = parsec_html_wasm::page_state("window.__S = {a: [1, , !0]}; var q = f();").unwrap();
+    let found = parsec_web_wasm::page_state("window.__S = {a: [1, , !0]}; var q = f();").unwrap();
     assert_eq!(
         json(&found),
         r#"[{"name":"window.__S","value":{"a":[1,null,true]}},{"name":"q","error":{"code":"not-a-literal","source":"f()"}}]"#
     );
     assert!(is_syntax_error(
-        &parsec_html_wasm::page_state("window.X = {").unwrap_err()
+        &parsec_web_wasm::page_state("window.X = {").unwrap_err()
     ));
 }
 
@@ -390,7 +387,7 @@ const NEXT: &str = include_str!("../../../crates/parsec-js/tests/pages/nextjs-ap
 
 #[wasm_bindgen_test]
 fn page_state_of_real_pages() {
-    let first = |src: &str, path: &str| at(&parsec_html_wasm::page_state(src).unwrap(), path);
+    let first = |src: &str, path: &str| at(&parsec_web_wasm::page_state(src).unwrap(), path);
     assert_eq!(
         first(NUXT2, "0.value.layout").as_string().unwrap(),
         "default"

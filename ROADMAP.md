@@ -231,7 +231,7 @@ against oxc and swc ([#146](https://github.com/parsec-html/parsec/issues/146)).
   files that should parse tokenize. Of the 4,676 that shouldn't, the
   lexer catches the 267 whose error is in the tokens; the parser will
   check the rest.
-- Done: the lexer bench, `parsec-html-bench js-lex`, against oxc's and
+- Done: the lexer bench, `parsec-web-bench js-lex`, against oxc's and
   swc's lexers on the JavaScript corpus: 347 MB/s to oxc's 568 and swc's
   328, every token at the same span in all three
   ([#149](https://github.com/parsec-html/parsec/issues/149)).
@@ -286,7 +286,7 @@ real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
   nightly run.
 - Done: a bench against oxc and swc on real bundles
   ([#156](https://github.com/parsec-html/parsec/issues/156)):
-  `parsec-html-bench js`, on react-dom, three.js and typescript.js
+  `parsec-web-bench js`, on react-dom, three.js and typescript.js
   pinned in `bench/scripts.txt` and the real pages' inline scripts.
   parsec-js parses 202 MB/s, 1.26 times swc_ecma_parser's speed and
   0.57 times oxc_parser's, and holds less memory than either; the gap
@@ -311,7 +311,7 @@ and what each module imports and exports
   `with` reaches marked dynamic. A name declared twice where the spec
   forbids it is a diagnostic, which catches all 190 of test262's
   redeclaration tests and none of the 48,408 files that should parse.
-  `parsec-html-bench js-scope` times it on the bench corpus, 239 MB/s on
+  `parsec-web-bench js-scope` times it on the bench corpus, 239 MB/s on
   typescript.js, and lists every free name.
 - Done: regular expression patterns checked by their own grammar
   ([#159](https://github.com/parsec-html/parsec/issues/159), part).
@@ -458,7 +458,10 @@ HTML is today, and a native Node.js package beside the WebAssembly one
 0.1.0 shipped in November 2026 once M1 to M4 were done and the benchmarks
 showed Parsec ahead on every page in the corpus; 0.2.0 followed with
 security fixes. 0.2.1 brings selector step limits to the bindings. 0.3.0
-is the first release with `parsec-js`.
+is the first release with `parsec-js`, and the first under the name
+`parsec-web` on crates.io, PyPI and npm
+([#213](https://github.com/parsec-html/parsec/issues/213)); `parsec-html`
+stays at 0.2, pointing to it.
 
 ## Not planned
 

@@ -1,5 +1,5 @@
 [package]
-name = "parsec-html-css-fuzz"
+name = "parsec-web-css-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2024"
@@ -10,8 +10,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-parsec-html-css = { path = ".." }
-parsec-html-core = { path = "../../parsec" }
+parsec-web-css = { path = ".." }
+parsec-web-core = { path = "../../parsec" }
 
 [[bin]]
 name = "parse"

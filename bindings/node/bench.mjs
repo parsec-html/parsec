@@ -16,7 +16,7 @@ import { join } from "node:path";
 const require = createRequire(import.meta.url);
 const builds = {
   native: require("../wasm/pkg/index.cjs"),
-  wasm: require("../wasm/pkg/node/parsec_html.js"),
+  wasm: require("../wasm/pkg/node/parsec_web.js"),
 };
 if (builds.native.backend !== "native") throw new Error("the native build didn't load");
 

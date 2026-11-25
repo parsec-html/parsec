@@ -3,7 +3,7 @@ requires = ["maturin>=1.14,<2"]
 build-backend = "maturin"
 
 [project]
-name = "parsec-html"
+name = "parsec-web"
 description = "A fast, spec-following HTML parser with CSS selectors and an editable tree, with a selectolax-style API."
 readme = "README.md"
 license = "Apache-2.0"

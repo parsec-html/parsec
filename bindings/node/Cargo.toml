@@ -1,5 +1,5 @@
 [package]
-name = "parsec-html-node"
+name = "parsec-web-node"
 version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
@@ -18,8 +18,8 @@ crate-type = ["cdylib"]
 [dependencies]
 napi = "=3.16.2"
 napi-derive = "=3.7.1"
-parsec-html-core = { path = "../../crates/parsec" }
-parsec-html-encoding = { path = "../../crates/parsec-encoding" }
+parsec-web-core = { path = "../../crates/parsec" }
+parsec-web-encoding = { path = "../../crates/parsec-encoding" }
 parsec-xpath = { path = "../../crates/parsec-xpath" }
 parsec-js = { path = "../../crates/parsec-js", optional = true }
 parsec-xml = { path = "../../crates/parsec-xml", optional = true }

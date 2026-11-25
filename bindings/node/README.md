@@ -1,18 +1,18 @@
-# parsec-html for Node.js, native
+# parsec-web for Node.js, native
 
-The npm package `parsec-html` is WebAssembly, and WebAssembly runs
+The npm package `parsec-web` is WebAssembly, and WebAssembly runs
 anywhere. On the machines most people run Node on, though, you can do
 better: this is Parsec built for the machine with
 [napi-rs](https://napi.rs), and in Node the package loads it whenever
 there's a build for your platform. It parses about 1.5 times as fast,
 and it can parse on a worker thread while your code carries on.
 
-You don't install it yourself. `npm install parsec-html` brings the
+You don't install it yourself. `npm install parsec-web` brings the
 build for your platform along as an optional dependency, and the code
 you wrote for the WebAssembly runs unchanged:
 
 ```js
-import { parse, parseAsync, backend } from "parsec-html";
+import { parse, parseAsync, backend } from "parsec-web";
 
 const doc = parse("<ul><li class=hit>one<li>two</ul>");
 doc.selectFirst("li.hit").textContent; // "one"
@@ -79,18 +79,18 @@ on the HTML spec that's about 12 of the 69 ms.
 ```sh
 cd bindings/wasm && ./build.sh                 # the package, in pkg/
 cd ../node && cargo build --release            # the addon
-node npm.mjs platform darwin-arm64 target/release/libparsec_html_node.dylib out
+node npm.mjs platform darwin-arm64 target/release/libparsec_web_node.dylib out
 cd ../wasm
 mkdir -p node_modules/@parsec-web
-ln -s ../pkg node_modules/parsec-html
+ln -s ../pkg node_modules/parsec-web
 ln -s ../../../node/out/darwin-arm64 node_modules/@parsec-web/binding-darwin-arm64
 PARSEC_BACKEND=native node --test tests/package.test.mjs tests/xml.test.mjs
 PARSEC_BACKEND=wasm node --test tests/package.test.mjs tests/xml.test.mjs
 node ../node/bench.mjs ../../bench/corpus     # after bench/fetch-pages.sh
 ```
 
-Use your platform's name and library (`libparsec_html_node.so`,
-`parsec_html_node.dll`) in place of macOS's. `src/lib.rs` mirrors
+Use your platform's name and library (`libparsec_web_node.so`,
+`parsec_web_node.dll`) in place of macOS's. `src/lib.rs` mirrors
 `bindings/wasm/src/lib.rs`, and `src/xml.rs` and `src/js.rs` mirror
 `bindings/wasm/src/xml.rs` and `bindings/wasm/src/js.rs`, so a change to
 the API goes in both.

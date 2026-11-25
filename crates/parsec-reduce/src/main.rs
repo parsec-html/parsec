@@ -2,7 +2,7 @@
 // Copyright 2026 James Conway
 
 //! Shrinks a page that breaks Parsec to the smallest input that still
-//! does, for a regression fixture in `crates/parsec-html/tests/regressions`:
+//! does, for a regression fixture in `crates/parsec-web/tests/regressions`:
 //!
 //! ```text
 //! cargo run --release -p parsec-reduce -- page.html --check panic

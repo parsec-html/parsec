@@ -1,5 +1,5 @@
 [package]
-name = "parsec-html-css"
+name = "parsec-web-css"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ license.workspace = true
 readme = "../../README.md"
 keywords = ["css", "parser", "tokenizer", "stylesheet", "css-syntax"]
 categories = ["parser-implementations", "web-programming"]
-documentation = "https://docs.rs/parsec-html-css"
+documentation = "https://docs.rs/parsec-web-css"
 
 # The conformance suites run from the repository; their vendored data
 # would be most of the package and nothing a build needs. Nor is data/,
@@ -21,8 +21,8 @@ name = "parsec_css"
 
 [dependencies]
 # The document the cascade styles, and its selector engine.
-parsec-html-core = { path = "../parsec", version = "0.2.0" }
-# For stylesheets given as bytes; already Parsec's, through parsec-html-encoding.
+parsec-web-core = { path = "../parsec", version = "0.2.0" }
+# For stylesheets given as bytes; already Parsec's, through parsec-web-encoding.
 encoding_rs = "0.8.35"
 
 [dev-dependencies]

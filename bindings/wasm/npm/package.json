@@ -1,5 +1,5 @@
 {
-  "name": "parsec-html",
+  "name": "parsec-web",
   "version": "0.2.0",
   "description": "An HTML parser that follows the WHATWG spec, with CSS selectors and an editable tree: native in Node where there's a build for the machine, WebAssembly everywhere else.",
   "license": "Apache-2.0",
@@ -18,28 +18,28 @@
         "import": "./index.mjs",
         "default": "./index.cjs"
       },
-      "types": "./parsec_html.d.ts",
-      "default": "./parsec_html.js"
+      "types": "./parsec_web.d.ts",
+      "default": "./parsec_web.js"
     },
     "./package.json": "./package.json"
   },
   "main": "./index.cjs",
-  "types": "./parsec_html.d.ts",
+  "types": "./parsec_web.d.ts",
   "files": [
     "index.cjs",
     "index.mjs",
     "index.d.ts",
-    "parsec_html.js",
-    "parsec_html.d.ts",
-    "parsec_html_bg.wasm",
-    "parsec_html_bg.wasm.d.ts",
+    "parsec_web.js",
+    "parsec_web.d.ts",
+    "parsec_web_bg.wasm",
+    "parsec_web_bg.wasm.d.ts",
     "node/",
     "LICENSE",
     "NOTICE"
   ],
   "sideEffects": false,
   "napi": {
-    "binaryName": "parsec-html",
+    "binaryName": "parsec-web",
     "packageName": "@parsec-web/binding"
   }
 }

@@ -6,7 +6,7 @@
 //! core library, with the number, string and boolean rules of sections 3
 //! and 4.
 //!
-//! With the default `html` feature, parsec-html's [`Document`] is a
+//! With the default `html` feature, parsec-web's [`Document`] is a
 //! [`Tree`], read as lxml reads an HTML page, which is what scrapers
 //! expect: element and attribute names are the parser's lowercase ones
 //! (SVG's `clippath`, `viewbox`) in no namespace, so `//div` and `@href`

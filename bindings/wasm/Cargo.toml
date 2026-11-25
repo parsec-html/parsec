@@ -1,5 +1,5 @@
 [package]
-name = "parsec-html-wasm"
+name = "parsec-web-wasm"
 version = "0.2.0"
 edition = "2024"
 rust-version = "1.88"
@@ -16,8 +16,8 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-parsec-html-core = { path = "../../crates/parsec" }
-parsec-html-encoding = { path = "../../crates/parsec-encoding" }
+parsec-web-core = { path = "../../crates/parsec" }
+parsec-web-encoding = { path = "../../crates/parsec-encoding" }
 parsec-js = { path = "../../crates/parsec-js", optional = true }
 parsec-xpath = { path = "../../crates/parsec-xpath" }
 parsec-xml = { path = "../../crates/parsec-xml", optional = true }

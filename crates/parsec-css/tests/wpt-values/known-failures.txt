@@ -1,5 +1,5 @@
 # Every WPT CSS parsing case that fails today, written by
-# UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-html-css --test wpt_values
+# UPDATE_KNOWN_FAILURES=1 cargo test -p parsec-web-css --test wpt_values
 ["invalid","align-content","baseline last"]
 ["invalid","align-items","baseline last"]
 ["invalid","align-self","baseline last"]

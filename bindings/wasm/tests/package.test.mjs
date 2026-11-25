@@ -21,7 +21,7 @@ import {
   parseBytes,
   parseFragment,
   parseJs,
-} from "parsec-html";
+} from "parsec-web";
 
 test("Node gets the build that loads itself", () => {
   const doc = parse("<ul><li class=hit>one<li>two</ul>");
@@ -170,20 +170,20 @@ test("xpath", () => {
 
 test("CommonJS require works too", () => {
   const require = createRequire(import.meta.url);
-  const { parse } = require("parsec-html");
+  const { parse } = require("parsec-web");
   assert.equal(parse("<p>hi").text, "hi");
 });
 
 test("the web build runs from bytes", async () => {
   // What a browser or bundler gets, loaded here by hand.
-  const url = new URL("../node_modules/parsec-html/parsec_html.js", import.meta.url);
+  const url = new URL("../node_modules/parsec-web/parsec_web.js", import.meta.url);
   const web = await import(url.href);
-  web.initSync({ module: await readFile(new URL("parsec_html_bg.wasm", url)) });
+  web.initSync({ module: await readFile(new URL("parsec_web_bg.wasm", url)) });
   assert.equal(web.parse("<b>x</b>").selectFirst("b").innerHTML, "x");
 });
 
 test("the types ship with it", async () => {
-  const types = await readFile(new URL("../node_modules/parsec-html/parsec_html.d.ts", import.meta.url), "utf8");
+  const types = await readFile(new URL("../node_modules/parsec-web/parsec_web.d.ts", import.meta.url), "utf8");
   assert.match(types, /export function parse\(html: string, options\?: ParseOptions \| null\): Document;/);
   assert.match(types, /selectFirst\(selector: string, options\?: SelectOptions \| null\): Node \| undefined;/);
   assert.match(types, /export interface SelectOptions \{/);
@@ -193,22 +193,22 @@ test("the types ship with it", async () => {
   assert.match(types, /export interface ByteParseOptions extends ParseOptions/);
   assert.match(types, /feed\(chunk: Uint8Array \| number\[\]\): void;/);
   assert.match(types, /readonly encodingConfidence: "certain" \| "tentative" \| undefined;/);
-  const node = await readFile(new URL("../node_modules/parsec-html/index.d.ts", import.meta.url), "utf8");
+  const node = await readFile(new URL("../node_modules/parsec-web/index.d.ts", import.meta.url), "utf8");
   assert.match(node, /export function parseAsync\(html: string, options\?: ParseOptions \| null\): Promise<Document>;/);
-  assert.match(node, /export \* from "\.\/node\/parsec_html\.js";/);
+  assert.match(node, /export \* from "\.\/node\/parsec_web\.js";/);
   // `[Symbol.dispose]` needs this lib, which a project may not list.
-  for (const build of ["parsec_html.d.ts", "node/parsec_html.d.ts"]) {
-    const d = await readFile(new URL(`../node_modules/parsec-html/${build}`, import.meta.url), "utf8");
+  for (const build of ["parsec_web.d.ts", "node/parsec_web.d.ts"]) {
+    const d = await readFile(new URL(`../node_modules/parsec-web/${build}`, import.meta.url), "utf8");
     assert.ok(d.startsWith('/// <reference lib="esnext.disposable" />\n'), build);
   }
 });
 
 test("package.json can be imported, and main is the Node build", () => {
   const require = createRequire(import.meta.url);
-  const pkg = require("parsec-html/package.json");
-  assert.equal(pkg.name, "parsec-html");
+  const pkg = require("parsec-web/package.json");
+  assert.equal(pkg.name, "parsec-web");
   // Tools that predate "exports" go by main: the same file Node's require gets.
-  assert.ok(require.resolve("parsec-html").endsWith(pkg.main.slice(2)), pkg.main);
+  assert.ok(require.resolve("parsec-web").endsWith(pkg.main.slice(2)), pkg.main);
 });
 
 test("bytes, sniffed as a browser sniffs them", () => {

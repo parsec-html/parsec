@@ -1,15 +1,15 @@
 [package]
-name = "parsec-html-core"
+name = "parsec-web-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "The core of parsec-html: an HTML parser that follows the WHATWG spec, with CSS selectors and a mutable DOM. Depend on parsec-html."
+description = "The core of parsec-web: an HTML parser that follows the WHATWG spec, with CSS selectors and a mutable DOM. Depend on parsec-web."
 repository.workspace = true
 license.workspace = true
 readme = "../../README.md"
 keywords = ["html", "parser", "html5", "dom", "css-selectors"]
 categories = ["parser-implementations", "web-programming"]
-documentation = "https://docs.rs/parsec-html-core"
+documentation = "https://docs.rs/parsec-web-core"
 # The conformance suites run from the repository. Their data would be most
 # of the package and nothing a build needs, and the html5lib-tests
 # submodule is there in one checkout and not another: leaving tests/ out

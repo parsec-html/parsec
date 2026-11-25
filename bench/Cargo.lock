@@ -809,7 +809,18 @@ name = "parsec-base"
 version = "0.2.0"
 
 [[package]]
-name = "parsec-html-bench"
+name = "parsec-js"
+version = "0.2.0"
+dependencies = [
+ "parsec-base",
+]
+
+[[package]]
+name = "parsec-url"
+version = "0.2.0"
+
+[[package]]
+name = "parsec-web-bench"
 version = "0.0.0"
 dependencies = [
  "cc",
@@ -820,11 +831,11 @@ dependencies = [
  "oxc_allocator",
  "oxc_parser",
  "oxc_span",
- "parsec-html-core",
- "parsec-html-css",
- "parsec-html-encoding",
  "parsec-js",
  "parsec-url",
+ "parsec-web-core",
+ "parsec-web-css",
+ "parsec-web-encoding",
  "parsec-xml",
  "quick-xml",
  "roxmltree",
@@ -835,7 +846,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "parsec-html-core"
+name = "parsec-web-core"
 version = "0.2.0"
 dependencies = [
  "memchr",
@@ -843,31 +854,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "parsec-html-css"
+name = "parsec-web-css"
 version = "0.2.0"
 dependencies = [
  "encoding_rs",
- "parsec-html-core",
+ "parsec-web-core",
 ]
 
 [[package]]
-name = "parsec-html-encoding"
+name = "parsec-web-encoding"
 version = "0.2.0"
 dependencies = [
  "encoding_rs",
- "parsec-html-core",
+ "parsec-web-core",
 ]
-
-[[package]]
-name = "parsec-js"
-version = "0.2.0"
-dependencies = [
- "parsec-base",
-]
-
-[[package]]
-name = "parsec-url"
-version = "0.2.0"
 
 [[package]]
 name = "parsec-xml"
