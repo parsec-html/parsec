@@ -32,20 +32,21 @@ bug rather than a security problem. Please open an ordinary issue for it.
 
 | Version | Fixes |
 |---|---|
-| 0.2.x | yes |
+| 0.3.x (`parsec-web`) | yes |
+| 0.2.x (`parsec-html`) | no: 0.3.0 has its fixes. The last 0.2 patch changes no code; it only points to `parsec-web` |
 | 0.1.x | no: 0.2.0 has its fixes, [GHSA-6672-j8r3-hg5v](https://github.com/parsec-html/parsec/security/advisories/GHSA-6672-j8r3-hg5v) among them |
 | 0.0.0 | no: it's an empty placeholder on crates.io |
 
 Fixes go into the newest minor release, as a patch release, on every
 registry at once. Until Parsec reaches 1.0, older minor releases don't
-get backports, so when 0.3 comes out, 0.2 stops getting them.
+get backports: with 0.3 out, 0.2 no longer gets them.
 
 ## Verifying a release
 
 A release is a signed tag, and on its GitHub release page the crates
-(`parsec-web-VERSION.crate` and the five it's built from;
-`parsec-html-VERSION.crate` before 0.3.0), their `SHA256SUMS` and the
-provenance bundle (`parsec-vVERSION.intoto.jsonl`).
+(`parsec-web-VERSION.crate` and the eight other crates published with
+it; `parsec-html-VERSION.crate` and five others before 0.3.0), their
+`SHA256SUMS` and the provenance bundle (`parsec-vVERSION.intoto.jsonl`).
 Each can be checked on its own.
 
 **The tag** is signed with a maintainer's SSH key, listed in
@@ -53,16 +54,16 @@ Each can be checked on its own.
 `main` rather than from the tag, as the release workflow does:
 
 ```sh
-git fetch origin tag v0.1.0
+git fetch origin tag v0.3.0
 git show origin/main:.github/allowed_signers > allowed_signers
-git -c gpg.ssh.allowedSignersFile=allowed_signers tag -v v0.1.0
+git -c gpg.ssh.allowedSignersFile=allowed_signers tag -v v0.3.0
 ```
 
 **The crates** were built by the release workflow from that tag, and
 GitHub signed a record of each:
 
 ```sh
-gh attestation verify parsec-html-0.1.0.crate --repo parsec-html/parsec \
+gh attestation verify parsec-web-0.3.0.crate --repo parsec-html/parsec \
   --signer-workflow parsec-html/parsec/.github/workflows/release.yml
 ```
 
@@ -71,7 +72,7 @@ per platform, listed in `parsec-capi-SHA256SUMS`) are built and attested
 the same way, by their own workflow:
 
 ```sh
-gh attestation verify parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz \
+gh attestation verify parsec-capi-0.3.0-x86_64-unknown-linux-gnu.tar.gz \
   --repo parsec-html/parsec \
   --signer-workflow parsec-html/parsec/.github/workflows/release-capi.yml
 ```
@@ -85,7 +86,7 @@ check one yourself (crates.io refuses a request without a user agent
 that says who's asking, so put yours in):
 
 ```sh
-curl -s -A "release check (you@example.com)" https://crates.io/api/v1/crates/parsec-html/0.1.0 | jq -r .version.checksum
+curl -s -A "release check (you@example.com)" https://crates.io/api/v1/crates/parsec-web/0.3.0 | jq -r .version.checksum
 ```
 
 **PyPI and npm** packages are published by trusted publishing from
@@ -100,7 +101,7 @@ npm audit signatures    # in a project that depends on parsec-web
 **A rebuild** gives the same file, byte for byte. At the tag, run
 
 ```sh
-git checkout v0.1.0
+git checkout v0.3.0
 scripts/package-twice.sh
 ```
 

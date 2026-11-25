@@ -26,17 +26,16 @@ the order can change when users show us something more urgent.
 | Milestone | Target | Today |
 |---|---|---|
 | M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
-| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` on `main` |
-| M9. JavaScript tokens | December 2026 | done: on `main` |
-| M10. JavaScript syntax tree | early 2027, with 0.3.0 | done: on `main` |
-| M11. JavaScript scope and modules | spring 2027 | done: on `main` |
-| M12. Data from scripts | spring 2027 | under way: `parsec_js::data` on `main`; Netweir reads it after a release |
-| M14. XML | summer 2027 | done: on `main` |
-| M16. Every language, every way in | alongside each parser | under way: the native Node build and XML in every binding on `main` |
-| M13. JavaScript diagnostics and incremental parsing | late 2027 | done: on `main` |
-| M17. Release gates and the real web | November 2026 | done: on `main` |
+| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` released in 0.3.0; the CI check on what each crate pulls in to come |
+| M9. JavaScript tokens | December 2026 | released in 0.3.0 |
+| M10. JavaScript syntax tree | early 2027, with 0.3.0 | released in 0.3.0 |
+| M11. JavaScript scope and modules | spring 2027 | released in 0.3.0 |
+| M12. Data from scripts | spring 2027 | under way: `parsec_js::data` released in 0.3.0; Netweir reads it next |
+| M14. XML | summer 2027 | released in 0.3.0 |
+| M16. Every language, every way in | alongside each parser | released in 0.3.0; #174 closes once its C packages are on the release page |
+| M13. JavaScript diagnostics and incremental parsing | late 2027 | released in 0.3.0 |
+| M17. Release gates and the real web | November 2026 | released in 0.3.0 |
 
-Nothing marked "on `main`" is in a release yet.
 
 ## M0. Foundations
 
@@ -291,6 +290,10 @@ real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
   parsec-js parses 202 MB/s, 1.26 times swc_ecma_parser's speed and
   0.57 times oxc_parser's, and holds less memory than either; the gap
   to oxc is [#190](https://github.com/parsec-html/parsec/issues/190).
+  After [#215](https://github.com/parsec-html/parsec/pull/215),
+  [#236](https://github.com/parsec-html/parsec/pull/236) and
+  [#239](https://github.com/parsec-html/parsec/pull/239) it parses
+  375 MB/s, 1.05 times oxc_parser's speed and 2.5 times swc's.
   `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
   same as acorn's, which finishes #152.
 
@@ -447,21 +450,28 @@ HTML is today, and a native Node.js package beside the WebAssembly one
   ([#177](https://github.com/parsec-html/parsec/issues/177)). The npm
   package loads it on Linux (glibc and musl), macOS and Windows, x86-64
   and ARM64, with the WebAssembly's API and `parseAsync`, and falls back
-  to the WebAssembly anywhere else. It ships in the next release.
-- Still to come: JavaScript and XML in the C API, Python and
-  WebAssembly ([#174](https://github.com/parsec-html/parsec/issues/174),
+  to the WebAssembly anywhere else. It shipped in 0.3.0.
+- Done: JavaScript and XML in the C API, Python, WebAssembly and the
+  native Node build
+  ([#174](https://github.com/parsec-html/parsec/issues/174),
   [#175](https://github.com/parsec-html/parsec/issues/175),
-  [#176](https://github.com/parsec-html/parsec/issues/176)).
+  [#176](https://github.com/parsec-html/parsec/issues/176)), with a
+  limit on selector matching in every binding
+  ([#135](https://github.com/parsec-html/parsec/issues/135)). All of it
+  shipped in 0.3.0; #174 closes once the C packages are on the release
+  page.
 
 ## Releases
 
 0.1.0 shipped in November 2026 once M1 to M4 were done and the benchmarks
 showed Parsec ahead on every page in the corpus; 0.2.0 followed with
-security fixes. 0.2.1 brings selector step limits to the bindings. 0.3.0
-is the first release with `parsec-js`, and the first under the name
-`parsec-web` on crates.io, PyPI and npm
-([#213](https://github.com/parsec-html/parsec/issues/213)); `parsec-html`
-stays at 0.2, pointing to it.
+security fixes. 0.3.0, in November 2026, is the first release with
+`parsec-js` and `parsec-xml`, with JavaScript, XML and selector step
+limits in every binding, and the first under the name `parsec-web` on
+crates.io, PyPI and npm
+([#213](https://github.com/parsec-html/parsec/issues/213)).
+`parsec-html` ends with a 0.2.1 that changes no code and points to
+`parsec-web`.
 
 ## Not planned
 

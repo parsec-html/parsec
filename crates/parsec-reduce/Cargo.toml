@@ -11,7 +11,7 @@ description = "Shrinks an HTML page that breaks Parsec to the smallest input tha
 exclude = ["tests/"]
 
 [dependencies]
-parsec-web-core = { path = "../parsec", version = "0.2.0" }
+parsec-web-core = { path = "../parsec", version = "0.3.0" }
 # The same html5ever as bench/, to compare trees with.
 html5ever = "0.40"
 markup5ever_rcdom = "0.40"

@@ -20,11 +20,11 @@ exclude = ["tests/"]
 name = "parsec"
 
 [dependencies]
-html = { package = "parsec-web-core", path = "../parsec", version = "0.2.0" }
-parsec-web-css = { path = "../parsec-css", version = "0.2.0", optional = true }
-parsec-web-encoding = { path = "../parsec-encoding", version = "0.2.0", optional = true }
-parsec-url = { path = "../parsec-url", version = "0.2.0", optional = true }
-parsec-xpath = { path = "../parsec-xpath", version = "0.2.0", optional = true }
+html = { package = "parsec-web-core", path = "../parsec", version = "0.3.0" }
+parsec-web-css = { path = "../parsec-css", version = "0.3.0", optional = true }
+parsec-web-encoding = { path = "../parsec-encoding", version = "0.3.0", optional = true }
+parsec-url = { path = "../parsec-url", version = "0.3.0", optional = true }
+parsec-xpath = { path = "../parsec-xpath", version = "0.3.0", optional = true }
 
 [features]
 default = ["encoding", "url", "xpath"]

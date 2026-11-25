@@ -404,18 +404,18 @@ dependencies = [
 
 [[package]]
 name = "parsec-base"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "parsec-js"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "parsec-base",
 ]
 
 [[package]]
 name = "parsec-web-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "memchr",
  "url",
@@ -423,7 +423,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-web-encoding"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "encoding_rs",
  "parsec-web-core",
@@ -431,7 +431,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-web-node"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "napi",
  "napi-build",
@@ -445,7 +445,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-xml"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "encoding_rs",
  "parsec-base",
@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-xpath"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "parsec-web-core",
  "stacker",

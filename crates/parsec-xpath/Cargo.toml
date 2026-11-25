@@ -23,7 +23,7 @@ default = ["html"]
 html = ["dep:parsec-web-core"]
 
 [dependencies]
-parsec-web-core = { path = "../parsec", version = "0.2.0", optional = true }
+parsec-web-core = { path = "../parsec", version = "0.3.0", optional = true }
 stacker = "0.1"
 
 [[test]]

@@ -54,6 +54,11 @@
     "failed": 0,
     "skipped": 6
   },
+  "libxml2-xpath-documents": {
+    "passed": 84,
+    "failed": 0,
+    "skipped": 0
+  },
   "streaming-html5lib-encoding": {
     "passed": 369396,
     "failed": 0,
@@ -63,6 +68,11 @@
     "passed": 49422,
     "failed": 0,
     "skipped": 0
+  },
+  "test262-parse": {
+    "passed": 52782,
+    "failed": 0,
+    "skipped": 1313
   },
   "unicode-normalization": {
     "passed": 20172,
@@ -158,5 +168,10 @@
     "passed": 261,
     "failed": 0,
     "skipped": 522
+  },
+  "xmlconf": {
+    "passed": 1915,
+    "failed": 0,
+    "skipped": 670
   }
 }

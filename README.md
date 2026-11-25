@@ -13,9 +13,9 @@ XML, one crate at a time, so you build on exactly the parsers you need.
 The HTML parser reads pages the way a browser does, finds what you're after with
 CSS selectors, and lets you change the tree and write it back out. Beside
 it sit CSS with the cascade, XPath, and the WHATWG Encoding and URL
-standards. JavaScript and XML are next, each with its own tree, so
-nobody who only wants HTML compiles a JavaScript parser. Both parse on
-`main` already; neither is in a release yet.
+standards. JavaScript and XML came with 0.3.0, each in its own crate
+with its own tree, so nobody who only wants HTML compiles a JavaScript
+parser.
 
 If you use Lexbor today, directly or through selectolax, PHP's `Dom\HTMLDocument`,
 nokolexbor or lazy_html, the HTML parser was built for you. Lexbor is fast and
@@ -25,9 +25,9 @@ share across threads, XPath, selectors for everything a static page can
 decide, and no use-after-free bugs, because the parser is memory-safe
 Rust.
 
-Parsec 0.2 is on crates.io, PyPI and npm as `parsec-html`; from 0.3.0
-it's `parsec-web`, the project's name now that it parses more than
-HTML. This page says what works today and what's on the way, and the
+Parsec 0.3 is on crates.io, PyPI and npm as `parsec-web`, the
+project's name now that it parses more than HTML; up to 0.2 it was
+`parsec-html`. This page says what works today and what's on the way, and the
 line between the two is kept sharp.
 
 ## What works today
@@ -432,18 +432,18 @@ every module Lexbor has, and then go past it:
 | CSS Syntax: tokenizer, parser, serializer | yes, no outside suite run | yes, css-parsing-tests in `cargo test`, positions on every rule |
 | Typed property values | yes, 105 properties | yes, all 822 in the specs, with `var()`, `calc()` and shorthands; 99% of WPT's parsing cases |
 | Media queries, cascade, computed values | no | yes, against an environment you give, with `@scope`, `@container`, `@import`, `@property` and pseudo-elements; WPT counts published |
-| JavaScript syntax tree | no | not released yet; on `main` in `crates/parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and all 4,374 that shouldn't fail do, through the parser and `parsec_js::early_errors`, in `cargo test` |
-| JavaScript scopes | no | not released yet; on `main` as `parsec_js::scope`: every reference resolved to its binding or listed as free, with hoisting, Annex B's functions in blocks, the temporal dead zone, and the scopes a direct `eval` or a `with` makes dynamic; a name declared twice is an early error, which catches all 190 of test262's redeclaration tests |
-| JavaScript regular expressions checked | no | not released yet; on `main` as `parsec_js::regexp`: a pattern checked by its own grammar and early errors, without the `u` flag (with Annex B's additions), with `u`, and with `v`'s set operations and properties of strings; named groups, duplicate names in separate alternatives, modifiers and every `\p{…}` name in Unicode 17.0; all 358 of test262's pattern tests that should fail do |
-| JavaScript diagnostics | no | not released yet; on `main` as `parsec_js::diagnostics`: every error has a stable code, listed with its spec section, and labels on the places it involves; `Diagnostic::render` prints a code frame, and `parse_recovering` reports every error in one parse |
-| JavaScript incremental parsing | no | not released yet; on `main` as `Ast::reparse`: after an edit, only the function body or statement around it is parsed again, and the tree is the one a full parse gives, which `cargo test` checks on random edits |
-| JavaScript module records | no | not released yet; on `main` as `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
-| State from a page's scripts | no | not released yet; on `main` as `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
-| XML | no | not released yet; on `main` in `crates/parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; XPath 1.0 over it with the `xpath` feature, passing all 84 of libxml2's document tests; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
+| JavaScript syntax tree | no | yes, `parsec-js`: ECMAScript 2025 scripts and modules with Annex B's additions, to a tree with a span on every node, and ESTree JSON that matches acorn's; all 48,408 test262 files that should parse do, and all 4,374 that shouldn't fail do, through the parser and `parsec_js::early_errors`, in `cargo test` |
+| JavaScript scopes | no | yes, `parsec_js::scope`: every reference resolved to its binding or listed as free, with hoisting, Annex B's functions in blocks, the temporal dead zone, and the scopes a direct `eval` or a `with` makes dynamic; a name declared twice is an early error, which catches all 190 of test262's redeclaration tests |
+| JavaScript regular expressions checked | no | yes, `parsec_js::regexp`: a pattern checked by its own grammar and early errors, without the `u` flag (with Annex B's additions), with `u`, and with `v`'s set operations and properties of strings; named groups, duplicate names in separate alternatives, modifiers and every `\p{…}` name in Unicode 17.0; all 358 of test262's pattern tests that should fail do |
+| JavaScript diagnostics | no | yes, `parsec_js::diagnostics`: every error has a stable code, listed with its spec section, and labels on the places it involves; `Diagnostic::render` prints a code frame, and `parse_recovering` reports every error in one parse |
+| JavaScript incremental parsing | no | yes, `Ast::reparse`: after an edit, only the function body or statement around it is parsed again, and the tree is the one a full parse gives, which `cargo test` checks on random edits |
+| JavaScript module records | no | yes, `parsec_js::module`: the spec's ImportEntry and ExportEntry records and requested modules with their import attributes, sorted into local, indirect and star exports as ParseModule sorts them, for a module graph without resolving files |
+| State from a page's scripts | no | yes, `parsec_js::data`, without running anything: `window.X = …`, a top-level `var`, `JSON.parse("…")`, Nuxt 2's `window.__NUXT__=(function(…){…}(…))` and Next.js's `self.__next_f` pushes, to JSON, each tested on a real page; a strict JSON parser for `__NEXT_DATA__` ([#161](https://github.com/parsec-html/parsec/issues/161)) |
+| XML | no | yes, `parsec-xml`: XML 1.0 and Namespaces, not validating, with a span on every node and attribute; billion laughs and quadratic blowup stop with an error, and nothing is ever fetched; all 1,915 W3C conformance cases that apply pass; XPath 1.0 over it with the `xpath` feature, passing all 84 of libxml2's document tests; 2.7 times as fast as libxml2 on real feeds, sitemaps, SVGs and Wikipedia |
 | C API | yes, x86-64 packages | yes, with packages for Linux, macOS and Windows on x86-64 and ARM; XPath, positions, parse errors and bytes in any encoding, whole or streamed, included; XML through `parsec_xml_parse`; JavaScript to ESTree JSON, and page state |
 | Python | through selectolax | yes, free-threaded too, with XPath, positions, parse errors, and `bytes` sniffed as browsers do, whole or streamed; `parsec_html.xml` for XML, and `parsec_html.js` for JavaScript's ESTree and page state |
 | WebAssembly | through bindings | yes, on npm with 0.1.0, with XPath, spans, parse errors, and bytes sniffed as browsers do, whole or streamed; `parseXml` and `parseXmlBytes` for XML, and `parseJs` and `pageState` for JavaScript, in the native Node build too |
-| Node.js, native | not from Lexbor | next release: the npm package picks a native build on Linux, macOS and Windows, x86-64 and ARM, with the same API, `parseAsync`, and 1.5 times the WebAssembly's speed |
+| Node.js, native | not from Lexbor | yes, from 0.3.0: the npm package picks a native build on Linux, macOS and Windows, x86-64 and ARM, with the same API, `parseAsync`, and 1.5 times the WebAssembly's speed |
 
 Every "yes" in the Parsec column is something `cargo test` checks, or
 for Python, pytest in CI, and for WebAssembly, wasm-bindgen-test in Node
@@ -472,28 +472,28 @@ page.
 | M7 | [CSS, through the cascade](https://github.com/parsec-html/parsec/milestone/8?closed=1) | done |
 | M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
 | M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | under way |
-| M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11?closed=1) | done, not released yet |
-| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12?closed=1) | done, not released yet |
-| M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13?closed=1) | done, not released yet |
+| M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11?closed=1) | done |
+| M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12?closed=1) | done |
+| M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13?closed=1) | done |
 | M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | under way |
-| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16?closed=1) | done, not released yet |
-| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | under way |
-| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15?closed=1) | done, not released yet |
-| M17 | [Release gates and the real web](https://github.com/parsec-html/parsec/milestone/22?closed=1) | done, not released yet |
+| M14 | [XML](https://github.com/parsec-html/parsec/milestone/16?closed=1) | done |
+| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | done in 0.3.0; [#174](https://github.com/parsec-html/parsec/issues/174) closes once its C packages are on the release page |
+| M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15?closed=1) | done |
+| M17 | [Release gates and the real web](https://github.com/parsec-html/parsec/milestone/22?closed=1) | done |
 
-"Done, not released yet" means all of it is merged on `main` with its
-tests, waiting for the next release. "Under way" means part of it is
-merged and part isn't: today that's `parsec-base`, `parsec_js::data`
-and the bindings. 0.3.0 is the first release with `parsec-js`.
+"Done" means it's merged with its tests and in a release; everything
+marked done is in 0.3.0. "Under way" means part of it is in and part
+isn't: for M15 that's the CI check that each crate pulls in only what
+it needs ([#144](https://github.com/parsec-html/parsec/issues/144)),
+and for M12 it's Netweir reading page state through `parsec-js`.
 
 ## Using it
 
-From 0.3.0, Parsec is on crates.io, PyPI and npm as `parsec-web`, and the C
+Parsec is on crates.io, PyPI and npm as `parsec-web`, and the C
 library comes with each [GitHub release](https://github.com/parsec-html/parsec/releases).
-Until 0.3.0 is out, the release is 0.2, as `parsec-html`: the same
-commands with that name. To move, change the name you depend on. What
-you import stays `parsec` in Rust and `parsec_html` in Python; in
-JavaScript, import `parsec-web`.
+Up to 0.2 the packages were `parsec-html`. To move, change the name you
+depend on. What you import stays `parsec` in Rust and `parsec_html` in
+Python; in JavaScript, import `parsec-web`.
 
 **Rust.** The package is `parsec-web` and the crate you `use` is
 `parsec`:
@@ -537,8 +537,8 @@ with `CMAKE_PREFIX_PATH` pointing there, or `pkg-config parsec` with
 `PKG_CONFIG_PATH` set to its `lib/pkgconfig`:
 
 ```sh
-gh release download v0.1.0 --repo parsec-html/parsec --pattern 'parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz'
-tar -xzf parsec-capi-0.1.0-x86_64-unknown-linux-gnu.tar.gz
+gh release download v0.3.0 --repo parsec-html/parsec --pattern 'parsec-capi-0.3.0-x86_64-unknown-linux-gnu.tar.gz'
+tar -xzf parsec-capi-0.3.0-x86_64-unknown-linux-gnu.tar.gz
 ```
 
 Or build the same package yourself, into a folder of your choice:

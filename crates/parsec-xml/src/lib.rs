@@ -40,7 +40,7 @@
 //!
 //! ## XPath
 //!
-//! With the `xpath` feature (`parsec-xml = { version = "0.2", features =
+//! With the `xpath` feature (`parsec-xml = { version = "0.3", features =
 //! ["xpath"] }`), a [`Document`] is a tree `xpath` can query, and
 //! `parsec_xml::xpath` is `parsec-xpath` re-exported. No HTML parser
 //! comes with it. Names compare exactly, a query's prefixes are bound by
