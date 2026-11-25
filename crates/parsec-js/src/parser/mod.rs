@@ -30,6 +30,7 @@ mod pattern;
 mod stmt;
 
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::collections::HashMap;
 
 use parsec_base::{Budget, Diagnostic, Limits, Severity, Span};
@@ -234,6 +235,52 @@ struct ClassScope {
     used: Vec<(String, Span)>,
 }
 
+thread_local! {
+    /// The last parse's list scratch, empty, for the next on this thread.
+    static SPARE_SCRATCH: Cell<Vec<NodeId>> = const { Cell::new(Vec::new()) };
+}
+
+/// The parser's list scratch, the items of every list still being
+/// parsed. It never leaves the parser, so each thread keeps one for its
+/// next parse: allocating and freeing it was a sixth of what a parse of
+/// a few bytes cost. One grown past 4,096 items isn't kept.
+struct Scratch(Vec<NodeId>);
+
+impl Scratch {
+    fn take() -> Scratch {
+        // `try_with`: a parse in a thread-local's destructor has no spare.
+        let mut v = SPARE_SCRATCH.try_with(Cell::take).unwrap_or_default();
+        if v.capacity() == 0 {
+            v.reserve(64);
+        }
+        Scratch(v)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let mut v = std::mem::take(&mut self.0);
+        if v.capacity() <= 4096 {
+            v.clear();
+            let _ = SPARE_SCRATCH.try_with(|spare| spare.set(v));
+        }
+    }
+}
+
+impl std::ops::Deref for Scratch {
+    type Target = Vec<NodeId>;
+
+    fn deref(&self) -> &Vec<NodeId> {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Scratch {
+    fn deref_mut(&mut self) -> &mut Vec<NodeId> {
+        &mut self.0
+    }
+}
+
 pub(crate) struct Parser<'a> {
     src: &'a str,
     lexer: Lexer<'a>,
@@ -243,7 +290,7 @@ pub(crate) struct Parser<'a> {
     prev_end: u32,
     ast: Ast,
     /// Children of lists being built, innermost at the end.
-    scratch: Vec<NodeId>,
+    scratch: Scratch,
     /// Buffers for the early errors on bound names, kept between uses so
     /// checking a declaration allocates nothing.
     names: Vec<Span>,
@@ -320,7 +367,7 @@ impl<'a> Parser<'a> {
             },
             prev_end: 0,
             ast,
-            scratch: Vec::with_capacity(64),
+            scratch: Scratch::take(),
             names: Vec::new(),
             sorted_names: Vec::new(),
             if_chain: Vec::new(),
@@ -553,26 +600,45 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Consumes the token being looked at and returns it.
+    /// Consumes the token being looked at and returns it. Inlined, so a
+    /// caller that wants the token keeps it, and `skip` keeps nothing
+    /// across the call into the lexer.
+    #[inline(always)]
     fn bump(&mut self) -> R<Token> {
         let t = self.tok;
-        if self.budget.spend(1).is_err() {
+        self.skip()?;
+        Ok(t)
+    }
+
+    /// Consumes the token being looked at.
+    #[inline(never)]
+    fn skip(&mut self) -> R<()> {
+        let spent = self.budget.spend(1).is_ok();
+        if !spent || (self.tok.flags.contains(Flags::LEGACY_OCTAL) && self.ctx.strict) {
+            return self.refuse_token(spent);
+        }
+        self.prev_end = self.tok.span.end;
+        self.advance()
+    }
+
+    /// Why the token being looked at can't be consumed: the step budget
+    /// ran out before it, or it's a legacy octal in strict code.
+    #[cold]
+    #[inline(never)]
+    fn refuse_token(&mut self, spent: bool) -> R<()> {
+        let span = self.tok.span;
+        if !spent {
             return self.err(
                 "step-budget",
-                t.span,
+                span,
                 "the parse used up its step budget here",
             );
         }
-        if t.flags.contains(Flags::LEGACY_OCTAL) && self.ctx.strict {
-            return self.err(
-                "legacy-octal-in-strict",
-                t.span,
-                "legacy octal literals and escapes aren't allowed in strict code",
-            );
-        }
-        self.prev_end = t.span.end;
-        self.advance()?;
-        Ok(t)
+        self.err(
+            "legacy-octal-in-strict",
+            span,
+            "legacy octal literals and escapes aren't allowed in strict code",
+        )
     }
 
     /// Reads the token being looked at, a `/` or `}`, again with `goal`.

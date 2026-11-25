@@ -1149,3 +1149,17 @@ fn many_import_attributes_stay_linear() {
         format!("export * from 'a' with {{{}}};", attributes(n))
     });
 }
+
+#[test]
+fn a_parse_after_others_on_the_thread_is_the_same() {
+    // The parser keeps its list scratch for the thread's next parse.
+    let src = "f(a, [b, c], {d, e: [g]}); h(i)";
+    let tree = |s: &str| format!("{:?}", parse_script(s));
+    let fresh = std::thread::spawn(move || tree(src)).join().unwrap();
+    assert_eq!(tree(src), fresh);
+    assert!(parse_script("f(a, [b, {c").is_err());
+    assert_eq!(tree(src), fresh);
+    let long = format!("[{}]", "a, ".repeat(5000));
+    assert!(parse_script(&long).is_ok());
+    assert_eq!(tree(src), fresh);
+}

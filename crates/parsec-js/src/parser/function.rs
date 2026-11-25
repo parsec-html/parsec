@@ -361,8 +361,18 @@ impl Parser<'_> {
             Node::Identifier => self.name_is(span, name),
             Node::Literal(LiteralKind::String) => {
                 let body = Span::new(span.start + 1, span.end - 1).text(self.src);
-                if !body.contains('\\') {
-                    return body == name;
+                // Only an escape spells `name` another way, so the first
+                // byte that isn't `name`'s has to start one.
+                let same = body
+                    .bytes()
+                    .zip(name.bytes())
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                if same == body.len() {
+                    return same == name.len();
+                }
+                if body.as_bytes()[same] != b'\\' {
+                    return false;
                 }
                 text::string_value(body)
                     .iter()

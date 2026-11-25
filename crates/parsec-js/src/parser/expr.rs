@@ -63,7 +63,29 @@ impl Parser<'_> {
 
     /// AssignmentExpression where the caller may still turn it into a
     /// pattern: an array element, a property value, a parenthesized one.
+    #[inline(always)]
     pub(super) fn assign_cover(&mut self, no_in: bool) -> R<NodeId> {
+        // Most operands have no operator before them, and most have none
+        // after: those go straight to `lhs` and back, in line in the
+        // caller, not down through `conditional`, `binary` and `unary` a
+        // call each.
+        if !plain_operand(self.tok.kind) {
+            return self.assign_cover_operator(no_in);
+        }
+        self.enter()?;
+        let start = self.tok.span.start;
+        let e = self.lhs()?;
+        if ends_operand(self.tok.kind) {
+            self.leave();
+            return Ok(e);
+        }
+        self.assign_cover_after(start, e, no_in)
+    }
+
+    /// [`Parser::assign_cover`] from a token that may start with an
+    /// operator, or a `yield`.
+    #[inline(never)]
+    fn assign_cover_operator(&mut self, no_in: bool) -> R<NodeId> {
         self.enter()?;
         if self.at_kw(Keyword::Yield) && self.ctx.yield_ {
             let e = self.yield_expression(no_in)?;
@@ -72,6 +94,22 @@ impl Parser<'_> {
         }
         let start = self.tok.span.start;
         let left = self.conditional(no_in)?;
+        self.assignment(start, left, no_in)
+    }
+
+    /// [`Parser::assign_cover`] after `e`, from `start`, a plain operand
+    /// with a token after it that might be an operator.
+    #[inline(never)]
+    fn assign_cover_after(&mut self, start: u32, e: NodeId, no_in: bool) -> R<NodeId> {
+        let e = self.postfix(start, e)?;
+        let e = self.binary_from(start, e, 0, no_in)?;
+        let left = self.conditional_from(start, e, no_in)?;
+        self.assignment(start, left, no_in)
+    }
+
+    /// The rest of an AssignmentExpression from `start` whose left side
+    /// is `left`, one level deeper than its caller.
+    fn assignment(&mut self, start: u32, left: NodeId, no_in: bool) -> R<NodeId> {
         let Some(operator) = assign_op(self.tok.kind) else {
             self.leave();
             return Ok(left);
@@ -123,6 +161,12 @@ impl Parser<'_> {
     fn conditional(&mut self, no_in: bool) -> R<NodeId> {
         let start = self.tok.span.start;
         let test = self.binary(0, no_in)?;
+        self.conditional_from(start, test, no_in)
+    }
+
+    /// The rest of a ConditionalExpression whose test, from `start`, is
+    /// `test`.
+    fn conditional_from(&mut self, start: u32, test: NodeId, no_in: bool) -> R<NodeId> {
         if !self.at(Punct::Question) {
             return Ok(test);
         }
@@ -183,7 +227,7 @@ impl Parser<'_> {
     /// Binary operators binding tighter than `min`.
     fn binary(&mut self, min: u8, no_in: bool) -> R<NodeId> {
         let start = self.tok.span.start;
-        let mut left = if self.tok.kind == Kind::PrivateName {
+        let left = if self.tok.kind == Kind::PrivateName {
             // `#x in o`, the one place a private name stands alone.
             let t = self.bump()?;
             if !self.at_kw(Keyword::In) || no_in || min >= RELATIONAL {
@@ -198,6 +242,12 @@ impl Parser<'_> {
         } else {
             self.unary()?
         };
+        self.binary_from(start, left, min, no_in)
+    }
+
+    /// The operators binding tighter than `min` after `left`, an operand
+    /// from `start`.
+    fn binary_from(&mut self, start: u32, mut left: NodeId, min: u8, no_in: bool) -> R<NodeId> {
         while let Some((op, prec)) = self.binary_op(no_in) {
             if prec <= min {
                 break;
@@ -355,32 +405,34 @@ impl Parser<'_> {
             self.finish(start, Node::Await { argument })
         } else {
             let e = self.lhs()?;
-            if (self.at(Punct::PlusPlus) || self.at(Punct::MinusMinus))
-                && !self.tok.newline_before()
-            {
-                if self.is_arrow(e) {
-                    return self.unexpected();
-                }
-                let operator = if self.at(Punct::PlusPlus) {
-                    UpdateOp::Increment
-                } else {
-                    UpdateOp::Decrement
-                };
-                self.simple_target(e, true)?;
-                self.bump()?;
-                self.finish(
-                    start,
-                    Node::Update {
-                        operator,
-                        prefix: false,
-                        argument: e,
-                    },
-                )
-            } else {
-                e
-            }
+            self.postfix(start, e)?
         };
         Ok(node)
+    }
+
+    /// `e`, from `start`, with the `++` or `--` after it if there is one.
+    fn postfix(&mut self, start: u32, e: NodeId) -> R<NodeId> {
+        if !(self.at(Punct::PlusPlus) || self.at(Punct::MinusMinus)) || self.tok.newline_before() {
+            return Ok(e);
+        }
+        if self.is_arrow(e) {
+            return self.unexpected();
+        }
+        let operator = if self.at(Punct::PlusPlus) {
+            UpdateOp::Increment
+        } else {
+            UpdateOp::Decrement
+        };
+        self.simple_target(e, true)?;
+        self.bump()?;
+        Ok(self.finish(
+            start,
+            Node::Update {
+                operator,
+                prefix: false,
+                argument: e,
+            },
+        ))
     }
 
     /// `delete x` is an error in strict code, and `delete this.#x`
@@ -414,7 +466,15 @@ impl Parser<'_> {
     pub(super) fn lhs(&mut self) -> R<NodeId> {
         let start = self.tok.span.start;
         let e = self.primary()?;
-        if self.is_arrow(e) {
+        // Most operands have nothing after them for `subscripts`, which
+        // saves eight register pairs to find that out.
+        let more = matches!(
+            self.tok.kind,
+            Kind::Punct(Punct::Dot | Punct::QuestionDot | Punct::LBracket | Punct::LParen)
+                | Kind::Template
+                | Kind::TemplateHead
+        );
+        if !more || self.is_arrow(e) {
             return Ok(e);
         }
         self.subscripts(e, start, false)
@@ -1154,4 +1214,36 @@ fn assign_op(kind: Kind) -> Option<AssignOp> {
         Punct::QuestionQuestionEq => A::Coalesce,
         _ => return None,
     })
+}
+
+/// A token that `unary` and `binary` would hand straight to `lhs`: no
+/// prefix operator, no `await`, `yield` or lone private name.
+fn plain_operand(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Ident
+            | Kind::String
+            | Kind::Number
+            | Kind::Punct(Punct::LParen | Punct::LBracket | Punct::LBrace)
+            | Kind::Keyword(
+                Keyword::This | Keyword::True | Keyword::False | Keyword::Null | Keyword::Function
+            )
+    )
+}
+
+/// A token that no postfix, binary, conditional or assignment operator
+/// can be, so the operand before it is the whole expression.
+fn ends_operand(kind: Kind) -> bool {
+    matches!(
+        kind,
+        Kind::Eof
+            | Kind::Punct(
+                Punct::Comma
+                    | Punct::Semicolon
+                    | Punct::Colon
+                    | Punct::RParen
+                    | Punct::RBracket
+                    | Punct::RBrace
+            )
+    )
 }

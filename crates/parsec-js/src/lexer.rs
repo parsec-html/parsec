@@ -372,6 +372,17 @@ impl<'a> Lexer<'a> {
                     self.pos += 1;
                     self.newline = true;
                     self.line_start = true;
+                    // The spaces of the indent after it, a word at a time:
+                    // the count is the run of zero bytes at the bottom of
+                    // the word with the spaces taken out.
+                    const SPACES: u64 = u64::from_ne_bytes([b' '; 8]);
+                    while let Some(&w) = b.get(self.pos..).and_then(|r| r.first_chunk::<8>()) {
+                        let n = (u64::from_le_bytes(w) ^ SPACES).trailing_zeros() as usize / 8;
+                        self.pos += n;
+                        if n < 8 {
+                            break;
+                        }
+                    }
                 }
                 0x80.. => return false,
                 _ => return true,
@@ -594,6 +605,31 @@ impl<'a> Lexer<'a> {
     // Numeric literals (12.9.3, B.1.1).
 
     fn number(&mut self, start: usize) -> Token {
+        // Most numbers are decimal digits with nothing after them that
+        // could go on with the number: those need none of the registers
+        // the rest does.
+        let b = self.src.as_bytes();
+        if b[start] != b'.' {
+            let mut end = start + 1;
+            if b[start] != b'0' {
+                while b.get(end).is_some_and(u8::is_ascii_digit) {
+                    end += 1;
+                }
+            }
+            let plain = b.get(end).is_none_or(|&c| {
+                c < 0x80 && !c.is_ascii_alphanumeric() && !matches!(c, b'.' | b'$' | b'_' | b'\\')
+            });
+            if plain {
+                self.pos = end;
+                return self.token(Kind::Number, start, Flags::empty());
+            }
+        }
+        self.number_rest(start)
+    }
+
+    /// A number from `start` that isn't only decimal digits.
+    #[inline(never)]
+    fn number_rest(&mut self, start: usize) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
         let mut kind = Kind::Number;
@@ -750,9 +786,24 @@ impl<'a> Lexer<'a> {
 
     #[inline(never)]
     fn string(&mut self, start: usize, quote: u8) -> Token {
+        // Most strings end at the first byte that might end one, with no
+        // escape: those need none of the registers the rest does.
+        let b = self.src.as_bytes();
+        let end = start + 1 + string_run(&b[start + 1..], quote);
+        if b.get(end) == Some(&quote) {
+            self.pos = end + 1;
+            return self.token(Kind::String, start, Flags::empty());
+        }
+        self.pos = end;
+        self.string_rest(start, quote)
+    }
+
+    /// The rest of a string from `start`, from a byte at `pos` that
+    /// might end it or start an escape.
+    #[inline(never)]
+    fn string_rest(&mut self, start: usize, quote: u8) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
-        self.pos = start + 1;
         loop {
             // Skip what can't end the string or start an escape at once:
             // long strings in inline scripts are mostly that.
@@ -843,9 +894,36 @@ impl<'a> Lexer<'a> {
 
     /// From `` ` `` or, for a middle or tail, from `}`.
     fn template(&mut self, start: usize, continued: bool) -> Token {
+        // Most templates in minified code are strings in backquotes, with
+        // no escape or substitution: those need none of the registers
+        // the rest does.
+        let b = self.src.as_bytes();
+        let mut end = start + 1;
+        while b
+            .get(end)
+            .is_some_and(|c| !matches!(c, b'`' | b'\\' | b'$'))
+        {
+            end += 1;
+        }
+        self.pos = end;
+        if b.get(end) == Some(&b'`') {
+            self.pos += 1;
+            let kind = if continued {
+                Kind::TemplateTail
+            } else {
+                Kind::Template
+            };
+            return self.token(kind, start, Flags::empty());
+        }
+        self.template_rest(start, continued)
+    }
+
+    /// The rest of a template part from `start`, from a `\`, a `$` or the
+    /// end of the input at `pos`.
+    #[inline(never)]
+    fn template_rest(&mut self, start: usize, continued: bool) -> Token {
         let b = self.src.as_bytes();
         let mut flags = Flags::empty();
-        self.pos = start + 1;
         let kind = loop {
             match b.get(self.pos) {
                 None => {
@@ -1079,6 +1157,7 @@ impl<'a> Lexer<'a> {
 /// and CR: what a string literal holds before it ends, or might end or
 /// escape. Eight bytes at a time, by the bit trick that finds a zero
 /// byte in a word (a byte equal to `t` is a zero byte of `word ^ t`).
+#[inline(always)]
 fn string_run(b: &[u8], quote: u8) -> usize {
     const ONES: u64 = u64::from_ne_bytes([0x01; 8]);
     const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);

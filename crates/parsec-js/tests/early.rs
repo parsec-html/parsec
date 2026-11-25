@@ -343,11 +343,18 @@ fn proto_once_in_an_object_literal() {
         &[
             "({ __proto__: a, __proto__: b })",
             "({ '__proto__': a, __proto__: b })",
+            r"({ '\x5f_proto__': a, __proto__: b })",
+            r"({ '__pro\u0074o__': a, __proto__: b })",
+            "({ '__proto__\\\n': a, __proto__: b })",
         ],
     );
     accepts(
         false,
         &[
+            "({ '__proto_': a, __proto__: b })",
+            "({ '__proto__x': a, __proto__: b })",
+            r"({ '__proto__\n': a, __proto__: b })",
+            r"({ '\x5f_proto_': a, __proto__: b })",
             "({ __proto__: a, __proto__: b } = c)",
             "({ __proto__: a, ['__proto__']: b })",
             "({ __proto__: a, __proto__ })",
