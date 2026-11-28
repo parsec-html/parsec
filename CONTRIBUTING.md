@@ -28,9 +28,11 @@ Every crate is written here, the HTML parser and XPath included, so you
 make your change in this repository and nowhere else. The HTML parser in
 `crates/parsec` and XPath in `crates/parsec-xpath` used to be copied in
 from Netweir; that stopped with
-[#208](https://github.com/parsec-html/parsec/issues/208). Netweir keeps
-its own copy for now, and moves to Parsec's released crates in
-[#209](https://github.com/parsec-html/parsec/issues/209).
+[#208](https://github.com/parsec-html/parsec/issues/208). Now it runs the
+other way. Netweir dropped its copy in
+[netweir#477](https://github.com/netweir/netweir/pull/477) and takes
+Parsec's released crates, so a parser fix lands here first and reaches
+Netweir in the next Parsec release.
 
 ## Getting it running
 
@@ -199,9 +201,9 @@ thread and the maintainer decides, as GOVERNANCE.md describes.
 
 ## The contributor licence agreement
 
-Parsec is Apache-2.0. Its parser is shared with Netweir, which is AGPL-3.0
-and also sold under a commercial licence, so code that lands here may go
-there too. That only works if I can license each contribution under other
+Parsec is Apache-2.0. Netweir, which is AGPL-3.0 and also sold under a
+commercial licence, is built on Parsec's crates, so code that lands here
+goes there too. That only works if I can license each contribution under other
 terms as well, so before your first pull request is merged you'll be asked
 to agree to the [CLA](CLA.md). You keep the copyright in your work.
 
