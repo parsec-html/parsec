@@ -26,7 +26,7 @@ the order can change when users show us something more urgent.
 | Milestone | Target | Today |
 |---|---|---|
 | M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
-| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` released in 0.3.0; the CI check on what each crate pulls in to come |
+| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` released in 0.3.0, and CI checks what each crate pulls in; CSS syntax and decoding without the HTML tree to come |
 | M9. JavaScript tokens | December 2026 | released in 0.3.0 |
 | M10. JavaScript syntax tree | early 2027, with 0.3.0 | released in 0.3.0 |
 | M11. JavaScript scope and modules | spring 2027 | released in 0.3.0 |
@@ -437,8 +437,10 @@ against libxml2 ([#168](https://github.com/parsec-html/parsec/issues/168)).
 
 `parsec-base` for what every parser shares (spans, line indexes,
 diagnostics, limits), a CI check that each crate depends only on what it
-should, and the architecture written down on the wiki
-([#140](https://github.com/parsec-html/parsec/issues/140)).
+should, the architecture written down on the wiki
+([#140](https://github.com/parsec-html/parsec/issues/140)), and CSS
+syntax and decoding you can use without compiling the HTML tree
+([#246](https://github.com/parsec-html/parsec/issues/246)).
 
 ## M16. Every language, every way in
 

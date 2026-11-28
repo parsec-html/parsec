@@ -483,9 +483,11 @@ page.
 
 "Done" means it's merged with its tests and in a release; everything
 marked done is in 0.3.0. "Under way" means part of it is in and part
-isn't: for M15 that's the CI check that each crate pulls in only what
-it needs ([#144](https://github.com/parsec-html/parsec/issues/144)),
-and for M12 it's Netweir reading page state through `parsec-js`.
+isn't: for M15 that's CSS syntax and decoding without the HTML tree
+([#246](https://github.com/parsec-html/parsec/issues/246)); the CI check
+that each crate pulls in only what it needs is on main
+([#144](https://github.com/parsec-html/parsec/issues/144)). For M12
+it's Netweir reading page state through `parsec-js`.
 
 ## Using it
 
