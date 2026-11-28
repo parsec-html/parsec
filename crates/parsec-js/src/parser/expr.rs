@@ -1057,8 +1057,9 @@ impl Parser<'_> {
     /// one is an error; tagged, its cooked value is undefined.
     pub(super) fn template(&mut self, tagged: bool) -> R<NodeId> {
         let start = self.tok.span.start;
+        // Quasis and expressions alternate in the scratch, starting and
+        // ending with a quasi, so a template allocates nothing of its own.
         let mark = self.scratch.len();
-        let mut quasis = Vec::new();
         loop {
             let t = self.tok;
             let tail = matches!(t.kind, Kind::Template | Kind::TemplateTail);
@@ -1072,13 +1073,14 @@ impl Parser<'_> {
             }
             let end = t.span.end - if tail { 1 } else { 2 };
             let span = Span::new(t.span.start + 1, end.max(t.span.start + 1));
-            quasis.push(self.ast.push(
+            let quasi = self.ast.push(
                 span,
                 Node::TemplateElement {
                     tail,
                     cooked: !invalid,
                 },
-            ));
+            );
+            self.scratch.push(quasi);
             self.bump()?;
             if tail {
                 break;
@@ -1090,8 +1092,10 @@ impl Parser<'_> {
             }
             self.rescan(Goal::TemplateTail)?;
         }
-        let expressions = self.take_list(mark);
-        let quasis = self.ast.list(quasis);
+        let parts = &self.scratch[mark..];
+        let expressions = self.ast.list(parts.iter().skip(1).step_by(2).copied());
+        let quasis = self.ast.list(parts.iter().step_by(2).copied());
+        self.scratch.truncate(mark);
         Ok(self.finish(
             start,
             Node::Template {
