@@ -695,10 +695,12 @@ fn write_alpha(out: &mut impl Write, a: &Channel) -> fmt::Result {
 }
 
 impl Channels {
+    #[cfg(feature = "cascade")]
     pub(crate) fn model_is_legacy(&self) -> bool {
         matches!(self.model, Model::Rgb | Model::Hsl | Model::Hwb)
     }
 
+    #[cfg(feature = "cascade")]
     pub(crate) fn has_math(&self) -> bool {
         self.channels
             .iter()
@@ -707,6 +709,7 @@ impl Channels {
     }
 
     /// Each math channel replaced by what `f` makes of it.
+    #[cfg(feature = "cascade")]
     pub(crate) fn map_math(&mut self, f: &impl Fn(&Math) -> Math) {
         for c in self.channels.iter_mut().chain([&mut self.alpha]) {
             if let Channel::Math(m) = c {

@@ -31,6 +31,7 @@
 //! ```
 
 mod bytes;
+#[cfg(feature = "cascade")]
 pub mod cascade;
 mod deep;
 pub mod media;

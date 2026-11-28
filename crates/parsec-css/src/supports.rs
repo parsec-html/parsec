@@ -59,14 +59,16 @@ fn word(v: Option<&&ComponentValue<'_>>, w: &str) -> bool {
 }
 
 /// Whether a `<supports-condition>` holds, or `None` if it doesn't parse,
-/// which makes an `@supports` rule invalid.
+/// which makes an `@supports` rule invalid. `selector()` holds for a
+/// selector Parsec can match, which takes the default `cascade` feature;
+/// without it, `selector()` is always false.
 ///
 /// ```
 /// use parsec_css::supports::supports;
 ///
 /// let c = parsec_css::parse_component_values("(display: grid) and (not (color: nonsense))");
 /// assert_eq!(supports(&c), Some(true));
-/// let c = parsec_css::parse_component_values("selector(a > b) or (width: 1fr)");
+/// let c = parsec_css::parse_component_values("(display: grid) or selector(a > b)");
 /// assert_eq!(supports(&c), Some(true));
 /// assert_eq!(supports(&parsec_css::parse_component_values("color: red")), None);
 /// ```
@@ -145,9 +147,14 @@ fn in_parens(v: &ComponentValue<'_>, depth: usize) -> Option<bool> {
                 _ => false,
             };
             Some(match f.name.to_ascii_lowercase().as_str() {
+                #[cfg(feature = "cascade")]
                 "selector" => {
                     parsec::css::SelectorList::parse(crate::to_css(&f.arguments).trim()).is_ok()
                 }
+                // Without the `cascade` feature there's no selector parser,
+                // so no selector is supported.
+                #[cfg(not(feature = "cascade"))]
+                "selector" => false,
                 "font-format" => one(FORMATS),
                 "font-tech" => one(TECHS),
                 // CSS Conditional 5 §2.5: an at-rule this crate reads.
@@ -179,7 +186,8 @@ mod tests {
             ("unknownproperty: blah", false),
             ("width: blah", false),
             ("--foo: blah", true),
-            ("selector(div > p)", true),
+            // Without the cascade there's nothing to match against.
+            ("selector(div > p)", cfg!(feature = "cascade")),
             ("selector(:::)", false),
             ("font-format(opentype)", true),
             ("font-format(xyzzy)", false),

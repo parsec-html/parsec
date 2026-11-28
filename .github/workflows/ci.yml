@@ -57,6 +57,11 @@ jobs:
       # No published crate pulls in a Parsec crate it shouldn't (#144).
       - name: Each crate pulls in only what it needs
         run: scripts/check-crate-deps.sh
+      # And the crates that drop the HTML tree without their default
+      # features still build and pass their tests, doc tests included,
+      # that way (#246).
+      - name: Builds and tests without default features
+        run: cargo test -p parsec-web-css -p parsec-web-encoding -p parsec-xpath --no-default-features
       # A prebuilt binary: the cargo-deny action builds a Docker image on
       # every run, and fails whenever Docker Hub does.
       - uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8

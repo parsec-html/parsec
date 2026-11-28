@@ -21,9 +21,27 @@ name = "parsec_css"
 
 [dependencies]
 # The document the cascade styles, and its selector engine.
-parsec-web-core = { path = "../parsec", version = "0.3.0" }
+parsec-web-core = { path = "../parsec", version = "0.3.0", optional = true }
 # For stylesheets given as bytes; already Parsec's, through parsec-web-encoding.
 encoding_rs = "0.8.35"
 
+[features]
+default = ["cascade"]
+# The cascade, and `selector()` in `@supports`, match selectors against a
+# parsec-web-core Document. Without it, CSS syntax and values compile alone.
+cascade = ["dep:parsec-web-core"]
+
 [dev-dependencies]
 serde_json = "1"
+
+[[test]]
+name = "wpt_cascade"
+required-features = ["cascade"]
+
+[[test]]
+name = "wpt_computed"
+required-features = ["cascade"]
+
+[[test]]
+name = "limits"
+required-features = ["cascade"]

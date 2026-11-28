@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Fails if a crate Parsec publishes pulls in a Parsec crate it shouldn't.
-# For each one, `cargo tree` lists every workspace crate it reaches with
-# all its features on, directly or through another crate, and each must
-# be in the crate's row below. parsec-base must reach nothing at all, not
-# even a crate from crates.io.
+# For each one, `cargo tree` lists every workspace crate it reaches,
+# directly or through another crate, once with all its features on and
+# once with its default features off, and each must be in the crate's row
+# for that build below. parsec-base must reach nothing at all, not even a
+# crate from crates.io.
 #
 #   scripts/check-crate-deps.sh
 #
@@ -24,14 +25,23 @@ allowed() {
     parsec-xpath) echo parsec-web-core ;;
     # Never the HTML tree, even through parsec-xpath.
     parsec-xml) echo parsec-base parsec-xpath ;;
-    # Two edges the wiki calls out as breaking the rule: the cascade matches
-    # selectors against a Document, and parse_bytes lives with the decoder.
-    # Allowed until they move behind features (#246); until then, CSS syntax
-    # alone still compiles the HTML tree.
+    # The cascade matches selectors against a Document, and parse_bytes
+    # parses what it decodes: both are default features, off in the row
+    # below (#246).
     parsec-web-css) echo parsec-web-core ;;
     parsec-web-encoding) echo parsec-web-core ;;
     parsec-web) echo parsec-web-core parsec-web-css parsec-web-encoding parsec-url parsec-xpath ;;
     *) return 1 ;;
+  esac
+}
+
+# With default features off: CSS syntax and values, sniffing and decoding,
+# and XPath over any tree each build without the HTML tree. Every other
+# crate keeps its row above.
+allowed_bare() {
+  case $1 in
+    parsec-web-css | parsec-web-encoding | parsec-xpath) ;;
+    *) allowed "$1" ;;
   esac
 }
 
@@ -41,24 +51,27 @@ published=$(cargo metadata --no-deps --format-version 1 |
 members=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[].name')
 
 for crate in $published; do
-  if ! ok=$(allowed "$crate"); then
+  if ! allowed "$crate" >/dev/null; then
     echo "$crate is published but has no row in $0"
     failed=1
     continue
   fi
-  reached=$(cargo tree -q -p "$crate" -e normal --all-features --prefix none --format '{p}' |
-    awk '{print $1}' | sort -u | grep -vx "$crate" || true)
-  if [ "$crate" = parsec-base ] && [ -n "$reached" ]; then
-    echo "parsec-base must depend on nothing, and reaches: ${reached//$'\n'/ }"
-    failed=1
-    continue
-  fi
-  for dep in $reached; do
-    grep -qx "$dep" <<<"$members" || continue
-    if [[ " $ok " != *" $dep "* ]]; then
-      echo "$crate reaches $dep, which its row in $0 doesn't allow"
+  for build in --all-features --no-default-features; do
+    if [ "$build" = --all-features ]; then ok=$(allowed "$crate"); else ok=$(allowed_bare "$crate"); fi
+    reached=$(cargo tree -q -p "$crate" -e normal "$build" --prefix none --format '{p}' |
+      awk '{print $1}' | sort -u | grep -vx "$crate" || true)
+    if [ "$crate" = parsec-base ] && [ -n "$reached" ]; then
+      echo "parsec-base must depend on nothing, and reaches: ${reached//$'\n'/ }"
       failed=1
+      continue
     fi
+    for dep in $reached; do
+      grep -qx "$dep" <<<"$members" || continue
+      if [[ " $ok " != *" $dep "* ]]; then
+        echo "$crate reaches $dep with $build, which its row in $0 doesn't allow"
+        failed=1
+      fi
+    done
   done
 done
 

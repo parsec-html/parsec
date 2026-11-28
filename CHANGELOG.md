@@ -4,6 +4,19 @@ Every change people using Parsec would notice, newest first. Version
 numbers follow [Semantic Versioning](https://semver.org/); until 1.0, a
 minor release can break the API and a patch release won't.
 
+## Unreleased
+
+### Added
+
+- `parsec-web-css` and `parsec-web-encoding` build without the HTML
+  tree. With `default-features = false`, `parsec-web-css` is CSS syntax,
+  values and media queries alone, and `parsec-web-encoding` is
+  `sniff`, `prescan`, `Offsets` and `locale_default` alone. The cascade
+  is the `cascade` feature and `parse_bytes` with `ByteParser` the
+  `parse` feature, both on by default, so nothing changes unless you
+  turn them off. Without `cascade`, `selector()` in `@supports` is
+  false, since there's no selector parser to check it with (#246).
+
 ## 0.3.0 - 2026-11-25
 
 The first release with JavaScript and XML, and the first under the

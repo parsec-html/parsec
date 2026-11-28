@@ -11,22 +11,21 @@ use encoding_rs::{CoderResult, Encoding, UTF_8, UTF_16BE, UTF_16LE};
 /// back, for the spans and parse errors of a document parsed from bytes.
 ///
 /// ```
-/// use parsec_encoding::{Offsets, Options, parse_bytes};
+/// use parsec_encoding::{Offsets, encoding_rs::SHIFT_JIS};
 ///
 /// let page = b"<meta charset=shift_jis><p>\x93\xfa\x96\x7b<b>!</b>";
-/// let parsed = parse_bytes(page, Options {
-///     html: parsec::Options { spans: true, ..Default::default() },
-///     ..Options::default()
-/// }).unwrap();
-/// let offsets = Offsets::new(page, parsed.encoding);
-/// let doc = &parsed.document;
-/// let b = (0..doc.len() as u32).find(|&n| doc.lower_name(n) == Some("b")).unwrap();
-/// let span = doc.span(b).unwrap();
+/// let (text, _, _) = SHIFT_JIS.decode(page);
+/// let b = text.find("<b>").unwrap();
 /// // 日本 is six bytes decoded, four in Shift_JIS.
-/// assert_eq!(span, 33..36);
-/// let (start, end) = (offsets.to_source(span.start), offsets.to_source(span.end));
+/// assert_eq!(b, 33);
+/// let offsets = Offsets::new(page, SHIFT_JIS);
+/// let (start, end) = (offsets.to_source(b), offsets.to_source(b + 3));
 /// assert_eq!(&page[start..end], b"<b>");
 /// ```
+///
+/// With the default `parse` feature, the spans and errors of a document
+/// from [`parse_bytes`](crate::parse_bytes) are offsets into the decoded
+/// page in the same way.
 ///
 /// It's built by decoding the bytes again, noting where each character's
 /// bytes started (UTF-8 and the single-byte encodings in one pass, the
