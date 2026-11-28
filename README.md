@@ -30,6 +30,22 @@ project's name now that it parses more than HTML; up to 0.2 it was
 `parsec-html`. This page says what works today and what's on the way, and the
 line between the two is kept sharp.
 
+Parsec is also the engine under [Netweir](https://github.com/netweir/netweir),
+a crawling and extraction framework. Netweir is where the HTML parser
+started, and since [netweir#477](https://github.com/netweir/netweir/pull/477)
+it no longer keeps a copy: it takes `parsec-web-core` and `parsec-xpath`
+0.3 from crates.io like anyone else. That's on Netweir's `main` today, and
+its next release is the first to ship on them. What Parsec gets back is a
+test no spec suite can give it. Every Monday, Netweir's CI fetches 300 of
+a pinned list of 2,709 production URLs, a different slice each week, and
+parses each page with Parsec and with html5ever. If Parsec panics, hangs
+or builds a tree html5ever disagrees with, the run fails. The spec suites
+say Parsec is right by the standards and the stress tests say it stays up;
+this is the layer that says it's right on the pages people actually
+parse. The wiki's
+[Testing](https://github.com/parsec-html/parsec/wiki/Testing#the-real-web)
+page has the details, and what happens when a page breaks it.
+
 ## What works today
 
 ```rust
