@@ -493,7 +493,7 @@ page.
 | M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13?closed=1) | done |
 | M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14?closed=1) | done; Netweir reads page state through it on its `main` |
 | M14 | [XML](https://github.com/parsec-html/parsec/milestone/16?closed=1) | done |
-| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | done in 0.3.0; [#174](https://github.com/parsec-html/parsec/issues/174) closes once its C packages are on the release page |
+| M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | done in 0.3.0 |
 | M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15?closed=1) | done |
 | M17 | [Release gates and the real web](https://github.com/parsec-html/parsec/milestone/22?closed=1) | done |
 | M18 | [Parsec upstream](https://github.com/parsec-html/parsec/milestone/23) | under way |
