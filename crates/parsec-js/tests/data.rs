@@ -152,9 +152,36 @@ D""#,
         ("{\\u0061: 1}", r#"{"a":1}"#),
         ("{__proto__x: 1}", r#"{"__proto__x":1}"#),
         ("1e999", "null"),
+        // Strings with and without escapes, which take different paths.
+        (r#""https:\u002F\u002Fa.b\u002Fc""#, r#""https://a.b/c""#),
+        (r#""\uD83D\uDE00 \u{1F600}""#, r#""😀 😀""#),
+        (
+            r#""\x41\101\0é\q\
+z""#,
+            r#""AA\u0000éqz""#,
+        ),
+        ("`a\r\nb`", r#""a\nb""#),
+        ("`a\\u0041`", r#""aA""#),
     ] {
         assert_eq!(lit(expr).as_deref(), Ok(out), "{expr}");
     }
+}
+
+#[test]
+fn literal_keeps_first_place_last_value_in_large_objects() {
+    // More keys than an object scans before it builds an index.
+    let keys: Vec<String> = (0..40).map(|i| format!("k{i}: {i}")).collect();
+    let src = format!("{{{}, k3: 'x', k30: void 0, k39: 'y'}}", keys.join(", "));
+    let entries: Vec<String> = (0..40)
+        .filter(|&i| i != 30)
+        .map(|i| match i {
+            3 => r#""k3":"x""#.to_string(),
+            39 => r#""k39":"y""#.to_string(),
+            _ => format!(r#""k{i}":{i}"#),
+        })
+        .collect();
+    let want = format!("{{{}}}", entries.join(","));
+    assert_eq!(lit(&src).as_deref(), Ok(want.as_str()));
 }
 
 #[test]

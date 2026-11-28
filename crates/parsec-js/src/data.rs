@@ -225,16 +225,23 @@ impl<'a> Reader<'a> {
         String::from_utf16(units).or_else(|_| refuse(span, "lone-surrogate"))
     }
 
+    /// A string literal's value, decoded straight to a Rust string unless
+    /// it has a surrogate.
+    fn string_literal(&self, span: Span) -> Result<String, Refused> {
+        let body = Span::new(span.start + 1, span.end - 1).text(self.src);
+        match text::string_value_str(body) {
+            Some(s) => Ok(s),
+            None => self.string(span, &text::string_value(body)),
+        }
+    }
+
     /// The value of `id`, `None` for `undefined`.
     fn value(&mut self, id: NodeId) -> Result<Option<Json>, Refused> {
         let span = self.ast.span(id);
         let v = match *self.ast.node(id) {
             Node::Paren { expression } => return self.value(expression),
             Node::Literal(kind) => match kind {
-                LiteralKind::String => {
-                    let body = Span::new(span.start + 1, span.end - 1).text(self.src);
-                    Json::String(self.string(span, &text::string_value(body))?)
-                }
+                LiteralKind::String => Json::String(self.string_literal(span)?),
                 LiteralKind::Number => Json::Number(text::number_value(span.text(self.src))),
                 LiteralKind::Boolean => Json::Bool(span.text(self.src) == "true"),
                 LiteralKind::Null => Json::Null,
@@ -250,10 +257,16 @@ impl<'a> Reader<'a> {
                 }
                 let quasi = self.ast.get(quasis)[0];
                 let body = self.ast.span(quasi).text(self.src);
-                // An untagged template's escapes are all valid, or it
-                // wouldn't have parsed.
-                let units = text::template_cooked(body).unwrap_or_default();
-                Json::String(self.string(span, &units)?)
+                // A template turns CR and CRLF into LF, so only one with
+                // neither those nor an escape is its own text.
+                if !body.contains(['\\', '\r']) {
+                    Json::String(body.to_owned())
+                } else {
+                    // An untagged template's escapes are all valid, or it
+                    // wouldn't have parsed.
+                    let units = text::template_cooked(body).unwrap_or_default();
+                    Json::String(self.string(span, &units)?)
+                }
             }
             Node::Identifier => {
                 let name = text::ident_name(span.text(self.src));
@@ -298,7 +311,7 @@ impl<'a> Reader<'a> {
                 Json::Array(items)
             }
             Node::Object { properties, .. } => {
-                let mut object = Object::default();
+                let mut object = Object::with_capacity(properties.len());
                 for &p in self.ast.get(properties) {
                     let Node::Property {
                         key,
@@ -336,10 +349,7 @@ impl<'a> Reader<'a> {
         let span = self.ast.span(key);
         let raw = span.text(self.src);
         match *self.ast.node(key) {
-            Node::Literal(LiteralKind::String) => {
-                let body = Span::new(span.start + 1, span.end - 1).text(self.src);
-                self.string(span, &text::string_value(body))
-            }
+            Node::Literal(LiteralKind::String) => self.string_literal(span),
             Node::Literal(LiteralKind::Number) => {
                 let mut s = String::new();
                 text::write_js_number(&mut s, text::number_value(raw));
@@ -353,18 +363,40 @@ impl<'a> Reader<'a> {
 
 /// An object being built: a key given again keeps its place and takes
 /// the new value, and a key whose value is `undefined` is left out.
-#[derive(Default)]
 struct Object {
     entries: Vec<(String, Option<Json>)>,
+    /// Each key's place, once there are more than [`Object::SCAN`] of
+    /// them; below that a scan is cheaper than hashing.
     index: HashMap<String, usize>,
 }
 
 impl Object {
+    const SCAN: usize = 16;
+
+    fn with_capacity(n: usize) -> Object {
+        Object {
+            entries: Vec::with_capacity(n),
+            index: HashMap::new(),
+        }
+    }
+
     fn set(&mut self, key: String, value: Option<Json>) {
-        match self.index.get(&key) {
-            Some(&i) => self.entries[i].1 = value,
+        let at = if self.entries.len() <= Object::SCAN {
+            self.entries.iter().position(|(k, _)| *k == key)
+        } else {
+            if self.index.is_empty() {
+                self.index = (self.entries.iter().enumerate())
+                    .map(|(i, (k, _))| (k.clone(), i))
+                    .collect();
+            }
+            self.index.get(&key).copied()
+        };
+        match at {
+            Some(i) => self.entries[i].1 = value,
             None => {
-                self.index.insert(key.clone(), self.entries.len());
+                if !self.index.is_empty() {
+                    self.index.insert(key.clone(), self.entries.len());
+                }
                 self.entries.push((key, value));
             }
         }

@@ -123,7 +123,7 @@ impl Parser<'_> {
     }
 
     fn object(&mut self) -> Result<Json, Refused> {
-        let mut object = Object::default();
+        let mut object = Object::with_capacity(0);
         self.ws();
         if self.eat(b'}') {
             return Ok(object.finish());
