@@ -23,6 +23,12 @@ minor release can break the API and a patch release won't.
   longer allocate vectors of their own. Over the bench's 11.6 MB it's
   1.06 times `oxc_parser`'s speed; the smallest inline scripts are
   still behind (#249, part of #190).
+- Reading page state is about 3 times as fast. On the nytimes page's
+  852 KB `window.__preloadedData`, `page_state_in` went from 155–161 MB/s
+  to 498–513, as fast as the parse it reads (463–499). A string decodes
+  straight to UTF-8 instead of through UTF-16, the text between escapes
+  is copied whole, and a small object finds a repeated key by scanning
+  rather than hashing every key. What it returns is unchanged (#252).
 
 ## 0.3.0 - 2026-11-25
 

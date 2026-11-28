@@ -707,3 +707,81 @@ pub fn reparse() {
         }
     );
 }
+
+/// Times reading page state (`parsec_js::data::page_state_in`) against
+/// the parse it reads from, on each source's scripts, and prints a hash
+/// of everything it found, so two builds can be checked to agree. As in
+/// [`run`], what each builds is kept until the clock stops.
+pub fn state(pages: &[Page]) {
+    use std::hash::{Hash, Hasher};
+    let (sources, _) = sources(pages);
+    println!("\nPage state: MB/s of source, median of at least 5 runs");
+    println!(
+        "{:<34} {:>9}  {:>8}  {:>8}  {:>6}  {:>16}",
+        "", "KB", "parse", "state", "found", "hash"
+    );
+    let time = |f: &dyn Fn() -> Box<dyn std::any::Any>| {
+        let t = Instant::now();
+        drop(f());
+        let once = t.elapsed().max(Duration::from_micros(1));
+        let runs = (0.5 / once.as_secs_f64()).clamp(5.0, 500.0) as usize;
+        let mut times: Vec<f64> = (0..runs)
+            .map(|_| {
+                let t = Instant::now();
+                let kept = f();
+                let secs = t.elapsed().as_secs_f64();
+                drop(kept);
+                secs
+            })
+            .collect();
+        times.sort_by(f64::total_cmp);
+        times[times.len() / 2]
+    };
+    for s in &sources {
+        let scripts: Vec<&str> = s
+            .pieces
+            .iter()
+            .filter(|(_, module)| !module)
+            .map(|(src, _)| src.as_str())
+            .collect();
+        let trees: Vec<parsec_js::Ast> = scripts
+            .iter()
+            .map(|src| parsec_js::parse_script(src).unwrap())
+            .collect();
+        let bytes: usize = scripts.iter().map(|s| s.len()).sum();
+        let parse = time(&|| {
+            let trees: Vec<_> = (scripts.iter())
+                .map(|src| parsec_js::parse_script(black_box(src)))
+                .collect();
+            Box::new(black_box(trees))
+        });
+        let state = time(&|| {
+            let found: Vec<_> = (trees.iter().zip(&scripts))
+                .map(|(ast, src)| parsec_js::data::page_state_in(black_box(ast), src))
+                .collect();
+            Box::new(black_box(found))
+        });
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let mut found = 0;
+        for (ast, src) in trees.iter().zip(&scripts) {
+            for f in parsec_js::data::page_state_in(ast, src) {
+                found += 1;
+                (&f.name, f.span.start, f.span.end).hash(&mut hasher);
+                match &f.value {
+                    Ok(v) => v.to_json_string().hash(&mut hasher),
+                    Err(r) => (r.reason, r.span.start, r.span.end).hash(&mut hasher),
+                }
+            }
+        }
+        let mbs = |secs: f64| bytes as f64 / 1e6 / secs;
+        println!(
+            "{:<34} {:>9.1}  {:>8.0}  {:>8.0}  {:>6}  {:016x}",
+            s.name,
+            bytes as f64 / 1e3,
+            mbs(parse),
+            mbs(state),
+            found,
+            hasher.finish()
+        );
+    }
+}

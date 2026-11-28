@@ -299,6 +299,11 @@ fn main() {
         js::scopes(&real_pages());
         return;
     }
+    if args.iter().any(|a| a == "js-state") {
+        header();
+        js::state(&real_pages());
+        return;
+    }
     if args.iter().any(|a| a == "js-lex") {
         header();
         js::lex_run(&real_pages());

@@ -41,6 +41,11 @@ fn unicode_escape(s: &str) -> (Option<u32>, usize) {
         let value = u32::from_str_radix(&s[1..end], 16).ok();
         (value, (end + 1).min(b.len()))
     } else {
+        if let [a, b, c, d, ..] = *b
+            && let (Some(a), Some(b), Some(c), Some(d)) = (hex(a), hex(b), hex(c), hex(d))
+        {
+            return (Some(a << 12 | b << 8 | c << 4 | d), 4);
+        }
         // Up to four hex digits, which a tagged template's invalid escape
         // (`\u/0é`) may stop short of.
         let end = b
@@ -51,6 +56,10 @@ fn unicode_escape(s: &str) -> (Option<u32>, usize) {
         let value = u32::from_str_radix(&s[..end], 16).ok().filter(|_| end == 4);
         (value, end)
     }
+}
+
+fn hex(b: u8) -> Option<u32> {
+    (b as char).to_digit(16)
 }
 
 fn push_char(out: &mut Vec<u16>, c: char) {
@@ -75,35 +84,95 @@ fn is_line_terminator(c: char) -> bool {
 /// Rust string can.
 pub fn string_value(body: &str) -> Vec<u16> {
     let mut out = Vec::with_capacity(body.len());
-    let mut chars = body.char_indices().peekable();
-    while let Some((i, c)) = chars.next() {
-        if c != '\\' {
-            push_char(&mut out, c);
-            continue;
-        }
-        let Some((_, e)) = chars.next() else { break };
-        match e {
-            'b' => out.push(8),
-            'f' => out.push(12),
-            'n' => out.push(10),
-            'r' => out.push(13),
-            't' => out.push(9),
-            'v' => out.push(11),
+    decode_string(body, &mut out);
+    out
+}
+
+/// [`string_value`] as a Rust string, or `None` if it has a surrogate,
+/// which only the UTF-16 form can hold (a pair is two escapes there, put
+/// together by `String::from_utf16`).
+pub fn string_value_str(body: &str) -> Option<String> {
+    let mut out = String::with_capacity(body.len());
+    decode_string(body, &mut out).then_some(out)
+}
+
+/// Where a decoded string goes: UTF-16 code units, which hold anything,
+/// or a Rust string, which refuses a surrogate.
+trait Sink {
+    fn str(&mut self, s: &str);
+    fn char(&mut self, c: char);
+    /// Pushes one code unit, or returns false if this sink can't hold it.
+    fn unit(&mut self, u: u16) -> bool;
+}
+
+impl Sink for Vec<u16> {
+    fn str(&mut self, s: &str) {
+        self.extend(s.encode_utf16());
+    }
+    fn char(&mut self, c: char) {
+        push_char(self, c);
+    }
+    fn unit(&mut self, u: u16) -> bool {
+        self.push(u);
+        true
+    }
+}
+
+impl Sink for String {
+    fn str(&mut self, s: &str) {
+        self.push_str(s);
+    }
+    fn char(&mut self, c: char) {
+        self.push(c);
+    }
+    fn unit(&mut self, u: u16) -> bool {
+        char::from_u32(u32::from(u)).map(|c| self.push(c)).is_some()
+    }
+}
+
+/// Decodes a string literal's body into `out`, returning false if `out`
+/// refused a code unit.
+fn decode_string(body: &str, out: &mut impl Sink) -> bool {
+    // The text between escapes goes over whole; each escape is read from
+    // the backslash on, and `pos` moves past what it took.
+    let mut pos = 0;
+    while let Some(off) = body[pos..].find('\\') {
+        let i = pos + off;
+        out.str(&body[pos..i]);
+        let mut chars = body[i + 1..].char_indices().peekable();
+        let Some((_, e)) = chars.next() else {
+            return true;
+        };
+        let ok = match e {
+            'b' => out.unit(8),
+            'f' => out.unit(12),
+            'n' => out.unit(10),
+            'r' => out.unit(13),
+            't' => out.unit(9),
+            'v' => out.unit(11),
             '\r' => {
                 chars.next_if(|&(_, c)| c == '\n');
+                true
             }
-            '\n' | '\u{2028}' | '\u{2029}' => {}
+            '\n' | '\u{2028}' | '\u{2029}' => true,
             'x' => {
                 let hex = body.get(i + 2..i + 4).unwrap_or("");
-                out.push(u16::from_str_radix(hex, 16).unwrap_or(0));
                 chars.next();
                 chars.next();
+                out.unit(u16::from_str_radix(hex, 16).unwrap_or(0))
             }
             'u' => {
                 let (value, len) = unicode_escape(&body[i + 2..]);
-                push_code_point(&mut out, value.unwrap_or(0));
                 for _ in 0..len {
                     chars.next();
+                }
+                match char::from_u32(value.unwrap_or(0)) {
+                    Some(c) => {
+                        out.char(c);
+                        true
+                    }
+                    // A lone surrogate, which a JavaScript string can hold.
+                    None => out.unit(value.unwrap_or(0) as u16),
                 }
             }
             '0'..='7' => {
@@ -122,12 +191,20 @@ pub fn string_value(body: &str) -> Vec<u16> {
                         _ => break,
                     }
                 }
-                out.push(value as u16);
+                out.unit(value as u16)
             }
-            other => push_char(&mut out, other),
+            other => {
+                out.char(other);
+                true
+            }
+        };
+        if !ok {
+            return false;
         }
+        pos = i + 1 + chars.peek().map_or(body.len() - i - 1, |&(j, _)| j);
     }
-    out
+    out.str(&body[pos..]);
+    true
 }
 
 /// A template part's cooked value, from its text between delimiters, or
