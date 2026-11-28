@@ -471,7 +471,7 @@ page.
 | M6 | [URL](https://github.com/parsec-html/parsec/milestone/7?closed=1) | done |
 | M7 | [CSS, through the cascade](https://github.com/parsec-html/parsec/milestone/8?closed=1) | done |
 | M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
-| M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | under way |
+| M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | on main, in the next release |
 | M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11?closed=1) | done |
 | M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12?closed=1) | done |
 | M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13?closed=1) | done |
@@ -482,12 +482,13 @@ page.
 | M17 | [Release gates and the real web](https://github.com/parsec-html/parsec/milestone/22?closed=1) | done |
 
 "Done" means it's merged with its tests and in a release; everything
-marked done is in 0.3.0. "Under way" means part of it is in and part
-isn't: for M15 that's CSS syntax and decoding without the HTML tree
-([#246](https://github.com/parsec-html/parsec/issues/246)); the CI check
-that each crate pulls in only what it needs is on main
-([#144](https://github.com/parsec-html/parsec/issues/144)). For M12
-it's Netweir reading page state through `parsec-js`.
+marked done is in 0.3.0. M15's last two pieces are on main and go out
+in the next release: the CI check that each crate pulls in only what it
+needs ([#144](https://github.com/parsec-html/parsec/issues/144)), and CSS
+syntax and decoding without the HTML tree
+([#246](https://github.com/parsec-html/parsec/issues/246)). "Under way"
+means part of it is in and part isn't: for M12 it's Netweir reading page
+state through `parsec-js`.
 
 ## Using it
 

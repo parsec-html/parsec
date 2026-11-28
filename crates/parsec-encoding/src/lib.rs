@@ -20,15 +20,21 @@
 //! assert_eq!(&*bytes, b"\x93\xfa\x96\x7b");
 //! ```
 
+#[cfg(feature = "parse")]
 use std::time::Instant;
 
+use encoding_rs::UTF_8;
 pub use encoding_rs::{self, Encoding};
-use encoding_rs::{UTF_8, UTF_16BE, UTF_16LE};
+#[cfg(feature = "parse")]
+use encoding_rs::{UTF_16BE, UTF_16LE};
+#[cfg(feature = "parse")]
 use parsec::{AttrNs, Document, Kind, NodeId, Ns, ParseError};
 
 mod prescan;
 pub use prescan::prescan;
+#[cfg(feature = "parse")]
 mod stream;
+#[cfg(feature = "parse")]
 pub use stream::ByteParser;
 mod offsets;
 pub use offsets::Offsets;
@@ -45,6 +51,7 @@ pub enum Confidence {
     Certain,
 }
 
+#[cfg(feature = "parse")]
 /// How to turn bytes into a document.
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
@@ -61,6 +68,7 @@ pub struct Options {
     pub fallback: &'static Encoding,
 }
 
+#[cfg(feature = "parse")]
 impl Default for Options {
     fn default() -> Self {
         Options {
@@ -71,6 +79,7 @@ impl Default for Options {
     }
 }
 
+#[cfg(feature = "parse")]
 /// A document parsed from bytes, and how its encoding was decided.
 pub struct Parsed {
     pub document: Document,
@@ -138,6 +147,7 @@ fn looks_like_utf8(bytes: &[u8], complete: bool) -> bool {
     }
 }
 
+#[cfg(feature = "parse")]
 /// Parses a page given as bytes, as a browser would: sniffs its encoding
 /// ([`sniff`]), decodes it and parses it.
 ///
@@ -179,6 +189,7 @@ pub fn parse_bytes(bytes: &[u8], options: Options) -> Result<Parsed, ParseError>
     })
 }
 
+#[cfg(feature = "parse")]
 fn decode_and_parse(
     bytes: &[u8],
     encoding: &'static Encoding,
@@ -190,6 +201,7 @@ fn decode_and_parse(
     parsec::parse_with(&text, options)
 }
 
+#[cfg(feature = "parse")]
 /// The first encoding a `<meta>` declares as the tree builder sees it: by
 /// `charset`, or by `http-equiv="Content-Type"` with a `content` naming
 /// one. The parser makes elements in the order it meets their tags, so
@@ -216,6 +228,7 @@ fn declared(doc: &Document) -> Option<&'static Encoding> {
     })
 }
 
+#[cfg(feature = "parse")]
 /// "Change the encoding": the encoding to parse again in, or `None` when
 /// the one in use stands.
 fn changed(current: &'static Encoding, declared: &'static Encoding) -> Option<&'static Encoding> {
@@ -268,6 +281,7 @@ pub fn locale_default(locale: &str) -> &'static Encoding {
     }
 }
 
+#[cfg(feature = "parse")]
 #[cfg(test)]
 mod tests {
     use super::*;

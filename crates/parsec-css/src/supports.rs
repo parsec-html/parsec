@@ -145,9 +145,14 @@ fn in_parens(v: &ComponentValue<'_>, depth: usize) -> Option<bool> {
                 _ => false,
             };
             Some(match f.name.to_ascii_lowercase().as_str() {
+                #[cfg(feature = "cascade")]
                 "selector" => {
                     parsec::css::SelectorList::parse(crate::to_css(&f.arguments).trim()).is_ok()
                 }
+                // Without the `cascade` feature there's no selector parser,
+                // so no selector is supported.
+                #[cfg(not(feature = "cascade"))]
+                "selector" => false,
                 "font-format" => one(FORMATS),
                 "font-tech" => one(TECHS),
                 // CSS Conditional 5 §2.5: an at-rule this crate reads.
