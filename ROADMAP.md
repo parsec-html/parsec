@@ -26,7 +26,7 @@ the order can change when users show us something more urgent.
 | Milestone | Target | Today |
 |---|---|---|
 | M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
-| M15. One toolkit, in pieces | December 2026 | under way: `parsec-base` released in 0.3.0, and CI checks what each crate pulls in; CSS syntax and decoding without the HTML tree to come |
+| M15. One toolkit, in pieces | December 2026 | on main, in the next release: `parsec-base` released in 0.3.0; CI checks what each crate pulls in, and CSS syntax and decoding build without the HTML tree |
 | M9. JavaScript tokens | December 2026 | released in 0.3.0 |
 | M10. JavaScript syntax tree | early 2027, with 0.3.0 | released in 0.3.0 |
 | M11. JavaScript scope and modules | spring 2027 | released in 0.3.0 |
