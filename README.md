@@ -487,24 +487,24 @@ page.
 | M6 | [URL](https://github.com/parsec-html/parsec/milestone/7?closed=1) | done |
 | M7 | [CSS, through the cascade](https://github.com/parsec-html/parsec/milestone/8?closed=1) | done |
 | M8 | [XPath](https://github.com/parsec-html/parsec/milestone/9?closed=1) | done |
-| M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17) | on main, in the next release |
+| M15 | [One toolkit, in pieces](https://github.com/parsec-html/parsec/milestone/17?closed=1) | done |
 | M9 | [JavaScript tokens](https://github.com/parsec-html/parsec/milestone/11?closed=1) | done |
 | M10 | [JavaScript syntax tree](https://github.com/parsec-html/parsec/milestone/12?closed=1) | done |
 | M11 | [JavaScript scope and modules](https://github.com/parsec-html/parsec/milestone/13?closed=1) | done |
-| M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14) | under way |
+| M12 | [Data from scripts, read without running them](https://github.com/parsec-html/parsec/milestone/14?closed=1) | done; Netweir reads page state through it on its `main` |
 | M14 | [XML](https://github.com/parsec-html/parsec/milestone/16?closed=1) | done |
 | M16 | [JavaScript and XML in every binding](https://github.com/parsec-html/parsec/milestone/18) | done in 0.3.0; [#174](https://github.com/parsec-html/parsec/issues/174) closes once its C packages are on the release page |
 | M13 | [JavaScript diagnostics and incremental parsing](https://github.com/parsec-html/parsec/milestone/15?closed=1) | done |
 | M17 | [Release gates and the real web](https://github.com/parsec-html/parsec/milestone/22?closed=1) | done |
+| M18 | [Parsec upstream](https://github.com/parsec-html/parsec/milestone/23) | under way |
 
 "Done" means it's merged with its tests and in a release; everything
-marked done is in 0.3.0. M15's last two pieces are on main and go out
-in the next release: the CI check that each crate pulls in only what it
-needs ([#144](https://github.com/parsec-html/parsec/issues/144)), and CSS
-syntax and decoding without the HTML tree
-([#246](https://github.com/parsec-html/parsec/issues/246)). "Under way"
-means part of it is in and part isn't: for M12 it's Netweir reading page
-state through `parsec-js`.
+marked done is in 0.3.1 or earlier. "Under way" means part of it is in
+and part isn't. For M18, the parser and XPath are written here
+([#208](https://github.com/parsec-html/parsec/issues/208)) and Netweir
+builds on Parsec's crates from crates.io; what's left is Netweir's next
+release shipping on them
+([#209](https://github.com/parsec-html/parsec/issues/209)).
 
 ## Using it
 
@@ -556,8 +556,8 @@ with `CMAKE_PREFIX_PATH` pointing there, or `pkg-config parsec` with
 `PKG_CONFIG_PATH` set to its `lib/pkgconfig`:
 
 ```sh
-gh release download v0.3.0 --repo parsec-html/parsec --pattern 'parsec-capi-0.3.0-x86_64-unknown-linux-gnu.tar.gz'
-tar -xzf parsec-capi-0.3.0-x86_64-unknown-linux-gnu.tar.gz
+gh release download v0.3.1 --repo parsec-html/parsec --pattern 'parsec-capi-0.3.1-x86_64-unknown-linux-gnu.tar.gz'
+tar -xzf parsec-capi-0.3.1-x86_64-unknown-linux-gnu.tar.gz
 ```
 
 Or build the same package yourself, into a folder of your choice:

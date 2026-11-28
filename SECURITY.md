@@ -54,16 +54,16 @@ Each can be checked on its own.
 `main` rather than from the tag, as the release workflow does:
 
 ```sh
-git fetch origin tag v0.3.0
+git fetch origin tag v0.3.1
 git show origin/main:.github/allowed_signers > allowed_signers
-git -c gpg.ssh.allowedSignersFile=allowed_signers tag -v v0.3.0
+git -c gpg.ssh.allowedSignersFile=allowed_signers tag -v v0.3.1
 ```
 
 **The crates** were built by the release workflow from that tag, and
 GitHub signed a record of each:
 
 ```sh
-gh attestation verify parsec-web-0.3.0.crate --repo parsec-html/parsec \
+gh attestation verify parsec-web-0.3.1.crate --repo parsec-html/parsec \
   --signer-workflow parsec-html/parsec/.github/workflows/release.yml
 ```
 
@@ -72,7 +72,7 @@ per platform, listed in `parsec-capi-SHA256SUMS`) are built and attested
 the same way, by their own workflow:
 
 ```sh
-gh attestation verify parsec-capi-0.3.0-x86_64-unknown-linux-gnu.tar.gz \
+gh attestation verify parsec-capi-0.3.1-x86_64-unknown-linux-gnu.tar.gz \
   --repo parsec-html/parsec \
   --signer-workflow parsec-html/parsec/.github/workflows/release-capi.yml
 ```
@@ -86,7 +86,7 @@ check one yourself (crates.io refuses a request without a user agent
 that says who's asking, so put yours in):
 
 ```sh
-curl -s -A "release check (you@example.com)" https://crates.io/api/v1/crates/parsec-web/0.3.0 | jq -r .version.checksum
+curl -s -A "release check (you@example.com)" https://crates.io/api/v1/crates/parsec-web/0.3.1 | jq -r .version.checksum
 ```
 
 **PyPI and npm** packages are published by trusted publishing from
@@ -101,7 +101,7 @@ npm audit signatures    # in a project that depends on parsec-web
 **A rebuild** gives the same file, byte for byte. At the tag, run
 
 ```sh
-git checkout v0.3.0
+git checkout v0.3.1
 scripts/package-twice.sh
 ```
 

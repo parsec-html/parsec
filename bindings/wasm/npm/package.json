@@ -1,6 +1,6 @@
 {
   "name": "parsec-web",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "An HTML parser that follows the WHATWG spec, with CSS selectors and an editable tree: native in Node where there's a build for the machine, WebAssembly everywhere else.",
   "license": "Apache-2.0",
   "repository": {
