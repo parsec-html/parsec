@@ -408,6 +408,13 @@ mod tests {
             (WINDOWS_1251, Confidence::Certain)
         );
     }
+}
+
+// What the crate is without `parse`: sniffing and the locale defaults.
+#[cfg(test)]
+mod sniff_tests {
+    use super::*;
+    use encoding_rs::{SHIFT_JIS, UTF_8, WINDOWS_1251, WINDOWS_1252};
 
     #[test]
     fn locales() {
@@ -415,5 +422,34 @@ mod tests {
         assert_eq!(locale_default("zh-Hans-HK"), encoding_rs::GBK);
         assert_eq!(locale_default("zh"), WINDOWS_1252);
         assert_eq!(locale_default(""), WINDOWS_1252);
+    }
+
+    #[test]
+    fn sniff_order() {
+        let meta = b"<meta charset=euc-jp>";
+        // A byte order mark beats the transport encoding, and that beats <meta>.
+        let mut bom = b"\xef\xbb\xbf".to_vec();
+        bom.extend(meta);
+        assert_eq!(
+            sniff(&bom, Some(SHIFT_JIS), WINDOWS_1252),
+            (UTF_8, Confidence::Certain)
+        );
+        assert_eq!(
+            sniff(meta, Some(SHIFT_JIS), WINDOWS_1252),
+            (SHIFT_JIS, Confidence::Certain)
+        );
+        assert_eq!(
+            sniff(meta, None, WINDOWS_1252),
+            (encoding_rs::EUC_JP, Confidence::Tentative)
+        );
+        // Valid non-ASCII UTF-8, then the fallback.
+        assert_eq!(
+            sniff("<p>caf\u{e9}".as_bytes(), None, WINDOWS_1252),
+            (UTF_8, Confidence::Tentative)
+        );
+        assert_eq!(
+            sniff(b"<p>cafe", None, WINDOWS_1251),
+            (WINDOWS_1251, Confidence::Tentative)
+        );
     }
 }
