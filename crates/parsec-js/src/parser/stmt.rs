@@ -712,7 +712,7 @@ impl Parser<'_> {
                     let Node::VariableDeclaration { declarations, .. } = self.node(left) else {
                         unreachable!()
                     };
-                    let declarators = self.ast.get(declarations).to_vec();
+                    let declarators = self.ast.get(declarations);
                     if declarators.len() != 1 {
                         let span = self.span(left);
                         return self.err(
@@ -800,7 +800,8 @@ impl Parser<'_> {
             let Node::VariableDeclaration { declarations, .. } = self.node(init) else {
                 unreachable!()
             };
-            for d in self.ast.get(declarations).to_vec() {
+            for i in 0..self.ast.get(declarations).len() {
+                let d = self.ast.get(declarations)[i];
                 if let Node::VariableDeclarator { id, init: None } = self.node(d) {
                     self.check_initialized(kind, id)?;
                 }

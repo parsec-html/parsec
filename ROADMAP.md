@@ -292,8 +292,11 @@ real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
   to oxc is [#190](https://github.com/parsec-html/parsec/issues/190).
   After [#215](https://github.com/parsec-html/parsec/pull/215),
   [#236](https://github.com/parsec-html/parsec/pull/236) and
-  [#239](https://github.com/parsec-html/parsec/pull/239) it parses
-  375 MB/s, 1.05 times oxc_parser's speed and 2.5 times swc's.
+  [#239](https://github.com/parsec-html/parsec/pull/239) it parsed
+  375 MB/s, 1.05 times oxc_parser's speed and 2.5 times swc's, and
+  after [#249](https://github.com/parsec-html/parsec/pull/249) 380
+  MB/s, 1.06 times oxc's; the smallest inline scripts are still at 0.79
+  to 0.84 times oxc's.
   `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
   same as acorn's, which finishes #152.
 
