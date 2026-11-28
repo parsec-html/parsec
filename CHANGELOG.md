@@ -17,6 +17,13 @@ minor release can break the API and a patch release won't.
   turn them off. Without `cascade`, `selector()` in `@supports` is
   false, since there's no selector parser to check it with (#246).
 
+### Changed
+
+- `parsec-js` parses about 5% faster: templates and `for` loop heads no
+  longer allocate vectors of their own. Over the bench's 11.6 MB it's
+  1.05 times `oxc_parser`'s speed; the smallest inline scripts are
+  still behind (#249, part of #190).
+
 ## 0.3.0 - 2026-11-25
 
 The first release with JavaScript and XML, and the first under the
