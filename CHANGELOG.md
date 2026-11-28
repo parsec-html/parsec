@@ -4,7 +4,14 @@ Every change people using Parsec would notice, newest first. Version
 numbers follow [Semantic Versioning](https://semver.org/); until 1.0, a
 minor release can break the API and a patch release won't.
 
-## Unreleased
+## 0.3.1 - 2026-11-28
+
+Faster, and lighter if you want it to be. Nothing in the API moved, so
+0.3.1 drops in where 0.3.0 was. If all you need is CSS syntax or an
+encoding sniffer, turn off the default features and the HTML tree is no
+longer compiled in with it. If you read the state pages keep in their
+scripts, that read now keeps up with the parse: on nytimes' 852 KB of
+it, three times what it was.
 
 ### Added
 

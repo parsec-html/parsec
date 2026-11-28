@@ -21,7 +21,7 @@ name = "parsec_css"
 
 [dependencies]
 # The document the cascade styles, and its selector engine.
-parsec-web-core = { path = "../parsec", version = "0.3.0", optional = true }
+parsec-web-core = { path = "../parsec", version = "0.3.1", optional = true }
 # For stylesheets given as bytes; already Parsec's, through parsec-web-encoding.
 encoding_rs = "0.8.35"
 

@@ -806,18 +806,18 @@ dependencies = [
 
 [[package]]
 name = "parsec-base"
-version = "0.3.0"
+version = "0.3.1"
 
 [[package]]
 name = "parsec-js"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "parsec-base",
 ]
 
 [[package]]
 name = "parsec-url"
-version = "0.3.0"
+version = "0.3.1"
 
 [[package]]
 name = "parsec-web-bench"
@@ -847,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-web-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "memchr",
  "url",
@@ -855,7 +855,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-web-css"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "encoding_rs",
  "parsec-web-core",
@@ -863,7 +863,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-web-encoding"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "encoding_rs",
  "parsec-web-core",
@@ -871,7 +871,7 @@ dependencies = [
 
 [[package]]
 name = "parsec-xml"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "encoding_rs",
  "parsec-base",

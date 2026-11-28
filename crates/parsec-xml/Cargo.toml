@@ -20,11 +20,11 @@ name = "parsec_xml"
 
 [dependencies]
 # Spans, diagnostics and limits, shared with Parsec's other parsers.
-parsec-base = { path = "../parsec-base", version = "0.3.0" }
+parsec-base = { path = "../parsec-base", version = "0.3.1" }
 # Bytes in: the encodings XML documents declare, decoded strictly.
 encoding_rs = "0.8.35"
 # XPath 1.0, without its HTML tree: parsec-xml implements its Tree.
-parsec-xpath = { path = "../parsec-xpath", version = "0.3.0", default-features = false, optional = true }
+parsec-xpath = { path = "../parsec-xpath", version = "0.3.1", default-features = false, optional = true }
 
 [features]
 # parsec_xml::xpath: XPath 1.0 over the parsed document. Off by default,

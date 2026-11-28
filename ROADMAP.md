@@ -26,15 +26,16 @@ the order can change when users show us something more urgent.
 | Milestone | Target | Today |
 |---|---|---|
 | M0 to M8. HTML, selectors, every way in, encoding, URL, CSS, XPath | done, November 2026 | released |
-| M15. One toolkit, in pieces | December 2026 | on main, in the next release: `parsec-base` released in 0.3.0; CI checks what each crate pulls in, and CSS syntax and decoding build without the HTML tree |
+| M15. One toolkit, in pieces | December 2026 | released: `parsec-base` in 0.3.0, and CSS syntax and decoding without the HTML tree in 0.3.1; CI checks what each crate pulls in |
 | M9. JavaScript tokens | December 2026 | released in 0.3.0 |
 | M10. JavaScript syntax tree | early 2027, with 0.3.0 | released in 0.3.0 |
 | M11. JavaScript scope and modules | spring 2027 | released in 0.3.0 |
-| M12. Data from scripts | spring 2027 | under way: `parsec_js::data` released in 0.3.0; Netweir reads it next |
+| M12. Data from scripts | spring 2027 | released: `parsec_js::data` in 0.3.0, three times as fast in 0.3.1; Netweir reads page state through it on its `main` |
 | M14. XML | summer 2027 | released in 0.3.0 |
 | M16. Every language, every way in | alongside each parser | released in 0.3.0; #174 closes once its C packages are on the release page |
 | M13. JavaScript diagnostics and incremental parsing | late 2027 | released in 0.3.0 |
 | M17. Release gates and the real web | November 2026 | released in 0.3.0 |
+| M18. Parsec upstream | with Netweir's next release | under way: the parser is written here, and Netweir builds on Parsec's crates on its `main`; done when a Netweir release ships on them |
 
 
 ## M0. Foundations
@@ -296,7 +297,8 @@ real bundles ([#151](https://github.com/parsec-html/parsec/issues/151)).
   375 MB/s, 1.05 times oxc_parser's speed and 2.5 times swc's, and
   after [#249](https://github.com/parsec-html/parsec/pull/249) 380
   MB/s, 1.06 times oxc's; the smallest inline scripts are still at 0.79
-  to 0.84 times oxc's.
+  to 0.84 times oxc's. What's left of #190 waits for 0.4.0, since it
+  changes the public `Token` and `Lexer`.
   `scripts/compare-acorn.sh --bench` finds every tree in the corpus the
   same as acorn's, which finishes #152.
 
@@ -372,8 +374,12 @@ that breaks on the first nested brace. Netweir is the first user
   `crates/parsec-js/tests/pages`, and a `data` fuzz target joins the
   nightly run.
 
-- Next: Netweir reads page state through `parsec-js`
-  ([#164](https://github.com/parsec-html/parsec/issues/164)).
+- Done: Netweir reads page state through `parsec-js`
+  ([#164](https://github.com/parsec-html/parsec/issues/164),
+  [netweir#480](https://github.com/netweir/netweir/pull/480)), in its
+  auto-extraction next to JSON-LD and microdata. It's on Netweir's
+  `main`. Reading the state got three times as fast for it in 0.3.1
+  ([#252](https://github.com/parsec-html/parsec/issues/252)).
 
 ## M13. JavaScript diagnostics and incremental parsing
 
@@ -476,7 +482,9 @@ limits in every binding, and the first under the name `parsec-web` on
 crates.io, PyPI and npm
 ([#213](https://github.com/parsec-html/parsec/issues/213)).
 `parsec-html` ends with a 0.2.1 that changes no code and points to
-`parsec-web`.
+`parsec-web`. 0.3.1, also in November 2026, adds no API: CSS syntax and
+decoding without the HTML tree, and a faster `parsec-js`. 0.4.0 is the
+next release allowed to break the API, and holds what's left of #190.
 
 ## Not planned
 
